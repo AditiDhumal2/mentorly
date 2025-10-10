@@ -15,21 +15,59 @@ export interface IUser extends Document {
     codechef?: string;
   };
   interests: string[];
+  
+  // Enhanced auto-progress tracking
   roadmapProgress: {
     year: number;
     stepId: mongoose.Types.ObjectId;
     completed: boolean;
     completedAt?: Date;
+    startedAt?: Date;
+    timeSpent: number; // in minutes
+    lastActivity: Date;
+    // Auto-completion metrics
+    resourcesViewed: string[]; // URLs of viewed resources
+    timeSpentOnStep: number; // Total time spent on this step
+    engagementScore: number; // 0-100 based on activity
+    autoCompleted: boolean; // Whether system auto-completed it
   }[];
+  
+  // Activity tracking for auto-progress
+  activityLog: {
+    action: 'started_step' | 'viewed_resource' | 'saved_resource' | 'logged_in' | 'time_spent' | 'code_submission' | 'project_submission';
+    stepId?: mongoose.Types.ObjectId;
+    resourceId?: mongoose.Types.ObjectId;
+    timestamp: Date;
+    metadata?: any;
+    duration?: number; // Time spent in minutes
+  }[];
+  
+  // Learning analytics
+  learningStats: {
+    totalTimeSpent: number;
+    stepsCompleted: number;
+    resourcesViewed: number;
+    lastActive: Date;
+    currentStreak: number;
+    longestStreak: number;
+    loginCount: number;
+    // Auto-progress metrics
+    averageEngagement: number;
+    totalCodeSubmissions: number;
+    totalProjectSubmissions: number;
+  };
+  
   brandingProgress: {
     taskId: mongoose.Types.ObjectId;
     completed: boolean;
     completedAt?: Date;
   }[];
+  
   savedResources: {
     resourceId: mongoose.Types.ObjectId;
     savedAt: Date;
   }[];
+  
   comparePassword(candidatePassword: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -76,6 +114,8 @@ const userSchema = new Schema<IUser>({
     codechef: String,
   },
   interests: [String],
+  
+  // Enhanced auto-progress tracking
   roadmapProgress: [{
     year: Number,
     stepId: {
@@ -87,7 +127,55 @@ const userSchema = new Schema<IUser>({
       default: false,
     },
     completedAt: Date,
+    startedAt: Date,
+    timeSpent: { 
+      type: Number, 
+      default: 0 
+    },
+    lastActivity: Date,
+    resourcesViewed: [String], // Track which resources were viewed
+    timeSpentOnStep: { type: Number, default: 0 },
+    engagementScore: { type: Number, default: 0 },
+    autoCompleted: { type: Boolean, default: false }
   }],
+  
+  // Enhanced activity logging
+  activityLog: [{
+    action: {
+      type: String,
+      enum: ['started_step', 'viewed_resource', 'saved_resource', 'logged_in', 'time_spent', 'code_submission', 'project_submission'],
+      required: true,
+    },
+    stepId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Roadmap',
+    },
+    resourceId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Resource',
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
+    metadata: Schema.Types.Mixed,
+    duration: Number
+  }],
+  
+  // Enhanced learning analytics
+  learningStats: {
+    totalTimeSpent: { type: Number, default: 0 },
+    stepsCompleted: { type: Number, default: 0 },
+    resourcesViewed: { type: Number, default: 0 },
+    lastActive: { type: Date, default: Date.now },
+    currentStreak: { type: Number, default: 0 },
+    longestStreak: { type: Number, default: 0 },
+    loginCount: { type: Number, default: 0 },
+    averageEngagement: { type: Number, default: 0 },
+    totalCodeSubmissions: { type: Number, default: 0 },
+    totalProjectSubmissions: { type: Number, default: 0 }
+  },
+  
   brandingProgress: [{
     taskId: {
       type: Schema.Types.ObjectId,
@@ -99,6 +187,7 @@ const userSchema = new Schema<IUser>({
     },
     completedAt: Date,
   }],
+  
   savedResources: [{
     resourceId: {
       type: Schema.Types.ObjectId,

@@ -1,13 +1,8 @@
-import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+// Remove Footer import since it doesn't exist
 
 const inter = Inter({ subsets: ['latin'] });
-
-export const metadata: Metadata = {
-  title: 'Mentorly - Your 4-Year Career Companion',
-  description: 'Empowering Students from Day 1 to Placement',
-};
 
 export default function RootLayout({
   children,
@@ -17,7 +12,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {children}
+        <div className="min-h-screen">
+          {children}
+        </div>
       </body>
     </html>
   );
