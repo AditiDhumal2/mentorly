@@ -8,6 +8,12 @@ export interface IUser extends Document {
   role: 'student' | 'mentor' | 'admin';
   year: number;
   college: string;
+  preferredLanguage: string;
+  languages: {
+    languageId: string;
+    proficiency: 'beginner' | 'intermediate' | 'advanced';
+    startedAt: Date;
+  }[];
   profiles: {
     linkedin?: string;
     github?: string;
@@ -107,6 +113,22 @@ const userSchema = new Schema<IUser>({
     required: [true, 'College is required'],
     trim: true,
   },
+  preferredLanguage: {
+    type: String,
+    default: 'python'
+  },
+  languages: [{
+    languageId: String,
+    proficiency: {
+      type: String,
+      enum: ['beginner', 'intermediate', 'advanced'],
+      default: 'beginner'
+    },
+    startedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   profiles: {
     linkedin: String,
     github: String,

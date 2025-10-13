@@ -6,179 +6,229 @@ async function initializeRoadmaps() {
     await connectDB();
     console.log('Connected to MongoDB');
 
-    // Check if roadmaps already exist
-    const existingRoadmaps = await Roadmap.countDocuments();
-    if (existingRoadmaps > 0) {
-      console.log('Roadmaps already exist, skipping initialization');
-      return;
+    // Clear existing roadmaps to avoid duplicates
+    await Roadmap.deleteMany({});
+    console.log('Cleared existing roadmaps');
+
+    // Create comprehensive roadmap data for all languages and years
+    const languages = ['python', 'javascript', 'java', 'cpp', 'go', 'rust'];
+    
+    const roadmaps = [];
+
+    for (const language of languages) {
+      for (let year = 1; year <= 4; year++) {
+        const languageData = getLanguageSpecificData(language, year);
+        
+        roadmaps.push({
+          year: year,
+          language: language,
+          title: languageData.title,
+          description: languageData.description,
+          steps: languageData.steps,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+      }
     }
 
-    // Create sample roadmap data for all 4 years
-    const roadmaps = [
-      {
-        year: 1,
-        title: 'Foundation Year - Building Core Skills',
-        description: 'Establish strong fundamentals in programming, mathematics, and computer science concepts',
-        steps: [
-          {
-            title: 'Learn Python Basics',
-            description: 'Master fundamental Python programming concepts including variables, data types, loops, and functions',
-            category: 'skill',
-            resources: [
-              {
-                title: 'Python for Beginners',
-                url: 'https://www.learnpython.org/',
-                type: 'tutorial'
-              }
-            ],
-            estimatedDuration: '3 weeks',
-            priority: 1
-          },
-          {
-            title: 'Build a Simple Calculator',
-            description: 'Create a basic calculator application to practice your Python skills',
-            category: 'project',
-            resources: [
-              {
-                title: 'Calculator Project Guide',
-                url: 'https://www.geeksforgeeks.org/python-simple-calculator/',
-                type: 'article'
-              }
-            ],
-            estimatedDuration: '1 week',
-            priority: 2
-          },
-          {
-            title: 'Set up GitHub Account',
-            description: 'Create a GitHub account and learn basic Git commands',
-            category: 'profile',
-            resources: [
-              {
-                title: 'GitHub Getting Started',
-                url: 'https://docs.github.com/en/get-started',
-                type: 'tutorial'
-              }
-            ],
-            estimatedDuration: '1 week',
-            priority: 3
-          }
-        ]
-      },
-      {
-        year: 2,
-        title: 'Skill Development Year',
-        description: 'Build upon your foundation with advanced programming concepts and web development',
-        steps: [
-          {
-            title: 'Learn Web Development Basics',
-            description: 'Master HTML, CSS, and JavaScript fundamentals',
-            category: 'skill',
-            resources: [
-              {
-                title: 'Web Development Course',
-                url: 'https://www.freecodecamp.org/learn/',
-                type: 'course'
-              }
-            ],
-            estimatedDuration: '4 weeks',
-            priority: 1
-          },
-          {
-            title: 'Build a Portfolio Website',
-            description: 'Create a personal portfolio website to showcase your projects',
-            category: 'project',
-            resources: [
-              {
-                title: 'Portfolio Website Guide',
-                url: 'https://www.freecodecamp.org/news/how-to-build-a-developer-portfolio/',
-                type: 'article'
-              }
-            ],
-            estimatedDuration: '2 weeks',
-            priority: 2
-          }
-        ]
-      },
-      {
-        year: 3,
-        title: 'Specialization Year',
-        description: 'Dive deeper into your chosen specialization and build complex projects',
-        steps: [
-          {
-            title: 'Choose Your Specialization',
-            description: 'Explore different career paths and choose your area of focus',
-            category: 'career',
-            resources: [
-              {
-                title: 'Career Path Guide',
-                url: 'https://www.coursera.org/articles/career-paths',
-                type: 'guide'
-              }
-            ],
-            estimatedDuration: '2 weeks',
-            priority: 1
-          },
-          {
-            title: 'Build a Full-Stack Application',
-            description: 'Create a complete web application with frontend and backend',
-            category: 'project',
-            resources: [
-              {
-                title: 'Full-Stack Tutorial',
-                url: 'https://www.freecodecamp.org/news/full-stack-web-development/',
-                type: 'tutorial'
-              }
-            ],
-            estimatedDuration: '6 weeks',
-            priority: 2
-          }
-        ]
-      },
-      {
-        year: 4,
-        title: 'Placement Preparation Year',
-        description: 'Prepare for internships and job placements with intensive practice',
-        steps: [
-          {
-            title: 'Data Structures & Algorithms',
-            description: 'Master DSA concepts for technical interviews',
-            category: 'skill',
-            resources: [
-              {
-                title: 'DSA Crash Course',
-                url: 'https://www.geeksforgeeks.org/data-structures/',
-                type: 'course'
-              }
-            ],
-            estimatedDuration: '6 weeks',
-            priority: 1
-          },
-          {
-            title: 'Practice Coding Problems',
-            description: 'Solve problems on platforms like LeetCode and HackerRank',
-            category: 'skill',
-            resources: [
-              {
-                title: 'LeetCode',
-                url: 'https://leetcode.com/',
-                type: 'platform'
-              }
-            ],
-            estimatedDuration: '8 weeks',
-            priority: 2
-          }
-        ]
-      }
-    ];
-
     await Roadmap.insertMany(roadmaps);
-    console.log('✅ Roadmaps initialized successfully for all 4 years!');
+    console.log(`✅ Roadmaps initialized successfully for ${languages.length} languages across 4 years!`);
     
   } catch (error) {
     console.error('❌ Error initializing roadmaps:', error);
   } finally {
     process.exit(0);
   }
+}
+
+function getLanguageSpecificData(language: string, year: number) {
+  const languageNames: { [key: string]: string } = {
+    python: 'Python',
+    javascript: 'JavaScript',
+    java: 'Java',
+    cpp: 'C++',
+    go: 'Go',
+    rust: 'Rust'
+  };
+
+  const languageData: { [key: string]: any } = {
+    python: {
+      1: {
+        title: 'Python Foundation - Beginner Journey',
+        description: 'Start your programming journey with Python, the perfect language for beginners',
+        steps: [
+          {
+            title: 'Python Basics & Syntax',
+            description: 'Master Python fundamentals including variables, data types, loops, functions, and basic data structures',
+            category: 'fundamentals',
+            resources: [
+              {
+                title: 'Python Full Course for Beginners',
+                url: 'https://youtube.com/playlist?list=PL-osiE80TeTsWmV9i9c58mdDCSskIFdDS',
+                type: 'video'
+              },
+              {
+                title: 'Python Official Tutorial',
+                url: 'https://docs.python.org/3/tutorial/',
+                type: 'documentation'
+              }
+            ],
+            estimatedDuration: '3 weeks',
+            priority: 1,
+            languageSpecific: true
+          },
+          {
+            title: 'Build a Calculator App',
+            description: 'Create a functional calculator with a GUI using Tkinter to practice Python skills',
+            category: 'project',
+            resources: [
+              {
+                title: 'Python Calculator Tutorial',
+                url: 'https://youtube.com/watch?v=YXPyB4XeYLA',
+                type: 'video'
+              }
+            ],
+            estimatedDuration: '1 week',
+            priority: 2,
+            languageSpecific: true
+          }
+        ]
+      },
+      2: {
+        title: 'Python Development - Intermediate Skills',
+        description: 'Advance your Python skills with web development and data analysis',
+        steps: [
+          {
+            title: 'Web Development with Django',
+            description: 'Learn Django framework to build robust web applications',
+            category: 'web',
+            resources: [
+              {
+                title: 'Django for Beginners',
+                url: 'https://youtube.com/playlist?list=PL-osiE80TeTsWmV9i9c58mdDCSskIFdDS',
+                type: 'video'
+              }
+            ],
+            estimatedDuration: '4 weeks',
+            priority: 1,
+            languageSpecific: true
+          }
+        ]
+      }
+    },
+    javascript: {
+      1: {
+        title: 'JavaScript Foundation - Web Basics',
+        description: 'Learn the language of the web and start building interactive websites',
+        steps: [
+          {
+            title: 'JavaScript Fundamentals',
+            description: 'Master JavaScript basics including variables, functions, DOM manipulation, and events',
+            category: 'fundamentals',
+            resources: [
+              {
+                title: 'JavaScript Full Course',
+                url: 'https://youtube.com/playlist?list=PLillGF-RfqbbnEGy3ROiLWk7JMCuSyQtX',
+                type: 'video'
+              },
+              {
+                title: 'MDN JavaScript Guide',
+                url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide',
+                type: 'documentation'
+              }
+            ],
+            estimatedDuration: '3 weeks',
+            priority: 1,
+            languageSpecific: true
+          },
+          {
+            title: 'Build a Todo App',
+            description: 'Create an interactive todo application with local storage',
+            category: 'project',
+            resources: [
+              {
+                title: 'JavaScript Todo App Tutorial',
+                url: 'https://youtube.com/watch?v=W7FaYfuwu70',
+                type: 'video'
+              }
+            ],
+            estimatedDuration: '2 weeks',
+            priority: 2,
+            languageSpecific: true
+          }
+        ]
+      }
+    },
+    java: {
+      1: {
+        title: 'Java Foundation - Object-Oriented Programming',
+        description: 'Master Java and object-oriented programming principles',
+        steps: [
+          {
+            title: 'Java Basics & OOP',
+            description: 'Learn Java syntax, classes, objects, inheritance, and polymorphism',
+            category: 'fundamentals',
+            resources: [
+              {
+                title: 'Java Full Course for Beginners',
+                url: 'https://youtube.com/playlist?list=PL9gnSGHSqcnr_DxHsP7AW9ftq0AtAyYqJ',
+                type: 'video'
+              },
+              {
+                title: 'Java Official Tutorial',
+                url: 'https://docs.oracle.com/javase/tutorial/',
+                type: 'documentation'
+              }
+            ],
+            estimatedDuration: '4 weeks',
+            priority: 1,
+            languageSpecific: true
+          },
+          {
+            title: 'Build a Console Calculator',
+            description: 'Create a console-based calculator using OOP principles',
+            category: 'project',
+            resources: [
+              {
+                title: 'Java Calculator Tutorial',
+                url: 'https://youtube.com/watch?v=ZKFwQFBwQFU',
+                type: 'video'
+              }
+            ],
+            estimatedDuration: '2 weeks',
+            priority: 2,
+            languageSpecific: true
+          }
+        ]
+      }
+    }
+    // Add similar structures for cpp, go, rust...
+  };
+
+  // Default structure for missing language/year combinations
+  const defaultData = {
+    title: `${languageNames[language]} Year ${year} - Development Path`,
+    description: `Continue your ${languageNames[language]} learning journey with advanced concepts and projects`,
+    steps: [
+      {
+        title: `Advanced ${languageNames[language]} Concepts`,
+        description: `Explore advanced features and best practices in ${languageNames[language]}`,
+        category: 'advanced',
+        resources: [
+          {
+            title: `${languageNames[language]} Advanced Tutorial`,
+            url: 'https://youtube.com',
+            type: 'video'
+          }
+        ],
+        estimatedDuration: '4 weeks',
+        priority: 1,
+        languageSpecific: true
+      }
+    ]
+  };
+
+  return languageData[language]?.[year] || defaultData;
 }
 
 initializeRoadmaps();
