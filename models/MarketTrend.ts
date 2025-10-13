@@ -1,4 +1,4 @@
-import { Schema, model, models, Document } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ITrendingSkill {
   skill: string;
@@ -12,8 +12,8 @@ export interface IHiringDomain {
 
 export interface ISalaryComparison {
   role: string;
-  india: number; // LPA
-  abroad: number; // USD thousands
+  india: number;
+  abroad: number;
 }
 
 export interface IHotArticle {
@@ -22,7 +22,7 @@ export interface IHotArticle {
   summary?: string;
 }
 
-export interface IMarketTrends extends Document {
+export interface IMarketTrend extends Document {
   month: string;
   trendingSkills: ITrendingSkill[];
   hiringDomains: IHiringDomain[];
@@ -37,7 +37,7 @@ export interface IMarketTrends extends Document {
   updatedAt: Date;
 }
 
-const MarketTrendsSchema = new Schema({
+const MarketTrendSchema = new Schema<IMarketTrend>({
   month: { type: String, required: true },
   trendingSkills: [{
     skill: String,
@@ -66,6 +66,7 @@ const MarketTrendsSchema = new Schema({
   timestamps: true
 });
 
-const MarketTrends = models.MarketTrends || model<IMarketTrends>('MarketTrends', MarketTrendsSchema);
+// Use a different variable name to avoid conflict
+const MarketTrendModel = mongoose.models.MarketTrend || mongoose.model<IMarketTrend>('MarketTrend', MarketTrendSchema);
 
-export default MarketTrends;
+export { MarketTrendModel as MarketTrend };

@@ -1,30 +1,39 @@
-import mongoose from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
-const careerDomainSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  description: {
-    type: String,
-    required: true,
-  },
+export interface ICareerDomain extends Document {
+  name: string;
+  description: string;
+  skills: string[];
+  projects: string[];
+  tools: string[];
+  roles: string[];
+  averageSalary: {
+    india: string;
+    abroad: string;
+  };
+  resources: Array<{ title: string; url: string }>;
+  relatedDomains: string[];
+  lastUpdated: Date;
+}
+
+const CareerDomainSchema = new Schema<ICareerDomain>({
+  name: { type: String, required: true, unique: true },
+  description: { type: String, required: true },
   skills: [String],
   projects: [String],
   tools: [String],
   roles: [String],
   averageSalary: {
     india: String,
-    abroad: String,
+    abroad: String
   },
   resources: [{
     title: String,
-    url: String,
+    url: String
   }],
   relatedDomains: [String],
-}, {
-  timestamps: true,
+  lastUpdated: { type: Date, default: Date.now }
 });
 
-export const CareerDomain = mongoose.models.CareerDomain || mongoose.model('CareerDomain', careerDomainSchema);
+// Remove the duplicate export - just export the model
+export const CareerDomain = mongoose.models.CareerDomain || mongoose.model<ICareerDomain>('CareerDomain', CareerDomainSchema);

@@ -9,6 +9,7 @@ interface DashboardLayoutProps {
     email: string;
     year: number;
     college: string;
+    role: 'student' | 'mentor' | 'admin';
   };
 }
 
@@ -30,17 +31,16 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
   const isActive = (path: string) => pathname === path;
 
   const handleLogout = () => {
-    // Clear any client-side storage
     localStorage.removeItem('user-token');
     sessionStorage.removeItem('user-data');
-    
-    // Redirect to login page
     router.push('/auth/login');
   };
 
+  const isAdminUser = user.role === 'admin' || user.role === 'mentor';
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
-      {/* Circuit Board Background Pattern */}
+      {/* Background elements */}
       <div className="absolute inset-0 overflow-hidden opacity-5">
         <div className="absolute inset-0" style={{
           backgroundImage: `radial-gradient(circle at 25px 25px, rgba(255,255,255,0.3) 2%, transparent 0%), 
@@ -49,19 +49,17 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
         }}></div>
       </div>
 
-      {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse delay-75"></div>
         <div className="absolute top-40 left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse delay-150"></div>
       </div>
 
-      {/* Sidebar */}
+      {/* Sidebar - This will be visible on EVERY page */}
       <div className="w-64 bg-gray-800/80 backdrop-blur-lg border-r border-gray-700/60 shadow-2xl flex flex-col relative z-10">
         {/* Header with Logo */}
         <div className="p-6 border-b border-gray-700/60">
           <div className="flex items-center space-x-3">
-            {/* Mentorly Logo */}
             <div className="relative">
               <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                 <div className="text-white font-bold text-lg relative">
@@ -81,12 +79,30 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
         {/* User Info */}
         <div className="p-6 border-b border-gray-700/60">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-lg shadow-lg">
-              {user.name.charAt(0).toUpperCase()}
+            <div className="relative">
+              <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-lg shadow-lg">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              {user.role === 'admin' && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                  <span className="text-[8px] text-white font-bold">A</span>
+                </div>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-white text-sm truncate">{user.name}</p>
-              <p className="text-xs text-cyan-300 truncate">Year {user.year} • {user.college.split(' ')[0]}</p>
+              <div className="flex items-center space-x-2">
+                <p className="text-xs text-cyan-300 truncate">
+                  Year {user.year} • {user.college.split(' ')[0]}
+                </p>
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  user.role === 'admin' 
+                    ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                    : 'bg-green-500/20 text-green-300 border border-green-500/30'
+                }`}>
+                  {user.role}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -111,6 +127,29 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                 )}
               </button>
             ))}
+            
+            {/* Admin Dashboard Link */}
+            {isAdminUser && (
+              <div className="pt-4 mt-4 border-t border-gray-700/60">
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold px-3 mb-2">
+                  Administration
+                </p>
+                <button
+                  onClick={() => router.push('/admin')}
+                  className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 ${
+                    isActive('/admin')
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 border border-purple-400/50'
+                      : 'text-gray-300 hover:bg-purple-500/20 hover:text-white border border-transparent hover:border-purple-500/30'
+                  }`}
+                >
+                  <span className="text-lg">⚙️</span>
+                  <span className="font-medium text-sm">Admin Dashboard</span>
+                  {isActive('/admin') && (
+                    <div className="ml-auto w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </nav>
 
