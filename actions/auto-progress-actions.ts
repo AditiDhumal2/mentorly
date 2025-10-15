@@ -1,7 +1,7 @@
 'use server';
 
 import { connectDB } from '../lib/db';
-import { User } from '../models/User';
+import { Student } from '../models/Students';
 import { Types } from 'mongoose';
 
 interface TrackResult {
@@ -269,7 +269,7 @@ export async function trackTimeSpentAction(
   try {
     await connectDB();
     
-    const user = await User.findById(userId).select('+roadmapProgress +learningStats +activityLog year') as UserDocument | null;
+    const user = await Student.findById(userId).select('+roadmapProgress +learningStats +activityLog year') as UserDocument | null;
     if (!user) {
       return { success: false, error: 'User not found' };
     }
@@ -340,7 +340,7 @@ export async function trackResourceViewAction(
   try {
     await connectDB();
     
-    const user = await User.findById(userId).select('+roadmapProgress +learningStats +activityLog year') as UserDocument | null;
+    const user = await Student.findById(userId).select('+roadmapProgress +learningStats +activityLog year') as UserDocument | null;
     if (!user) {
       return { success: false, error: 'User not found' };
     }
@@ -413,7 +413,7 @@ export async function trackSubmissionAction(
   try {
     await connectDB();
     
-    const user = await User.findById(userId).select('+roadmapProgress +learningStats +activityLog') as UserDocument | null;
+    const user = await Student.findById(userId).select('+roadmapProgress +learningStats +activityLog') as UserDocument | null;
     if (!user) {
       return { success: false, error: 'User not found' };
     }
@@ -453,7 +453,7 @@ export async function getStepEngagementAction(userId: string, stepId: string): P
   try {
     await connectDB();
     
-    const user = await User.findById(userId)
+    const user = await Student.findById(userId)
       .select('roadmapProgress learningStats')
       .lean();
 
@@ -520,7 +520,7 @@ export async function markStepCompletedAction(userId: string, stepId: string): P
   try {
     await connectDB();
     
-    const user = await User.findById(userId).select('+roadmapProgress +learningStats +activityLog year') as UserDocument | null;
+    const user = await Student.findById(userId).select('+roadmapProgress +learningStats +activityLog year') as UserDocument | null;
     if (!user) {
       return { success: false, error: 'User not found' };
     }
@@ -583,7 +583,7 @@ export async function resetStepProgressAction(userId: string, stepId: string): P
   try {
     await connectDB();
     
-    const user = await User.findById(userId).select('+roadmapProgress +learningStats') as UserDocument | null;
+    const user = await Student.findById(userId).select('+roadmapProgress +learningStats') as UserDocument | null;
     if (!user) {
       return { success: false, error: 'User not found' };
     }
@@ -619,7 +619,7 @@ export async function getUserProgressStatsAction(userId: string) {
   try {
     await connectDB();
     
-    const user = await User.findById(userId)
+    const user = await Student.findById(userId)
       .select('learningStats roadmapProgress')
       .lean();
 
@@ -666,7 +666,7 @@ export async function getRoadmapProgressAction(userId: string, roadmapId: string
   try {
     await connectDB();
     
-    const user = await User.findById(userId)
+    const user = await Student.findById(userId)
       .select('roadmapProgress learningStats')
       .lean();
 

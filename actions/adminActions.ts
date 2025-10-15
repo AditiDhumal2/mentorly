@@ -5,7 +5,7 @@ import { Roadmap, IRoadmap } from '@/models/Roadmap';
 import { CareerDomain, ICareerDomain } from '@/models/CareerDomain';
 import { MarketTrend, IMarketTrend } from '@/models/MarketTrend';
 import { Resource, IResource } from '@/models/Resource';
-import { User, IUser } from '@/models/User';
+import { User, IUser } from '@/models/Students';
 
 // Types for our admin operations
 export type { IRoadmap, ICareerDomain, IMarketTrend, IResource, IUser };

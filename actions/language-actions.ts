@@ -1,7 +1,7 @@
 'use server';
 
 import { connectDB } from '../lib/db';
-import { User } from '../models/User';
+import { Student } from '../models/Students';
 
 interface LanguageActionResult {
   success: boolean;
@@ -12,7 +12,7 @@ export async function updatePreferredLanguageAction(userId: string, languageId: 
   try {
     await connectDB();
     
-    const user = await User.findById(userId);
+    const user = await Student.findById(userId);
     if (!user) {
       return { success: false, error: 'User not found' };
     }
@@ -48,7 +48,7 @@ export async function getUserLanguagesAction(userId: string) {
   try {
     await connectDB();
     
-    const user = await User.findById(userId)
+    const user = await Student.findById(userId)
       .select('preferredLanguage languages')
       .lean();
 

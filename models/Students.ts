@@ -1,11 +1,12 @@
+// models/Students.ts
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-export interface IUser extends Document {
+export interface IStudent extends Document {
   name: string;
   email: string;
   password: string;
-  role: 'student' | 'mentor' | 'admin';
+  role: 'student' | 'mentor';
   year: number;
   college: string;
   preferredLanguage: string;
@@ -79,7 +80,7 @@ export interface IUser extends Document {
   updatedAt: Date;
 }
 
-const userSchema = new Schema<IUser>({
+const studentSchema = new Schema<IStudent>({
   name: {
     type: String,
     required: [true, 'Name is required'],
@@ -99,7 +100,7 @@ const userSchema = new Schema<IUser>({
   },
   role: {
     type: String,
-    enum: ['student', 'mentor', 'admin'],
+    enum: ['student', 'mentor'],
     default: 'student',
   },
   year: {
@@ -224,17 +225,45 @@ const userSchema = new Schema<IUser>({
   timestamps: true,
 });
 
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+// Enhanced password hashing with better error handling
+studentSchema.pre('save', async function(next) {
+  // Only hash the password if it has been modified (or is new)
+  if (!this.isModified('password')) {
+    console.log('🔑 Password not modified, skipping hash');
+    return next();
+  }
   
-  this.password = await bcrypt.hash(this.password, 12);
-  next();
+  try {
+    console.log('🔑 Hashing password...');
+    console.log('🔑 Plain password before hash:', this.password);
+    
+    // Hash the password with cost factor 12
+    this.password = await bcrypt.hash(this.password, 12);
+    
+    console.log('🔑 Password after hash:', this.password.substring(0, 20) + '...');
+    console.log('✅ Password hashed successfully');
+    next();
+  } catch (error: any) {
+    console.error('❌ Error hashing password:', error);
+    next(error);
+  }
 });
 
-// Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  return await bcrypt.compare(candidatePassword, this.password);
+// Enhanced password comparison with debugging
+studentSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
+  try {
+    console.log('🔑 Comparing passwords...');
+    console.log('🔑 Candidate password:', candidatePassword.substring(0, 3) + '...');
+    console.log('🔑 Stored hash:', this.password.substring(0, 20) + '...');
+    
+    const isMatch = await bcrypt.compare(candidatePassword, this.password);
+    console.log('🔑 Password comparison result:', isMatch);
+    
+    return isMatch;
+  } catch (error) {
+    console.error('❌ Error comparing passwords:', error);
+    return false;
+  }
 };
 
-export const User = mongoose.models.User || mongoose.model<IUser>('User', userSchema);
+export const Student = mongoose.models.Student || mongoose.model<IStudent>('Student', studentSchema);

@@ -1,90 +1,142 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { connectDB } from '@/lib/db';
+import { Admin } from '@/models/Admins';
+import { Student } from '@/models/Students';
+import bcrypt from 'bcryptjs';
 
-// Database connection function
-async function connectDB() {
-  try {
-    const mongoose = await import('mongoose');
-    
-    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mentorly';
-
-    if (!MONGODB_URI) {
-      throw new Error('Please define the MONGODB_URI environment variable');
-    }
-
-    // If already connected, return the connection
-    if (mongoose.connection.readyState === 1) {
-      return mongoose.connection;
-    }
-
-    // Connect to MongoDB
-    await mongoose.connect(MONGODB_URI);
-    console.log('MongoDB connected successfully');
-    
-    return mongoose.connection;
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    throw new Error('Failed to connect to database');
-  }
-}
-
-export async function loginUser(prevState: any, formData: FormData) {
+export async function loginUser(formData: FormData) {
   try {
     await connectDB();
     
-    const mongoose = await import('mongoose');
-    const bcrypt = await import('bcryptjs');
-
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
+    console.log('🔍 loginUser - Attempting login for:', email);
+    console.log('🔑 Password received:', password ? '***' : 'undefined');
+
     // Validate inputs
     if (!email || !password) {
+      console.log('❌ loginUser - Missing email or password');
       return { error: 'Email and password are required' };
     }
 
-    // Define User schema
-    const userSchema = new mongoose.Schema({
-      name: { type: String, required: true },
-      email: { type: String, required: true, unique: true },
-      password: { type: String, required: true },
-      role: { type: String, enum: ['student', 'mentor', 'admin'], default: 'student' },
-      year: { type: Number, required: true },
-      college: { type: String, required: true },
-    }, { timestamps: true });
+    let userData: any = null;
+    let userRole: string = '';
 
-    // Get or create User model
-    const User = mongoose.models.User || mongoose.model('User', userSchema);
-
-    // Find user by email
-    const user = await User.findOne({ email });
-    if (!user) {
-      return { error: 'No account found with this email' };
-    }
-
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return { error: 'Incorrect password. Please try again.' };
-    }
-
-    console.log('Login successful for:', email);
+    // Try to find user in Admin collection first
+    console.log('🔍 loginUser - Checking Admin collection for:', email.toLowerCase());
+    const admin = await Admin.findOne({ 
+      email: email.toLowerCase().trim()
+    });
     
-    // TODO: Create session or JWT token
-    // For now, redirect to dashboard
-    // This will throw an error to stop execution, which is normal
-    redirect('/dashboard');
+    if (admin) {
+      console.log('🔍 loginUser - Admin found:', admin.name);
+      console.log('🔑 Stored admin hash:', admin.password.substring(0, 20) + '...');
+      
+      // Check admin password
+      console.log('🔑 Comparing admin password...');
+      const isPasswordValid = await bcrypt.compare(password, admin.password);
+      console.log('🔑 Password comparison result:', isPasswordValid);
+      
+      if (isPasswordValid) {
+        console.log('✅ loginUser - Admin password valid');
+        userData = {
+          id: admin._id.toString(),
+          name: admin.name,
+          email: admin.email,
+          role: 'admin'
+        };
+        userRole = 'admin';
+      } else {
+        console.log('❌ loginUser - Invalid admin password');
+        return { error: 'Incorrect password. Please try again.' };
+      }
+    } else {
+      // If not in Admin collection, check Student collection
+      console.log('🔍 loginUser - Checking Student collection for:', email.toLowerCase());
+      const student = await Student.findOne({ 
+        email: email.toLowerCase().trim()
+      });
+      
+      if (student) {
+        console.log('🔍 loginUser - Student found:', student.name);
+        console.log('🔍 loginUser - Student ID:', student._id.toString());
+        console.log('🔑 Stored student hash:', student.password.substring(0, 20) + '...');
+        
+        // Check student password
+        console.log('🔑 Comparing student password...');
+        const isPasswordValid = await bcrypt.compare(password, student.password);
+        console.log('🔑 Password comparison result:', isPasswordValid);
+        
+        if (isPasswordValid) {
+          console.log('✅ loginUser - Student password valid');
+          
+          userData = {
+            id: student._id.toString(),
+            name: student.name,
+            email: student.email,
+            role: 'student',
+            year: student.year,
+            college: student.college,
+            profiles: student.profiles || {},
+            interests: student.interests || []
+          };
+          userRole = 'student';
+        } else {
+          console.log('❌ loginUser - Invalid student password');
+          return { error: 'Incorrect password. Please try again.' };
+        }
+      } else {
+        console.log('❌ loginUser - No user found in any collection for email:', email);
+        return { error: 'No account found with this email. Please check your email or register.' };
+      }
+    }
+
+    if (!userData) {
+      console.log('❌ loginUser - No user data found');
+      return { error: 'Login failed. Please try again.' };
+    }
+
+    console.log('✅ loginUser - Login successful for:', email, 'Role:', userRole);
+
+    // SET THE USER COOKIE
+    const cookieStore = await cookies();
+    
+    // Clear any existing cookie first to avoid stale data
+    cookieStore.delete('user-data');
+    
+    // Set auth cookie with user data
+    cookieStore.set('user-data', JSON.stringify(userData), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+      path: '/'
+    });
+
+    console.log('✅ loginUser - Cookies set successfully');
+    
+    // Redirect based on role
+    console.log('🔄 loginUser - Redirecting based on role:', userRole);
+    if (userRole === 'admin') {
+      console.log('🔄 loginUser - Redirecting admin to /admin');
+      redirect('/admin');
+    } else {
+      console.log('🔄 loginUser - Redirecting student to /dashboard');
+      redirect('/dashboard');
+    }
     
   } catch (error: any) {
     // Check if this is a redirect error (which is actually success)
     if (error.digest?.startsWith('NEXT_REDIRECT')) {
-      // This is a successful redirect, not an error
-      console.log('Redirecting to dashboard...');
+      console.log('✅ loginUser - Redirect successful');
       throw error; // Re-throw the redirect
     }
     
-    console.error('Login error:', error);
+    console.error('❌ loginUser - Login error:', error);
     return { error: 'Failed to login. Please try again.' };
   }
 }
