@@ -64,6 +64,7 @@ export function AdminLoginForm() {
               disabled={isPending}
               className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200 disabled:opacity-50 backdrop-blur-sm"
               placeholder="admin@example.com"
+              suppressHydrationWarning
             />
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
               <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,12 +88,14 @@ export function AdminLoginForm() {
               disabled={isPending}
               className="w-full px-4 py-3 pr-10 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200 disabled:opacity-50 backdrop-blur-sm"
               placeholder="Enter your password"
+              suppressHydrationWarning
             />
             <button
               type="button"
               className="absolute inset-y-0 right-0 pr-3 flex items-center"
               onClick={() => setShowPassword(!showPassword)}
               disabled={isPending}
+              suppressHydrationWarning
             >
               {showPassword ? (
                 <svg className="w-5 h-5 text-gray-400 hover:text-purple-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -115,6 +118,7 @@ export function AdminLoginForm() {
           type="submit"
           disabled={isPending}
           className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none overflow-hidden"
+          suppressHydrationWarning
         >
           {/* Animated background */}
           <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>

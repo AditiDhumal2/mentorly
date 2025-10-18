@@ -4,47 +4,48 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const userData = request.cookies.get('user-data')?.value;
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
 
-  // Parse user data if exists
-  let userRole = null;
-  let userEmail = null;
-  
-  if (userData) {
+  console.log(`🛡️ Middleware - Path: ${pathname}, Has Cookie: ${!!userData}`);
+
+  // ALLOW LOGOUT PAGE FOR EVERYONE (NO AUTH CHECK)
+  if (pathname === '/logout') {
+    return NextResponse.next();
+  }
+
+  // ALLOW CLEAR-COOKIES PAGE FOR EVERYONE (NO AUTH CHECK)
+  if (pathname === '/clear-cookies') {
+    return NextResponse.next();
+  }
+
+  // PROTECT STUDENT ROUTES - BLOCK WITHOUT AUTH
+  if (pathname.startsWith('/students')) {
+    if (!userData) {
+      console.log('🛑 Middleware BLOCKED: No auth cookie for student route');
+      return NextResponse.redirect(new URL('/auth/login?error=unauthorized', request.url));
+    }
+
+    // Validate cookie structure
     try {
-      const user = JSON.parse(userData);
-      userRole = user.role;
-      userEmail = user.email;
-    } catch (error) {
-      // Invalid user data
-      console.log('🛑 Middleware - Invalid user data in cookie');
+      const parsed = JSON.parse(userData);
+      if (!parsed.id || !parsed.email || !parsed.role) {
+        console.log('🛑 Middleware BLOCKED: Invalid cookie structure');
+        const response = NextResponse.redirect(new URL('/auth/login?error=invalid_cookie', request.url));
+        response.cookies.delete('user-data');
+        return response;
+      }
+    } catch {
+      console.log('🛑 Middleware BLOCKED: Malformed cookie');
+      const response = NextResponse.redirect(new URL('/auth/login?error=malformed_cookie', request.url));
+      response.cookies.delete('user-data');
+      return response;
     }
   }
 
-  console.log(`🛡️ Middleware - Path: ${pathname}, Role: ${userRole}, Email: ${userEmail}`);
-
-  // Protect admin routes - only admins can access
-  if (pathname.startsWith('/admin')) {
-    if (!userData || userRole !== 'admin') {
-      console.log('🛑 Middleware - Blocking admin route access for non-admin user');
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-  }
-
-  // Protect user dashboard routes - require authentication
-  if (pathname.startsWith('/dashboard') && !userData) {
-    console.log('🛑 Middleware - Blocking dashboard access for unauthenticated user');
-    return NextResponse.redirect(new URL('/auth/login', request.url)); // FIXED: Changed from '/login' to '/auth/login'
-  }
-
-  // Redirect authenticated users away from login
-  if (pathname === '/auth/login' && userData) { // FIXED: Added '/auth/' prefix
-    console.log('🔄 Middleware - Redirecting authenticated user from login');
-    if (userRole === 'admin') {
-      return NextResponse.redirect(new URL('/admin', request.url));
-    } else {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
+  // ALLOW LOGIN PAGE FOR EVERYONE (REMOVED THE REDIRECT)
+  // This is the key fix - don't redirect authenticated users from login page
+  if (pathname.startsWith('/auth/login')) {
+    return NextResponse.next();
   }
 
   return NextResponse.next();
@@ -52,8 +53,9 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/admin/:path*',
-    '/dashboard/:path*',
-    '/auth/login' // FIXED: Added '/auth/' prefix
+    '/students/:path*',
+    '/auth/login',
+    '/logout',
+    '/clear-cookies'
   ]
 };

@@ -3,6 +3,52 @@
 import { connectDB } from '@/lib/db';
 import { Roadmap } from '@/models/Roadmap';
 
+// Add proper TypeScript interfaces
+interface RoadmapStep {
+  _id?: string;
+  title: string;
+  description: string;
+  category: string;
+  resources: {
+    title: string;
+    url: string;
+    type: string;
+  }[];
+  estimatedDuration: string;
+  priority: number;
+  languageSpecific: boolean;
+}
+
+interface RoadmapData {
+  _id?: string;
+  year: number;
+  language: string;
+  title: string;
+  description: string;
+  steps: RoadmapStep[];
+  createdAt: Date;
+  updatedAt: Date;
+  isFallback?: boolean;
+  requestedLanguage?: string;
+}
+
+interface RoadmapResult {
+  success: boolean;
+  error?: string;
+  data?: any;
+  message?: string;
+  isFallback?: boolean;
+  requestedLanguage?: string;
+}
+
+interface ProgressResult {
+  success: boolean;
+  error?: string;
+  data?: {
+    progress: any[];
+  };
+}
+
 // Add this serialization helper function
 function serializeForClient(data: any): any {
   if (data === null || data === undefined) return data;
@@ -39,49 +85,6 @@ function serializeForClient(data: any): any {
   }
   
   return data;
-}
-
-interface RoadmapResult {
-  success: boolean;
-  error?: string;
-  data?: any;
-  message?: string;
-  isFallback?: boolean;
-  requestedLanguage?: string;
-}
-
-interface ProgressResult {
-  success: boolean;
-  error?: string;
-  data?: {
-    progress: any[];
-  };
-}
-
-interface RoadmapStep {
-  title: string;
-  description: string;
-  category: string;
-  resources: {
-    title: string;
-    url: string;
-    type: string;
-  }[];
-  estimatedDuration: string;
-  priority: number;
-  languageSpecific: boolean;
-}
-
-interface RoadmapData {
-  year: number;
-  language: string;
-  title: string;
-  description: string;
-  steps: RoadmapStep[];
-  createdAt: Date;
-  updatedAt: Date;
-  isFallback?: boolean;
-  requestedLanguage?: string;
 }
 
 export async function getRoadmapAction(year: number, languageId: string = 'python'): Promise<RoadmapResult> {
@@ -148,13 +151,15 @@ export async function getRoadmapAction(year: number, languageId: string = 'pytho
   }
 }
 
-export async function getRoadmapProgressAction(userId: string): Promise<ProgressResult> {
+export async function getRoadmapProgressAction(userId: string, languageId?: string, year?: number): Promise<ProgressResult> {
   try {
     await connectDB();
     
     // In a real implementation, you would fetch progress from the User model
     // For now, return empty progress array with proper typing
     const progress: any[] = [];
+    
+    console.log(`Getting progress for user ${userId}, language: ${languageId}, year: ${year}`);
     
     return { 
       success: true, 
@@ -179,6 +184,28 @@ export async function getAllRoadmapsAction(): Promise<RoadmapResult> {
     return { success: true, data: serializeForClient(roadmaps) };
   } catch (error) {
     console.error('Error getting all roadmaps:', error);
+    return { success: false, error: 'Failed to load roadmaps' };
+  }
+}
+
+export async function getRoadmapsByYearAction(year: number): Promise<RoadmapResult> {
+  try {
+    await connectDB();
+    
+    if (!year || year < 1 || year > 4) {
+      return { 
+        success: false, 
+        error: 'Invalid year. Year must be between 1 and 4.' 
+      };
+    }
+
+    const roadmaps = await Roadmap.find({ year })
+      .sort({ language: 1 })
+      .lean();
+
+    return { success: true, data: serializeForClient(roadmaps) };
+  } catch (error) {
+    console.error('Error getting roadmaps by year:', error);
     return { success: false, error: 'Failed to load roadmaps' };
   }
 }
@@ -246,6 +273,98 @@ export async function getAvailableLanguagesAction(year?: number): Promise<Roadma
   } catch (error) {
     console.error('Error getting available languages:', error);
     return { success: false, error: 'Failed to load available languages' };
+  }
+}
+
+export async function getAvailableYearsAction(languageId?: string): Promise<RoadmapResult> {
+  try {
+    await connectDB();
+    
+    const query = languageId ? { language: languageId.toLowerCase() } : {};
+    const years = await Roadmap.find(query).distinct('year');
+    
+    // Always return years 1-4, even if some don't exist yet
+    const allYears = [1, 2, 3, 4];
+    const availableYears = allYears.map(year => ({
+      year,
+      available: years.includes(year),
+      label: getYearLabel(year)
+    }));
+    
+    return { success: true, data: serializeForClient(availableYears) };
+  } catch (error) {
+    console.error('Error getting available years:', error);
+    return { success: false, error: 'Failed to load available years' };
+  }
+}
+
+export async function getUserYearProgressAction(userId: string): Promise<RoadmapResult> {
+  try {
+    await connectDB();
+    
+    // Mock data - in real implementation, fetch from user progress
+    const yearProgress = {
+      1: { completed: 30, total: 50, progress: 60 },
+      2: { completed: 10, total: 60, progress: 17 },
+      3: { completed: 5, total: 55, progress: 9 },
+      4: { completed: 0, total: 40, progress: 0 }
+    };
+    
+    return { 
+      success: true, 
+      data: serializeForClient(yearProgress)
+    };
+  } catch (error) {
+    console.error('Error getting user year progress:', error);
+    return { success: false, error: 'Failed to load year progress' };
+  }
+}
+
+export async function getRoadmapYearsOverview(userId: string, languageId: string): Promise<RoadmapResult> {
+  try {
+    await connectDB();
+    
+    const years = [1, 2, 3, 4];
+    const overview = [];
+    
+    for (const year of years) {
+      const roadmap = await Roadmap.findOne({ 
+        year, 
+        language: languageId.toLowerCase() 
+      }).lean() as RoadmapData | null;
+      
+      if (roadmap) {
+        overview.push({
+          year,
+          title: roadmap.title,
+          description: roadmap.description,
+          totalSteps: roadmap.steps?.length || 0,
+          available: true,
+          label: getYearLabel(year)
+        });
+      } else {
+        // Check if default language roadmap exists
+        const defaultRoadmap = await Roadmap.findOne({ 
+          year, 
+          language: 'python' 
+        }).lean() as RoadmapData | null;
+        
+        overview.push({
+          year,
+          title: `${getLanguageName(languageId)} Year ${year} Roadmap`,
+          description: `Learning path for ${getLanguageName(languageId)} in year ${year}`,
+          totalSteps: defaultRoadmap?.steps?.length || 10,
+          available: !!defaultRoadmap,
+          isFallback: true,
+          label: getYearLabel(year)
+        });
+      }
+    }
+    
+    return { success: true, data: serializeForClient(overview) };
+  } catch (error) {
+    console.error('Error getting roadmap years overview:', error);
+    return { success: false, error: 'Failed to load years overview' };
   }
 }
 
@@ -745,12 +864,12 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
   };
 
   // Default data for any missing language/year combination
-  return languageData[language]?.[year] || {
+  return {
     year,
     language,
-    title: `${getLanguageName(language)} Year ${year} Roadmap`,
-    description: `Advanced ${getLanguageName(language)} development and specialized topics for year ${year}`,
-    steps: [
+    title: languageData[language]?.[year]?.title || `${getLanguageName(language)} Year ${year} Roadmap`,
+    description: languageData[language]?.[year]?.description || `Advanced ${getLanguageName(language)} development and specialized topics for year ${year}`,
+    steps: languageData[language]?.[year]?.steps || [
       {
         title: `Advanced ${getLanguageName(language)} Concepts`,
         description: `Master advanced features, best practices, and specialized topics in ${getLanguageName(language)}`,
@@ -810,4 +929,13 @@ function getLanguageTutorialUrl(language: string): string {
   };
   return urls[language] || 'https://youtube.com';
 }
-    
+
+function getYearLabel(year: number): string {
+  const labels: { [key: number]: string } = {
+    1: '1st Year - Foundation',
+    2: '2nd Year - Skill Development', 
+    3: '3rd Year - Specialization',
+    4: '4th Year - Placement Preparation'
+  };
+  return labels[year] || `Year ${year}`;
+}

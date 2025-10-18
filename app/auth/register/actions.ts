@@ -3,7 +3,6 @@
 import { redirect } from 'next/navigation';
 import { connectDB } from '@/lib/db';
 import { Student } from '@/models/Students';
-import bcrypt from 'bcryptjs';
 
 export async function registerUser(formData: FormData) {
   try {
@@ -11,12 +10,13 @@ export async function registerUser(formData: FormData) {
     
     const name = formData.get('name') as string;
     const email = formData.get('email') as string;
-    const password = formData.get('password') as string; // Plain text from form
+    const password = formData.get('password') as string; // Keep as PLAIN TEXT
     const year = formData.get('year') as string;
     const college = formData.get('college') as string;
 
     console.log('🔍 registerUser - Starting registration for:', email);
     console.log('🔑 Plain password received:', password ? '***' : 'undefined');
+    console.log('🔑 Password length:', password?.length);
 
     // Validate required fields
     if (!name || !email || !password || !year || !college) {
@@ -44,18 +44,13 @@ export async function registerUser(formData: FormData) {
       return { error: 'An account with this email already exists' };
     }
 
-    console.log('🔑 Hashing plain text password...');
-    
-    // Hash the plain text password
-    const hashedPassword = await bcrypt.hash(password, 12);
-    console.log('🔑 Password after hash:', hashedPassword.substring(0, 20) + '...');
-    console.log('✅ Password hashed successfully');
+    console.log('📝 Creating student with PLAIN password (model will hash it automatically)...');
 
-    // Create student
+    // Create student with PLAIN password - the model's pre-save hook will hash it
     const student = await Student.create({
       name,
       email: email.toLowerCase(),
-      password: hashedPassword,
+      password: password, // PLAIN TEXT - model will hash it automatically
       year: parseInt(year),
       college,
       role: 'student',
@@ -85,11 +80,11 @@ export async function registerUser(formData: FormData) {
     console.log('📧 Email:', student.email);
     console.log('👤 Name:', student.name);
     console.log('🎯 Role:', student.role);
-    console.log('🔑 Hashed password stored');
+    console.log('🔑 Final stored password:', student.password.substring(0, 30) + '...');
     
     // Redirect to login page with success message
     console.log('🔄 registerUser - Redirecting to login...');
-    redirect('/auth/login?message=Account+created+successfully.+Please+login.');
+    redirect('/auth/login?message=Account+created+successfully.+Please+login.&t=' + Date.now());
     
   } catch (error: any) {
     // Check if this is a redirect error (which is actually success)

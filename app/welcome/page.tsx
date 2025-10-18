@@ -1,4 +1,4 @@
-import WelcomeHeader from '../components/shared/WelcomeHeader';
+// import WelcomeHeader from '../components/shared/WelcomeHeader';
 import WelcomeHero from './components/WelcomeHero';
 import EngineeringFeatureCard from './components/EngineeringFeatureCard';
 import CTAButtons from './components/CTAButtons';
@@ -58,8 +58,8 @@ export default function WelcomePage() {
         <div className="absolute top-40 left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse delay-150"></div>
       </div>
 
-      {/* Welcome Header */}
-      <WelcomeHeader />
+      {/* Welcome Header 
+      <WelcomeHeader />*/}
       
       {/* Main Content */}
       <div className="flex-grow container mx-auto px-4 py-8 pt-20 relative z-10">

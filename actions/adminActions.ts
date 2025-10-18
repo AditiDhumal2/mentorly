@@ -1,19 +1,108 @@
+// actions/adminActions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
-import { Roadmap, IRoadmap } from '@/models/Roadmap';
-import { CareerDomain, ICareerDomain } from '@/models/CareerDomain';
-import { MarketTrend, IMarketTrend } from '@/models/MarketTrend';
-import { Resource, IResource } from '@/models/Resource';
-import { User, IUser } from '@/models/Students';
+import { Roadmap } from '@/models/Roadmap';
+import { CareerDomain } from '@/models/CareerDomain';
+import { MarketTrend } from '@/models/MarketTrend';
+import { Resource } from '@/models/Resource';
+import { Student } from '@/models/Students';
 
-// Types for our admin operations
-export type { IRoadmap, ICareerDomain, IMarketTrend, IResource, IUser };
+// Define types locally since interfaces aren't exported from models
+export interface IRoadmap {
+  _id: string;
+  title: string;
+  description: string;
+  year: number;
+  domain: string;
+  steps: Array<{
+    title: string;
+    description: string;
+    resources: string[];
+    completed: boolean;
+    duration: string;
+    order: number;
+  }>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ICareerDomain {
+  _id: string;
+  name: string;
+  description: string;
+  skills: string[];
+  averageSalary: string;
+  growth: string;
+  trending: boolean;
+  lastUpdated: Date;
+}
+
+export interface IMarketTrend {
+  _id: string;
+  title: string;
+  description: string;
+  category: string;
+  impact: 'high' | 'medium' | 'low';
+  source: string;
+  date: Date;
+  tags: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IResource {
+  _id: string;
+  title: string;
+  description: string;
+  url: string;
+  type: 'video' | 'article' | 'course' | 'book' | 'documentation';
+  domain: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  free: boolean;
+  rating: number;
+  ratedBy: string[];
+  addedBy: string;
+  tags: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IUser {
+  _id: string;
+  name: string;
+  email: string;
+  password: string;
+  role: 'student' | 'mentor' | 'admin';
+  year: number;
+  college: string;
+  preferredLanguage: string;
+  profiles: Record<string, any>;
+  interests: string[];
+  roadmapProgress: Array<{
+    roadmapId: string;
+    completedSteps: string[];
+    currentStep: number;
+    startedAt: Date;
+    lastUpdated: Date;
+  }>;
+  learningStats: {
+    totalTimeSpent: number;
+    stepsCompleted: number;
+    resourcesViewed: number;
+    lastActive: Date;
+    currentStreak: number;
+    longestStreak: number;
+    loginCount: number;
+    averageEngagement: number;
+    totalCodeSubmissions: number;
+    totalProjectSubmissions: number;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export type RoadmapStep = IRoadmap['steps'][0];
-
-// Helper type for lean documents
-type LeanDocument<T> = Omit<T, keyof Document> & { _id: string };
 
 // Types for dashboard stats
 interface DashboardStats {
@@ -30,12 +119,28 @@ interface DashboardStats {
   }>;
 }
 
+// Helper type for MongoDB lean documents
+type MongoDocument<T> = T & {
+  _id: any;
+  __v?: number;
+};
+
 // Roadmap Admin Actions
 export async function getRoadmaps(): Promise<IRoadmap[]> {
   try {
     await connectDB();
-    const roadmaps = await Roadmap.find().sort({ year: 1 }).lean();
-    return roadmaps as unknown as IRoadmap[];
+    const roadmaps = await Roadmap.find().sort({ year: 1 }).lean() as MongoDocument<IRoadmap>[];
+    
+    return roadmaps.map(roadmap => ({
+      _id: roadmap._id.toString(),
+      title: roadmap.title,
+      description: roadmap.description,
+      year: roadmap.year,
+      domain: roadmap.domain,
+      steps: roadmap.steps,
+      createdAt: new Date(roadmap.createdAt),
+      updatedAt: new Date(roadmap.updatedAt)
+    }));
   } catch (error) {
     console.error('Error fetching roadmaps:', error);
     throw new Error('Failed to fetch roadmaps');
@@ -47,7 +152,16 @@ export async function createRoadmap(roadmapData: Omit<IRoadmap, '_id' | 'created
     await connectDB();
     const roadmap = new Roadmap(roadmapData);
     const savedRoadmap = await roadmap.save();
-    return savedRoadmap.toObject() as IRoadmap;
+    return {
+      _id: savedRoadmap._id.toString(),
+      title: savedRoadmap.title,
+      description: savedRoadmap.description,
+      year: savedRoadmap.year,
+      domain: savedRoadmap.domain,
+      steps: savedRoadmap.steps,
+      createdAt: savedRoadmap.createdAt,
+      updatedAt: savedRoadmap.updatedAt
+    };
   } catch (error) {
     console.error('Error creating roadmap:', error);
     throw new Error('Failed to create roadmap');
@@ -78,8 +192,18 @@ export async function deleteRoadmap(id: string): Promise<void> {
 export async function getCareerDomains(): Promise<ICareerDomain[]> {
   try {
     await connectDB();
-    const domains = await CareerDomain.find().sort({ name: 1 }).lean();
-    return domains as unknown as ICareerDomain[];
+    const domains = await CareerDomain.find().sort({ name: 1 }).lean() as MongoDocument<ICareerDomain>[];
+    
+    return domains.map(domain => ({
+      _id: domain._id.toString(),
+      name: domain.name,
+      description: domain.description,
+      skills: domain.skills,
+      averageSalary: domain.averageSalary,
+      growth: domain.growth,
+      trending: domain.trending,
+      lastUpdated: new Date(domain.lastUpdated)
+    }));
   } catch (error) {
     console.error('Error fetching career domains:', error);
     throw new Error('Failed to fetch career domains');
@@ -89,9 +213,21 @@ export async function getCareerDomains(): Promise<ICareerDomain[]> {
 export async function createCareerDomain(domainData: Omit<ICareerDomain, '_id' | 'lastUpdated'>): Promise<ICareerDomain> {
   try {
     await connectDB();
-    const domain = new CareerDomain(domainData);
+    const domain = new CareerDomain({
+      ...domainData,
+      lastUpdated: new Date()
+    });
     const savedDomain = await domain.save();
-    return savedDomain.toObject() as ICareerDomain;
+    return {
+      _id: savedDomain._id.toString(),
+      name: savedDomain.name,
+      description: savedDomain.description,
+      skills: savedDomain.skills,
+      averageSalary: savedDomain.averageSalary,
+      growth: savedDomain.growth,
+      trending: savedDomain.trending,
+      lastUpdated: savedDomain.lastUpdated
+    };
   } catch (error) {
     console.error('Error creating career domain:', error);
     throw new Error('Failed to create career domain');
@@ -125,8 +261,20 @@ export async function deleteCareerDomain(id: string): Promise<void> {
 export async function getMarketTrends(): Promise<IMarketTrend[]> {
   try {
     await connectDB();
-    const trends = await MarketTrend.find().sort({ createdAt: -1 }).lean();
-    return trends as unknown as IMarketTrend[];
+    const trends = await MarketTrend.find().sort({ createdAt: -1 }).lean() as MongoDocument<IMarketTrend>[];
+    
+    return trends.map(trend => ({
+      _id: trend._id.toString(),
+      title: trend.title,
+      description: trend.description,
+      category: trend.category,
+      impact: trend.impact,
+      source: trend.source,
+      date: new Date(trend.date),
+      tags: trend.tags,
+      createdAt: new Date(trend.createdAt),
+      updatedAt: new Date(trend.updatedAt)
+    }));
   } catch (error) {
     console.error('Error fetching market trends:', error);
     throw new Error('Failed to fetch market trends');
@@ -138,7 +286,18 @@ export async function createMarketTrend(trendData: Omit<IMarketTrend, '_id' | 'c
     await connectDB();
     const trend = new MarketTrend(trendData);
     const savedTrend = await trend.save();
-    return savedTrend.toObject() as IMarketTrend;
+    return {
+      _id: savedTrend._id.toString(),
+      title: savedTrend.title,
+      description: savedTrend.description,
+      category: savedTrend.category,
+      impact: savedTrend.impact,
+      source: savedTrend.source,
+      date: savedTrend.date,
+      tags: savedTrend.tags,
+      createdAt: savedTrend.createdAt,
+      updatedAt: savedTrend.updatedAt
+    };
   } catch (error) {
     console.error('Error creating market trend:', error);
     throw new Error('Failed to create market trend');
@@ -172,8 +331,24 @@ export async function getResources(): Promise<IResource[]> {
     const resources = await Resource.find()
       .populate('addedBy', 'name email')
       .sort({ createdAt: -1 })
-      .lean();
-    return resources as unknown as IResource[];
+      .lean() as MongoDocument<IResource>[];
+    
+    return resources.map(resource => ({
+      _id: resource._id.toString(),
+      title: resource.title,
+      description: resource.description,
+      url: resource.url,
+      type: resource.type,
+      domain: resource.domain,
+      difficulty: resource.difficulty,
+      free: resource.free,
+      rating: resource.rating,
+      ratedBy: resource.ratedBy,
+      addedBy: resource.addedBy,
+      tags: resource.tags,
+      createdAt: new Date(resource.createdAt),
+      updatedAt: new Date(resource.updatedAt)
+    }));
   } catch (error) {
     console.error('Error fetching resources:', error);
     throw new Error('Failed to fetch resources');
@@ -189,7 +364,22 @@ export async function createResource(resourceData: Omit<IResource, '_id' | 'rate
       ratedBy: []
     });
     const savedResource = await resource.save();
-    return savedResource.toObject() as IResource;
+    return {
+      _id: savedResource._id.toString(),
+      title: savedResource.title,
+      description: savedResource.description,
+      url: savedResource.url,
+      type: savedResource.type,
+      domain: savedResource.domain,
+      difficulty: savedResource.difficulty,
+      free: savedResource.free,
+      rating: savedResource.rating,
+      ratedBy: savedResource.ratedBy,
+      addedBy: savedResource.addedBy,
+      tags: savedResource.tags,
+      createdAt: savedResource.createdAt,
+      updatedAt: savedResource.updatedAt
+    };
   } catch (error) {
     console.error('Error creating resource:', error);
     throw new Error('Failed to create resource');
@@ -220,11 +410,44 @@ export async function deleteResource(id: string): Promise<void> {
 export async function getUsers(): Promise<IUser[]> {
   try {
     await connectDB();
-    const users = await User.find()
+    const users = await Student.find()
       .select('-password')
       .sort({ createdAt: -1 })
-      .lean();
-    return users as unknown as IUser[];
+      .lean() as MongoDocument<IUser>[];
+    
+    return users.map(user => ({
+      _id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      password: '', // Excluded from query
+      role: user.role,
+      year: user.year,
+      college: user.college,
+      preferredLanguage: user.preferredLanguage,
+      profiles: user.profiles,
+      interests: user.interests,
+      roadmapProgress: user.roadmapProgress.map((progress: any) => ({
+        roadmapId: progress.roadmapId,
+        completedSteps: progress.completedSteps,
+        currentStep: progress.currentStep,
+        startedAt: new Date(progress.startedAt),
+        lastUpdated: new Date(progress.lastUpdated)
+      })),
+      learningStats: {
+        totalTimeSpent: user.learningStats.totalTimeSpent,
+        stepsCompleted: user.learningStats.stepsCompleted,
+        resourcesViewed: user.learningStats.resourcesViewed,
+        lastActive: new Date(user.learningStats.lastActive),
+        currentStreak: user.learningStats.currentStreak,
+        longestStreak: user.learningStats.longestStreak,
+        loginCount: user.learningStats.loginCount,
+        averageEngagement: user.learningStats.averageEngagement,
+        totalCodeSubmissions: user.learningStats.totalCodeSubmissions,
+        totalProjectSubmissions: user.learningStats.totalProjectSubmissions
+      },
+      createdAt: new Date(user.createdAt),
+      updatedAt: new Date(user.updatedAt)
+    }));
   } catch (error) {
     console.error('Error fetching users:', error);
     throw new Error('Failed to fetch users');
@@ -234,7 +457,7 @@ export async function getUsers(): Promise<IUser[]> {
 export async function updateUserRole(id: string, role: 'student' | 'mentor' | 'admin'): Promise<void> {
   try {
     await connectDB();
-    await User.findByIdAndUpdate(id, { role });
+    await Student.findByIdAndUpdate(id, { role });
   } catch (error) {
     console.error('Error updating user role:', error);
     throw new Error('Failed to update user role');
@@ -244,8 +467,42 @@ export async function updateUserRole(id: string, role: 'student' | 'mentor' | 'a
 export async function getUserById(id: string): Promise<IUser | null> {
   try {
     await connectDB();
-    const user = await User.findById(id).select('-password').lean();
-    return user as unknown as IUser | null;
+    const user = await Student.findById(id).select('-password').lean() as MongoDocument<IUser> | null;
+    if (!user) return null;
+    
+    return {
+      _id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      password: '', // Excluded from query
+      role: user.role,
+      year: user.year,
+      college: user.college,
+      preferredLanguage: user.preferredLanguage,
+      profiles: user.profiles,
+      interests: user.interests,
+      roadmapProgress: user.roadmapProgress.map((progress: any) => ({
+        roadmapId: progress.roadmapId,
+        completedSteps: progress.completedSteps,
+        currentStep: progress.currentStep,
+        startedAt: new Date(progress.startedAt),
+        lastUpdated: new Date(progress.lastUpdated)
+      })),
+      learningStats: {
+        totalTimeSpent: user.learningStats.totalTimeSpent,
+        stepsCompleted: user.learningStats.stepsCompleted,
+        resourcesViewed: user.learningStats.resourcesViewed,
+        lastActive: new Date(user.learningStats.lastActive),
+        currentStreak: user.learningStats.currentStreak,
+        longestStreak: user.learningStats.longestStreak,
+        loginCount: user.learningStats.loginCount,
+        averageEngagement: user.learningStats.averageEngagement,
+        totalCodeSubmissions: user.learningStats.totalCodeSubmissions,
+        totalProjectSubmissions: user.learningStats.totalProjectSubmissions
+      },
+      createdAt: new Date(user.createdAt),
+      updatedAt: new Date(user.updatedAt)
+    };
   } catch (error) {
     console.error('Error fetching user:', error);
     throw new Error('Failed to fetch user');
@@ -255,7 +512,7 @@ export async function getUserById(id: string): Promise<IUser | null> {
 export async function deleteUser(id: string): Promise<void> {
   try {
     await connectDB();
-    await User.findByIdAndDelete(id);
+    await Student.findByIdAndDelete(id);
   } catch (error) {
     console.error('Error deleting user:', error);
     throw new Error('Failed to delete user');
@@ -274,11 +531,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       totalResources,
       recentUsers
     ] = await Promise.all([
-      User.countDocuments(),
+      Student.countDocuments(),
       Roadmap.countDocuments(),
       CareerDomain.countDocuments(),
       Resource.countDocuments(),
-      User.find()
+      Student.find()
         .select('name email role createdAt')
         .sort({ createdAt: -1 })
         .limit(5)
@@ -286,12 +543,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     ]);
 
     // Properly type the recent users
-    const typedRecentUsers = recentUsers.map((user: any) => ({
+    const typedRecentUsers = (recentUsers as any[]).map((user) => ({
       _id: user._id.toString(),
       name: user.name,
       email: user.email,
       role: user.role,
-      createdAt: user.createdAt
+      createdAt: user.createdAt.toISOString()
     }));
 
     return {
@@ -319,15 +576,15 @@ export async function getPlatformStats() {
       activeUsersThisWeek,
       totalCompletedSteps
     ] = await Promise.all([
-      User.countDocuments({ role: 'student' }),
-      User.countDocuments({ role: 'mentor' }),
-      User.countDocuments({ role: 'admin' }),
-      User.countDocuments({ 
+      Student.countDocuments({ role: 'student' }),
+      Student.countDocuments({ role: 'mentor' }),
+      Student.countDocuments({ role: 'admin' }),
+      Student.countDocuments({ 
         'learningStats.lastActive': { 
           $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) 
         } 
       }),
-      User.aggregate([
+      Student.aggregate([
         { $unwind: '$roadmapProgress' },
         { $match: { 'roadmapProgress.completed': true } },
         { $count: 'totalCompleted' }
@@ -351,7 +608,7 @@ export async function searchUsers(query: string): Promise<IUser[]> {
   try {
     await connectDB();
     
-    const users = await User.find({
+    const users = await Student.find({
       $or: [
         { name: { $regex: query, $options: 'i' } },
         { email: { $regex: query, $options: 'i' } },
@@ -361,9 +618,41 @@ export async function searchUsers(query: string): Promise<IUser[]> {
     .select('-password')
     .sort({ createdAt: -1 })
     .limit(20)
-    .lean();
+    .lean() as MongoDocument<IUser>[];
 
-    return users as unknown as IUser[];
+    return users.map(user => ({
+      _id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      password: '', // Excluded from query
+      role: user.role,
+      year: user.year,
+      college: user.college,
+      preferredLanguage: user.preferredLanguage,
+      profiles: user.profiles,
+      interests: user.interests,
+      roadmapProgress: user.roadmapProgress.map((progress: any) => ({
+        roadmapId: progress.roadmapId,
+        completedSteps: progress.completedSteps,
+        currentStep: progress.currentStep,
+        startedAt: new Date(progress.startedAt),
+        lastUpdated: new Date(progress.lastUpdated)
+      })),
+      learningStats: {
+        totalTimeSpent: user.learningStats.totalTimeSpent,
+        stepsCompleted: user.learningStats.stepsCompleted,
+        resourcesViewed: user.learningStats.resourcesViewed,
+        lastActive: new Date(user.learningStats.lastActive),
+        currentStreak: user.learningStats.currentStreak,
+        longestStreak: user.learningStats.longestStreak,
+        loginCount: user.learningStats.loginCount,
+        averageEngagement: user.learningStats.averageEngagement,
+        totalCodeSubmissions: user.learningStats.totalCodeSubmissions,
+        totalProjectSubmissions: user.learningStats.totalProjectSubmissions
+      },
+      createdAt: new Date(user.createdAt),
+      updatedAt: new Date(user.updatedAt)
+    }));
   } catch (error) {
     console.error('Error searching users:', error);
     throw new Error('Failed to search users');
@@ -374,7 +663,7 @@ export async function bulkUpdateUserRoles(userIds: string[], role: 'student' | '
   try {
     await connectDB();
     
-    await User.updateMany(
+    await Student.updateMany(
       { _id: { $in: userIds } },
       { role }
     );
@@ -444,7 +733,7 @@ export async function exportData(collection: string): Promise<any[]> {
     let data;
     switch (collection) {
       case 'users':
-        data = await User.find().select('-password').lean();
+        data = await Student.find().select('-password').lean();
         break;
       case 'roadmaps':
         data = await Roadmap.find().lean();

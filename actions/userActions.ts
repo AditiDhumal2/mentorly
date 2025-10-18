@@ -1,8 +1,9 @@
 'use server';
 
 import { connectDB } from '@/lib/db';
-import { Student } from '@/models/Students'; // Changed from User to Student
+import { Student } from '@/models/Students';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export async function getCurrentUser() {
   try {
@@ -12,14 +13,11 @@ export async function getCurrentUser() {
     const userCookie = cookieStore.get('user-data');
     
     console.log('🔍 getCurrentUser - User cookie exists:', !!userCookie);
-    console.log('🔍 getCurrentUser - All cookies:', Array.from(cookieStore.getAll()).map(c => c.name));
     
     if (!userCookie?.value) {
       console.log('❌ getCurrentUser - No user cookie found or cookie value is empty');
       return null;
     }
-
-    console.log('🔍 getCurrentUser - Raw cookie value:', userCookie.value);
 
     let userData;
     try {
@@ -42,7 +40,7 @@ export async function getCurrentUser() {
     await connectDB();
     
     console.log('🔍 getCurrentUser - Searching for user with ID:', userId);
-    const user = await Student.findById(userId).select('-password').lean(); // Changed from User to Student
+    const user = await Student.findById(userId).select('-password').lean();
     
     if (!user) {
       console.log('❌ getCurrentUser - User not found in database for ID:', userId);
@@ -84,7 +82,7 @@ export async function getUserData(userId: string) {
     
     await connectDB();
     
-    const user = await Student.findById(userId).select('-password').lean(); // Changed from User to Student
+    const user = await Student.findById(userId).select('-password').lean();
     
     if (!user) {
       console.log('❌ getUserData - User not found for ID:', userId);
@@ -123,7 +121,7 @@ export async function getUserProgress(userId: string) {
     
     await connectDB();
     
-    const user = await Student.findById(userId).select('roadmapProgress brandingProgress savedResources year').lean(); // Changed from User to Student
+    const user = await Student.findById(userId).select('roadmapProgress brandingProgress savedResources year').lean();
     
     if (!user) {
       console.log('❌ getUserProgress - User not found for ID:', userId);
@@ -151,8 +149,8 @@ export async function getUserProgress(userId: string) {
     });
 
     // Calculate percentages
-    const roadmapProgress = Math.min(completedRoadmapSteps * 5, 100); // Simple percentage
-    const brandingProgress = Math.min(completedBrandingTasks * 10, 100); // Simple percentage
+    const roadmapProgress = Math.min(completedRoadmapSteps * 5, 100);
+    const brandingProgress = Math.min(completedBrandingTasks * 10, 100);
 
     console.log('🔍 getUserProgress - Calculated percentages:', {
       roadmapProgress,
@@ -186,7 +184,7 @@ export async function getUserProgress(userId: string) {
       roadmapProgress,
       brandingProgress,
       savedResources: savedResourcesCount,
-      recentActivity: recentActivity.slice(0, 5), // Only show 5 most recent
+      recentActivity: recentActivity.slice(0, 5),
     };
 
     console.log('✅ getUserProgress - Final progress data:', progressData);
@@ -204,7 +202,7 @@ export async function getUserProgress(userId: string) {
   }
 }
 
-// Additional helper function to check authentication
+// Fixed authentication check without headers modification
 export async function checkAuth() {
   try {
     const user = await getCurrentUser();
@@ -221,15 +219,33 @@ export async function checkAuth() {
   }
 }
 
-// Function to clear user session (logout)
-export async function logoutUser() {
-  try {
-    const cookieStore = await cookies();
-    cookieStore.delete('user-data');
-    console.log('✅ logoutUser - User session cleared');
-    return { success: true };
-  } catch (error) {
-    console.error('❌ logoutUser - Error:', error);
-    return { success: false, error: 'Logout failed' };
+// STRICT Server-side protection for student pages
+export async function requireStudentAuth() {
+  console.log('🔐 requireStudentAuth - Starting strict authentication check');
+  
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    console.log('❌ requireStudentAuth - No user found, redirecting to login');
+    redirect('/auth/login?error=no_user&redirect=/students');
   }
+  
+  if (user.role !== 'student') {
+    console.log('❌ requireStudentAuth - Invalid role, redirecting to login');
+    redirect('/auth/login?error=invalid_role&redirect=/students');
+  }
+  
+  console.log('✅ requireStudentAuth - User authenticated:', user.name);
+  return user;
 }
+
+// Enhanced authentication check for any authenticated user
+export async function requireAuth() {
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    redirect('/auth/login?redirect=' + encodeURIComponent('/dashboard'));
+  }
+  
+  return user;
+} 
