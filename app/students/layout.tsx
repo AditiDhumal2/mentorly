@@ -14,10 +14,28 @@ export default async function StudentsLayout({
   console.log('✅ STUDENTS LAYOUT - Access granted for:', user.name);
 
   return (
-    <DashboardLayout user={user}>
-      {/* REMOVED: <AuthGuard /> - server auth is sufficient */}
-      <HistoryManager />
-      {children}
-    </DashboardLayout>
+    <>
+      {/* Set client-side auth flags */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            // Set auth flags when user accesses student pages
+            try {
+              localStorage.setItem('user-authenticated', 'true');
+              sessionStorage.setItem('user-authenticated', 'true');
+              console.log('🔐 Auth flags set for client-side detection');
+            } catch (error) {
+              console.error('Error setting auth flags:', error);
+            }
+          `,
+        }}
+      />
+      <DashboardLayout user={user}>
+        <HistoryManager />
+        {children}
+      </DashboardLayout>
+    </>
   );
 }
+
+export const dynamic = 'force-dynamic';

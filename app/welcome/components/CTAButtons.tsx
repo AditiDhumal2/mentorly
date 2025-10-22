@@ -4,7 +4,7 @@ export default function CTAButtons() {
   return (
     <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
       <Link
-        href="/auth/register"
+        href="/students-auth/register"
         className="group relative overflow-hidden bg-gradient-to-r from-cyan-500 to-purple-600 text-white px-10 py-4 rounded-2xl font-bold text-lg hover:from-cyan-600 hover:to-purple-700 transition-all duration-300 shadow-2xl hover:shadow-cyan-500/25 transform hover:scale-105"
       >
         <span className="relative z-10 flex items-center space-x-2">
@@ -14,7 +14,7 @@ export default function CTAButtons() {
       </Link>
       
       <Link
-        href="/auth/login"
+        href="/students-auth/login"
         className="group border-2 border-cyan-400/50 text-cyan-300 px-10 py-4 rounded-2xl font-bold text-lg hover:bg-cyan-400/10 hover:border-cyan-400 transition-all duration-300 backdrop-blur-lg transform hover:scale-105"
       >
         <span className="flex items-center space-x-2">

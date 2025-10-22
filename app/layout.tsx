@@ -16,6 +16,41 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* SUPER AGGRESSIVE redirect for logged-in users on login page */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Run immediately when HTML is parsed
+              (function() {
+                // Check if we're on login page
+                var isLoginPage = window.location.pathname === '/students-auth/login';
+                
+                if (isLoginPage) {
+                  try {
+                    // Quick and robust cookie check
+                    var cookieMatch = document.cookie.match(/user-data=([^;]+)/);
+                    
+                    if (cookieMatch && cookieMatch[1] && cookieMatch[1] !== '') {
+                      console.log('⚡ ROOT LAYOUT REDIRECT: User logged in, redirecting to /students');
+                      
+                      // Stop any ongoing page load
+                      if (document.readyState === 'loading') {
+                        window.stop();
+                      }
+                      
+                      // Immediate redirect - don't wait for anything
+                      window.location.replace('/students');
+                    }
+                  } catch (error) {
+                    console.error('Root layout redirect error:', error);
+                  }
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className={inter.className}>
         {children}
       </body>

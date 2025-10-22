@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(user);
         
         // If on login page and authenticated, redirect to students
-        if (pathname === '/auth/login') {
+        if (pathname === '/students-auth/login') {
           console.log('🔐 AuthContext - Redirecting authenticated user from login to students');
           router.replace('/students');
         }
@@ -100,12 +100,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Use hard redirect with cache busting
       const timestamp = Date.now();
-      window.location.href = `/auth/login?logout=success&t=${timestamp}&nocache=${Math.random()}`;
+      window.location.href = `/students-auth/login?logout=success&t=${timestamp}&nocache=${Math.random()}`;
       
     } catch (error) {
       console.error('❌ AuthContext - Logout error:', error);
       // Fallback: force redirect to login
-      window.location.href = '/auth/login?logout=error';
+      window.location.href = '/students-auth/login?logout=error';
     }
   };
 

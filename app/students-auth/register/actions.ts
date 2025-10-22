@@ -84,7 +84,7 @@ export async function registerUser(formData: FormData) {
     
     // Redirect to login page with success message
     console.log('🔄 registerUser - Redirecting to login...');
-    redirect('/auth/login?message=Account+created+successfully.+Please+login.&t=' + Date.now());
+    redirect('/students-auth/login?message=Account+created+successfully.+Please+login.&t=' + Date.now());
     
   } catch (error: any) {
     // Check if this is a redirect error (which is actually success)

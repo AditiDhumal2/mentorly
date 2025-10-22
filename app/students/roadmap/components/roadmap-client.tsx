@@ -411,294 +411,269 @@ export default function RoadmapClient({
     <div className="min-h-screen bg-gray-50">
       {/* Notification */}
       {showNotification && (
-        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right duration-500">
-          <div className="bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            <span>Language updated to {selectedLanguage.name}!</span>
+        <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-right duration-500">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl border border-green-300/30 flex items-center gap-3 backdrop-blur-sm">
+            <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <span className="font-medium">Switched to {selectedLanguage.name}!</span>
           </div>
         </div>
       )}
 
       {/* Loading Overlay */}
       {isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg flex items-center gap-3">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            <span className="text-gray-700">Loading Year {selectedYear} roadmap...</span>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl border border-gray-200 max-w-sm mx-4">
+            <div className="flex items-center gap-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div>
+                <div className="font-semibold text-gray-900">Loading Roadmap</div>
+                <div className="text-sm text-gray-600">Year {selectedYear} • {selectedLanguage.name}</div>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Header Section */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 text-white">
         <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+            {/* Left Content */}
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <span className="text-white text-xl">{currentYearInfo?.icon}</span>
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/30">
+                  <span className="text-2xl">{currentYearInfo?.icon}</span>
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    Learning Roadmap
-                  </h1>
-                  <p className="text-gray-600 mt-1">
-                    Year {selectedYear} • {selectedLanguage.name} • {currentYearInfo?.focus}
+                  <h1 className="text-3xl font-bold mb-2">Learning Roadmap</h1>
+                  <p className="text-blue-100 text-lg">
+                    {selectedLanguage.name} • {currentYearInfo?.focus}
                   </p>
+                  <div className="flex items-center gap-3 mt-3">
+                    <span className="px-3 py-1 bg-white/20 rounded-full text-sm backdrop-blur-sm">
+                      Year {selectedYear}
+                    </span>
+                    {selectedYear === studentCurrentYear && (
+                      <span className="px-3 py-1 bg-yellow-400 text-blue-900 rounded-full text-sm font-medium">
+                        ⭐ Current Year
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Progress Stats */}
+              {/* Enhanced Progress Stats */}
               {safeProgressStats && (
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <div className="text-2xl font-bold text-blue-700">
-                      {safeProgressStats.completedSteps}/{safeProgressStats.totalSteps}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {[
+                    { label: "Steps", value: `${safeProgressStats.completedSteps}/${safeProgressStats.totalSteps}`, color: "from-blue-400 to-cyan-400", icon: "📝" },
+                    { label: "Progress", value: `${safeProgressStats.completionRate}%`, color: "from-green-400 to-emerald-400", icon: "📈" },
+                    { label: "Time", value: formatTime(safeProgressStats.totalTimeSpent), color: "from-purple-400 to-pink-400", icon: "⏱️" },
+                    { label: "Streak", value: `${safeProgressStats.currentStreak} days`, color: "from-orange-400 to-red-400", icon: "🔥" },
+                    { label: "Resources", value: safeProgressStats.resourcesViewed, color: "from-indigo-400 to-blue-400", icon: "📚" },
+                    { label: "Engagement", value: `${safeProgressStats.averageEngagement}%`, color: "from-teal-400 to-green-400", icon: "🎯" }
+                  ].map((stat, index) => (
+                    <div key={index} className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm">{stat.icon}</span>
+                        <div className="text-xs text-blue-100 opacity-90">{stat.label}</div>
+                      </div>
+                      <div className={`text-lg font-bold bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
+                        {stat.value}
+                      </div>
                     </div>
-                    <div className="text-xs text-blue-600">Steps Completed</div>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                    <div className="text-2xl font-bold text-green-700">
-                      {safeProgressStats.completionRate}%
-                    </div>
-                    <div className="text-xs text-green-600">Overall Progress</div>
-                  </div>
-                  <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
-                    <div className="text-2xl font-bold text-purple-700">
-                      {formatTime(safeProgressStats.totalTimeSpent)}
-                    </div>
-                    <div className="text-xs text-purple-600">Time Invested</div>
-                  </div>
-                  <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
-                    <div className="text-2xl font-bold text-orange-700">
-                      {safeProgressStats.currentStreak}
-                    </div>
-                    <div className="text-xs text-orange-600">Current Streak</div>
-                  </div>
-                  <div className="bg-red-50 p-3 rounded-lg border border-red-200">
-                    <div className="text-2xl font-bold text-red-700">
-                      {safeProgressStats.autoCompletedSteps}
-                    </div>
-                    <div className="text-xs text-red-600">Auto-Completed</div>
-                  </div>
-                  <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
-                    <div className="text-2xl font-bold text-indigo-700">
-                      {safeProgressStats.averageEngagement}%
-                    </div>
-                    <div className="text-xs text-indigo-600">Avg Engagement</div>
-                  </div>
+                  ))}
                 </div>
               )}
             </div>
             
-            {/* Controls Section - Compact Layout */}
-            <div className="flex flex-col gap-4">
-              {/* Year and Language Selectors Row */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                {/* Year Selector */}
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="year-select" className="text-sm font-medium text-gray-700">
-                    Academic Year
-                  </label>
-                  <div className="relative">
+            {/* Controls Section */}
+            <div className="flex flex-col gap-4 min-w-[300px]">
+              {/* Year & Language Selectors */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+                <div className="space-y-4">
+                  {/* Year Selector */}
+                  <div>
+                    <label className="text-blue-100 text-sm font-medium mb-2 block">Academic Year</label>
                     <select
-                      id="year-select"
                       value={selectedYear}
                       onChange={(e) => handleYearChange(Number(e.target.value))}
-                      disabled={isUpdating || isLoading}
-                      className="appearance-none w-48 px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 bg-white pr-10 cursor-pointer"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm"
                     >
                       {yearOptions.map((year) => (
-                        <option key={year.value} value={year.value}>
+                        <option key={year.value} value={year.value} className="text-gray-900">
                           {year.icon} {year.label} {year.isRecommended && '⭐'}
                         </option>
                       ))}
                     </select>
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
                   </div>
-                </div>
 
-                {/* Language Selector */}
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="language-select" className="text-sm font-medium text-gray-700">
-                    Language
-                  </label>
-                  <div className="relative">
+                  {/* Language Selector */}
+                  <div>
+                    <label className="text-blue-100 text-sm font-medium mb-2 block">Programming Language</label>
                     <select
-                      id="language-select"
                       value={selectedLanguage.id}
                       onChange={(e) => handleLanguageChange(e.target.value)}
-                      disabled={isUpdating || isLoading}
-                      className="appearance-none w-48 px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 bg-white pr-10 cursor-pointer"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm"
                     >
                       {languages.map((language) => (
-                        <option key={language.id} value={language.id}>
+                        <option key={language.id} value={language.id} className="text-gray-900">
                           {language.icon} {language.name}
                         </option>
                       ))}
                     </select>
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Compact Tutorial Progress */}
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Tutorial Progress
-                </label>
-                <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                      <span className="text-yellow-500">🎬</span>
-                      Watch Tutorials
-                    </h3>
-                    <span className="text-xs text-gray-500">0% Overall</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-2">
-                    {/* Python Basics */}
-                    <div className="text-center">
-                      <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center text-white text-sm mx-auto mb-1">
-                        🐍
+              {/* Quick Progress */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <span>🎬</span> Learning Progress
+                </h3>
+                <div className="space-y-3">
+                  {[
+                    { name: "Python Basics", progress: 0, color: "from-green-400 to-emerald-400", icon: "🐍" },
+                    { name: "Data Structures", progress: 0, color: "from-blue-400 to-cyan-400", icon: "📊" },
+                    { name: "Algorithms", progress: 0, color: "from-purple-400 to-pink-400", icon: "⚡" }
+                  ].map((item, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-gradient-to-r rounded-lg flex items-center justify-center text-white text-sm">
+                        {item.icon}
                       </div>
-                      <div className="text-xs font-medium text-gray-700 mb-1">Basics</div>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div className="h-1.5 rounded-full bg-gradient-to-r from-green-500 to-emerald-500" style={{ width: '0%' }}></div>
+                      <div className="flex-1">
+                        <div className="flex justify-between text-xs text-blue-100 mb-1">
+                          <span>{item.name}</span>
+                          <span>{item.progress}%</span>
+                        </div>
+                        <div className="w-full bg-white/20 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full bg-gradient-to-r ${item.color}`}
+                            style={{ width: `${item.progress}%` }}
+                          ></div>
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">0%</div>
                     </div>
-
-                    {/* Data Structures */}
-                    <div className="text-center">
-                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center text-white text-sm mx-auto mb-1">
-                        📊
-                      </div>
-                      <div className="text-xs font-medium text-gray-700 mb-1">Data</div>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div className="h-1.5 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500" style={{ width: '0%' }}></div>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">0%</div>
-                    </div>
-
-                    {/* Algorithms */}
-                    <div className="text-center">
-                      <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white text-sm mx-auto mb-1">
-                        ⚡
-                      </div>
-                      <div className="text-xs font-medium text-gray-700 mb-1">Algos</div>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div className="h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500" style={{ width: '0%' }}></div>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">0%</div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Year Navigation Tabs */}
-          <div className="mt-6">
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-              {yearOptions.map((year) => (
-                <button
-                  key={year.value}
-                  onClick={() => handleYearChange(year.value)}
-                  disabled={isLoading}
-                  className={`flex-1 px-4 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
-                    selectedYear === year.value
-                      ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-                  } ${
-                    year.isRecommended ? 'ring-2 ring-yellow-400 ring-opacity-50' : ''
-                  } relative`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span>{year.icon}</span>
-                    <span className="hidden sm:inline">{year.label}</span>
-                    <span className="sm:hidden">Year {year.value}</span>
-                    {year.isRecommended && (
-                      <span className="text-yellow-500 text-xs">⭐</span>
+      {/* Year Navigation */}
+      <div className="container mx-auto px-4 -mt-6 relative z-10">
+        <div className="flex justify-center">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-2 inline-flex">
+            {yearOptions.map((year) => (
+              <button
+                key={year.value}
+                onClick={() => handleYearChange(year.value)}
+                className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+                  selectedYear === year.value
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md transform scale-105'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                } relative min-w-[140px]`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-lg">{year.icon}</span>
+                  <div className="text-left">
+                    <div className="text-sm font-semibold">Year {year.value}</div>
+                    <div className="text-xs opacity-80">{year.label.split(' - ')[1]}</div>
+                  </div>
+                  {year.isRecommended && (
+                    <span className="absolute -top-1 -right-1 text-yellow-400 text-sm">⭐</span>
+                  )}
+                </div>
+                {year.progress > 0 && (
+                  <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-20 bg-gray-200 rounded-full h-1.5">
+                    <div 
+                      className="bg-green-500 h-1.5 rounded-full transition-all duration-500"
+                      style={{ width: `${year.progress}%` }}
+                    ></div>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Year Information */}
+      <div className="container mx-auto px-4 mt-8">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="p-8">
+            <div className="flex items-start gap-6">
+              <div className="flex-shrink-0">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-3xl text-white shadow-lg">
+                  {currentYearInfo?.icon}
+                </div>
+              </div>
+              
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900">{currentYearInfo?.title}</h2>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                      🎓 Year {selectedYear}
+                    </span>
+                    {selectedYear === studentCurrentYear && (
+                      <span className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full text-sm font-semibold">
+                        ⭐ Your Current Focus
+                      </span>
                     )}
                   </div>
-                  {year.progress > 0 && (
-                    <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-16 bg-gray-200 rounded-full h-1">
-                      <div 
-                        className="bg-green-500 h-1 rounded-full"
-                        style={{ width: `${year.progress}%` }}
-                      ></div>
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Year Information Card */}
-          <div className="mt-6 p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-2xl text-white">
-                {currentYearInfo?.icon}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2 flex-wrap">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    {currentYearInfo?.title}
-                  </h3>
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
-                    Year {selectedYear}
-                  </span>
-                  {selectedYear === studentCurrentYear && (
-                    <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">
-                      ⭐ Your Current Year
-                    </span>
-                  )}
-                  {selectedYear < studentCurrentYear && (
-                    <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
-                      ✓ Review Year
-                    </span>
-                  )}
-                  {selectedYear > studentCurrentYear && (
-                    <span className="px-3 py-1 bg-gray-100 text-gray-800 text-sm font-medium rounded-full">
-                      🔮 Future Year
-                    </span>
-                  )}
                 </div>
-                <p className="text-gray-700 mb-4">
+                
+                <p className="text-gray-700 text-lg leading-relaxed mb-6">
                   {currentYearInfo?.description}
                 </p>
-                <div className="flex flex-wrap gap-3">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg border border-blue-200">
-                    <span>🎯</span>
-                    Focus: {currentYearInfo?.focus}
-                  </div>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 text-sm font-medium rounded-lg border border-gray-200">
-                    <span>📋</span>
-                    Prerequisites: {currentYearInfo?.prerequisites}
-                  </div>
-                  {safeProgressStats && (
-                    <>
-                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-700 text-sm font-medium rounded-lg border border-green-200/50">
-                        <span>⏱️</span>
-                        {formatTime(safeProgressStats.totalTimeSpent)} invested
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                      <span className="text-2xl">🎯</span>
+                      <div>
+                        <div className="font-semibold text-gray-900">Focus Area</div>
+                        <div className="text-gray-600 text-sm">{currentYearInfo?.focus}</div>
                       </div>
-                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500/10 text-purple-700 text-sm font-medium rounded-lg border border-purple-200/50">
-                        <span>🔥</span>
-                        {safeProgressStats.currentStreak} day streak
+                    </div>
+                    
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                      <span className="text-2xl">📋</span>
+                      <div>
+                        <div className="font-semibold text-gray-900">Prerequisites</div>
+                        <div className="text-gray-600 text-sm">{currentYearInfo?.prerequisites}</div>
                       </div>
-                    </>
-                  )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {safeProgressStats && (
+                      <>
+                        <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl">
+                          <span className="text-2xl">⏱️</span>
+                          <div>
+                            <div className="font-semibold text-gray-900">Time Invested</div>
+                            <div className="text-gray-600 text-sm">{formatTime(safeProgressStats.totalTimeSpent)}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl">
+                          <span className="text-2xl">🔥</span>
+                          <div>
+                            <div className="font-semibold text-gray-900">Learning Streak</div>
+                            <div className="text-gray-600 text-sm">{safeProgressStats.currentStreak} days active</div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

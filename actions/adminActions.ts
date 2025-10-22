@@ -1,4 +1,3 @@
-// actions/adminActions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
@@ -7,6 +6,7 @@ import { CareerDomain } from '@/models/CareerDomain';
 import { MarketTrend } from '@/models/MarketTrend';
 import { Resource } from '@/models/Resource';
 import { Student } from '@/models/Students';
+import { verifyAdminSession } from './adminAuthActions';
 
 // Define types locally since interfaces aren't exported from models
 export interface IRoadmap {
@@ -128,6 +128,11 @@ type MongoDocument<T> = T & {
 // Roadmap Admin Actions
 export async function getRoadmaps(): Promise<IRoadmap[]> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     const roadmaps = await Roadmap.find().sort({ year: 1 }).lean() as MongoDocument<IRoadmap>[];
     
@@ -149,6 +154,11 @@ export async function getRoadmaps(): Promise<IRoadmap[]> {
 
 export async function createRoadmap(roadmapData: Omit<IRoadmap, '_id' | 'createdAt' | 'updatedAt'>): Promise<IRoadmap> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     const roadmap = new Roadmap(roadmapData);
     const savedRoadmap = await roadmap.save();
@@ -170,6 +180,11 @@ export async function createRoadmap(roadmapData: Omit<IRoadmap, '_id' | 'created
 
 export async function updateRoadmap(id: string, roadmapData: Partial<IRoadmap>): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     await Roadmap.findByIdAndUpdate(id, roadmapData);
   } catch (error) {
@@ -180,6 +195,11 @@ export async function updateRoadmap(id: string, roadmapData: Partial<IRoadmap>):
 
 export async function deleteRoadmap(id: string): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     await Roadmap.findByIdAndDelete(id);
   } catch (error) {
@@ -191,6 +211,11 @@ export async function deleteRoadmap(id: string): Promise<void> {
 // Career Domains Admin Actions
 export async function getCareerDomains(): Promise<ICareerDomain[]> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     const domains = await CareerDomain.find().sort({ name: 1 }).lean() as MongoDocument<ICareerDomain>[];
     
@@ -212,6 +237,11 @@ export async function getCareerDomains(): Promise<ICareerDomain[]> {
 
 export async function createCareerDomain(domainData: Omit<ICareerDomain, '_id' | 'lastUpdated'>): Promise<ICareerDomain> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     const domain = new CareerDomain({
       ...domainData,
@@ -236,6 +266,11 @@ export async function createCareerDomain(domainData: Omit<ICareerDomain, '_id' |
 
 export async function updateCareerDomain(id: string, domainData: Partial<ICareerDomain>): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     await CareerDomain.findByIdAndUpdate(id, { 
       ...domainData, 
@@ -249,6 +284,11 @@ export async function updateCareerDomain(id: string, domainData: Partial<ICareer
 
 export async function deleteCareerDomain(id: string): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     await CareerDomain.findByIdAndDelete(id);
   } catch (error) {
@@ -260,6 +300,11 @@ export async function deleteCareerDomain(id: string): Promise<void> {
 // Market Trends Admin Actions
 export async function getMarketTrends(): Promise<IMarketTrend[]> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     const trends = await MarketTrend.find().sort({ createdAt: -1 }).lean() as MongoDocument<IMarketTrend>[];
     
@@ -283,6 +328,11 @@ export async function getMarketTrends(): Promise<IMarketTrend[]> {
 
 export async function createMarketTrend(trendData: Omit<IMarketTrend, '_id' | 'createdAt' | 'updatedAt'>): Promise<IMarketTrend> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     const trend = new MarketTrend(trendData);
     const savedTrend = await trend.save();
@@ -306,6 +356,11 @@ export async function createMarketTrend(trendData: Omit<IMarketTrend, '_id' | 'c
 
 export async function updateMarketTrend(id: string, trendData: Partial<IMarketTrend>): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     await MarketTrend.findByIdAndUpdate(id, trendData);
   } catch (error) {
@@ -316,6 +371,11 @@ export async function updateMarketTrend(id: string, trendData: Partial<IMarketTr
 
 export async function deleteMarketTrend(id: string): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     await MarketTrend.findByIdAndDelete(id);
   } catch (error) {
@@ -327,6 +387,11 @@ export async function deleteMarketTrend(id: string): Promise<void> {
 // Resources Admin Actions
 export async function getResources(): Promise<IResource[]> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     const resources = await Resource.find()
       .populate('addedBy', 'name email')
@@ -357,6 +422,11 @@ export async function getResources(): Promise<IResource[]> {
 
 export async function createResource(resourceData: Omit<IResource, '_id' | 'ratedBy' | 'rating' | 'createdAt' | 'updatedAt'>): Promise<IResource> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     const resource = new Resource({
       ...resourceData,
@@ -388,6 +458,11 @@ export async function createResource(resourceData: Omit<IResource, '_id' | 'rate
 
 export async function updateResource(id: string, resourceData: Partial<IResource>): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     await Resource.findByIdAndUpdate(id, resourceData);
   } catch (error) {
@@ -398,6 +473,11 @@ export async function updateResource(id: string, resourceData: Partial<IResource
 
 export async function deleteResource(id: string): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     await Resource.findByIdAndDelete(id);
   } catch (error) {
@@ -409,6 +489,11 @@ export async function deleteResource(id: string): Promise<void> {
 // Users Admin Actions
 export async function getUsers(): Promise<IUser[]> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     const users = await Student.find()
       .select('-password')
@@ -456,6 +541,11 @@ export async function getUsers(): Promise<IUser[]> {
 
 export async function updateUserRole(id: string, role: 'student' | 'mentor' | 'admin'): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     await Student.findByIdAndUpdate(id, { role });
   } catch (error) {
@@ -466,6 +556,11 @@ export async function updateUserRole(id: string, role: 'student' | 'mentor' | 'a
 
 export async function getUserById(id: string): Promise<IUser | null> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     const user = await Student.findById(id).select('-password').lean() as MongoDocument<IUser> | null;
     if (!user) return null;
@@ -511,6 +606,11 @@ export async function getUserById(id: string): Promise<IUser | null> {
 
 export async function deleteUser(id: string): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     await Student.findByIdAndDelete(id);
   } catch (error) {
@@ -522,6 +622,11 @@ export async function deleteUser(id: string): Promise<void> {
 // Dashboard Stats
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     
     const [
@@ -567,6 +672,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 // Additional admin utility functions
 export async function getPlatformStats() {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     
     const [
@@ -606,6 +716,11 @@ export async function getPlatformStats() {
 
 export async function searchUsers(query: string): Promise<IUser[]> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     
     const users = await Student.find({
@@ -661,6 +776,11 @@ export async function searchUsers(query: string): Promise<IUser[]> {
 
 export async function bulkUpdateUserRoles(userIds: string[], role: 'student' | 'mentor' | 'admin'): Promise<void> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     
     await Student.updateMany(
@@ -676,6 +796,11 @@ export async function bulkUpdateUserRoles(userIds: string[], role: 'student' | '
 // Content management utilities
 export async function getContentOverview() {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     
     const [
@@ -708,6 +833,11 @@ export async function getContentOverview() {
 // System maintenance functions
 export async function cleanupOrphanedData(): Promise<{ deletedCount: number }> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     
     // Example: Clean up resources that don't have a valid addedBy user
@@ -728,6 +858,11 @@ export async function cleanupOrphanedData(): Promise<{ deletedCount: number }> {
 
 export async function exportData(collection: string): Promise<any[]> {
   try {
+    const session = await verifyAdminSession();
+    if (!session.isValid) {
+      throw new Error('Authentication required');
+    }
+
     await connectDB();
     
     let data;

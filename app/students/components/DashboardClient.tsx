@@ -105,8 +105,8 @@ export default function DashboardClient({
       
     } catch (error) {
       console.error('❌ DashboardClient - Logout failed, forcing redirect:', error);
-      // Fallback: force redirect to login
-      window.location.href = '/auth/login?logout=true&fallback=true&t=' + Date.now();
+      // Fallback: force redirect to login - FIXED PATH
+      window.location.href = '/students-auth/login?logout=true&fallback=true&t=' + Date.now();
     }
   };
 

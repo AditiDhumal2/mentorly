@@ -15,8 +15,7 @@ export async function loginUser(formData: FormData) {
     console.log('🔍 loginUser - Attempting login for:', email);
 
     if (!email || !password) {
-      // Use redirect instead of return for errors to maintain consistent flow
-      redirect('/auth/login?error=Email and password are required');
+      redirect('/students-auth/login?error=Email and password are required');
     }
 
     const student = await Student.findOne({ 
@@ -24,13 +23,13 @@ export async function loginUser(formData: FormData) {
     });
     
     if (!student) {
-      redirect('/auth/login?error=No account found with this email');
+      redirect('/students-auth/login?error=No account found with this email');
     }
 
     const isPasswordValid = await student.comparePassword(password);
     
     if (!isPasswordValid) {
-      redirect('/auth/login?error=Incorrect password. Please try again');
+      redirect('/students-auth/login?error=Incorrect password. Please try again');
     }
 
     console.log('✅ loginUser - Student password valid');
@@ -71,10 +70,10 @@ export async function loginUser(formData: FormData) {
     
   } catch (error: any) {
     if (error.digest?.startsWith('NEXT_REDIRECT')) {
-      throw error; // Re-throw redirect errors
+      throw error;
     }
     
     console.error('❌ loginUser - Login error:', error);
-    redirect('/auth/login?error=Failed to login. Please try again');
+    redirect('/students-auth/login?error=Failed to login. Please try again');
   }
 }

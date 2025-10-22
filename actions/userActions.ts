@@ -227,12 +227,12 @@ export async function requireStudentAuth() {
   
   if (!user) {
     console.log('❌ requireStudentAuth - No user found, redirecting to login');
-    redirect('/auth/login?error=no_user&redirect=/students');
+    redirect('/students-auth/login?error=no_user&redirect=/students'); // FIXED PATH
   }
   
   if (user.role !== 'student') {
     console.log('❌ requireStudentAuth - Invalid role, redirecting to login');
-    redirect('/auth/login?error=invalid_role&redirect=/students');
+    redirect('/students-auth/login?error=invalid_role&redirect=/students'); // FIXED PATH
   }
   
   console.log('✅ requireStudentAuth - User authenticated:', user.name);
@@ -244,8 +244,8 @@ export async function requireAuth() {
   const user = await getCurrentUser();
   
   if (!user) {
-    redirect('/auth/login?redirect=' + encodeURIComponent('/dashboard'));
+    redirect('/students-auth/login?redirect=' + encodeURIComponent('/dashboard')); // FIXED PATH
   }
   
   return user;
-} 
+}

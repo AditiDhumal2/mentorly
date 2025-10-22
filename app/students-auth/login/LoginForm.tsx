@@ -154,7 +154,8 @@ export function LoginForm() {
           </div>
 
           <div className="text-sm">
-            <a href="/auth/forgot-password" className="text-cyan-400 hover:text-cyan-300 transition-colors">
+            {/* FIXED: Changed /auth/forgot-password to /students-auth/forgot-password */}
+            <a href="/students-auth/forgot-password" className="text-cyan-400 hover:text-cyan-300 transition-colors">
               Forgot your password?
             </a>
           </div>
@@ -185,8 +186,9 @@ export function LoginForm() {
         <div className="text-center mt-6">
           <p className="text-gray-300 text-sm">
             Don't have an account?{' '}
+            {/* FIXED: Changed /auth/register to /students-auth/register */}
             <a 
-              href="/auth/register" 
+              href="/students-auth/register" 
               className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
             >
               Sign up here

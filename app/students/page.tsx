@@ -1,7 +1,5 @@
-// app/students/page.tsx
 export default async function StudentsDashboardPage() {
-  // REMOVE the auth call - layout already handles authentication
-  // const user = await requireStudentAuth(); ← DELETE THIS LINE
+  // No auth check needed here - layout handles it automatically
 
   return (
     <div className="space-y-6">
@@ -62,3 +60,5 @@ export default async function StudentsDashboardPage() {
     </div>
   );
 }
+
+export const dynamic = 'force-dynamic';

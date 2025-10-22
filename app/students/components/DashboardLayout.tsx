@@ -1,8 +1,8 @@
-// app/students/components/DashboardLayout.tsx
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { logout } from '../../students-auth/logout/actions';
 
 interface User {
   id: string;
@@ -36,12 +36,30 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
 
   const isActive = (path: string) => pathname === path;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsLoggingOut(true);
-    // Use window.location with cache busting
-    const timestamp = Date.now();
-    const random = Math.random();
-    window.location.href = `/logout?t=${timestamp}&r=${random}`;
+    try {
+      // Clear client-side storage first
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('user-authenticated');
+        sessionStorage.removeItem('user-authenticated');
+        localStorage.removeItem('auth-timestamp');
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Clear cookies client-side as backup
+        document.cookie = 'user-data=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        document.cookie = 'session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      }
+      
+      await logout();
+      
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Even if server logout fails, redirect with success
+      // This prevents the user from getting stuck
+      window.location.href = '/students-auth/login?logout=success&fallback=true';
+    }
   };
 
   const handleNavigation = (path: string) => {
@@ -61,18 +79,6 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
     if (!user.college) return 'College';
     return user.college.split(' ')[0];
   };
-
-  if (isLoggingOut) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 to-blue-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-white text-xl font-semibold mb-2">Logging out...</h2>
-          <p className="text-blue-200">Please wait while we secure your session</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900">
@@ -183,7 +189,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
               <p className="text-green-200 text-xs mt-1">You are safely authenticated</p>
             </div>
             
-            {/* Logout Button */}
+            {/* Updated Logout Button */}
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
@@ -197,16 +203,6 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                 <div className="w-4 h-4 border-2 border-red-300 border-t-transparent rounded-full animate-spin"></div>
               )}
             </button>
-
-            {/* Emergency clear cookies link */}
-            <div className="text-center">
-              <button
-                onClick={() => window.location.href = '/clear-cookies'}
-                className="text-xs text-blue-300 hover:text-cyan-300 underline"
-              >
-                Emergency Clear Cookies
-              </button>
-            </div>
           </div>
         </div>
       </div>

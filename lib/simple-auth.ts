@@ -16,21 +16,29 @@ export async function requireStudentAuth(): Promise<AuthenticatedUser> {
   const cookieStore = await cookies();
   const userCookie = cookieStore.get('user-data');
   
-  console.log('🔐 AUTH - Checking student authentication');
+  console.log('🔐 AUTH - Starting authentication check');
+  console.log('🔐 AUTH - Cookie exists:', !!userCookie);
+  console.log('🔐 AUTH - Cookie value:', userCookie?.value ? 'PRESENT' : 'MISSING');
   
   if (!userCookie?.value) {
-    console.log('🛑 AUTH - No auth cookie, redirecting to login');
-    redirect('/auth/login?error=unauthorized');
+    console.log('🛑 AUTH - NO AUTH COOKIE - Redirecting to login');
+    redirect('/students-auth/login?error=unauthorized');
   }
   
   try {
     const userData = JSON.parse(userCookie.value);
+    console.log('🔐 AUTH - Parsed user data:', {
+      hasId: !!userData.id,
+      hasEmail: !!userData.email,
+      hasName: !!userData.name,
+      role: userData.role
+    });
     
     // Basic validation
     if (!userData.id || !userData.email) {
       console.log('🛑 AUTH - Invalid user data in cookie');
       cookieStore.delete('user-data');
-      redirect('/auth/login?error=invalid_session');
+      redirect('/students-auth/login?error=invalid_session');
     }
     
     console.log('✅ AUTH - Student authenticated:', userData.name);
@@ -44,8 +52,8 @@ export async function requireStudentAuth(): Promise<AuthenticatedUser> {
       college: userData.college || '',
     };
   } catch (error) {
-    console.error('❌ AUTH - Error:', error);
+    console.error('❌ AUTH - Error parsing cookie:', error);
     cookieStore.delete('user-data');
-    redirect('/auth/login?error=server_error');
+    redirect('/students-auth/login?error=server_error');
   }
 }
