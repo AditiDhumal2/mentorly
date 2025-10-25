@@ -1,3 +1,4 @@
+// lib/actions/user-actions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
@@ -10,46 +11,69 @@ export async function getCurrentUser() {
     console.log('🔍 getCurrentUser - Starting to fetch current user...');
     
     const cookieStore = await cookies();
-    const userCookie = cookieStore.get('user-data');
     
-    console.log('🔍 getCurrentUser - User cookie exists:', !!userCookie);
+    // Get ALL cookies for debugging
+    const allCookies = cookieStore.getAll();
+    console.log('🍪 getCurrentUser - All available cookies:', allCookies.map(c => c.name));
     
-    if (!userCookie?.value) {
-      console.log('❌ getCurrentUser - No user cookie found or cookie value is empty');
+    // USE ONLY NEW COOKIE NAME - ignore all old cookies
+    const studentCookie = cookieStore.get('student-session-v2');
+    
+    console.log('🔍 getCurrentUser - Student cookie found:', !!studentCookie);
+    console.log('🔍 getCurrentUser - Using ONLY student-session-v2 cookie');
+
+    if (!studentCookie) {
+      console.log('❌ getCurrentUser - No student session cookie found');
+      return null;
+    }
+
+    console.log('🔍 getCurrentUser - Cookie value length:', studentCookie.value?.length);
+    
+    if (!studentCookie.value || studentCookie.value.trim() === '') {
+      console.log('❌ getCurrentUser - Cookie exists but value is empty or whitespace');
       return null;
     }
 
     let userData;
     try {
-      userData = JSON.parse(userCookie.value);
-      console.log('🔍 getCurrentUser - Parsed user data:', userData);
+      userData = JSON.parse(studentCookie.value);
+      console.log('🔍 getCurrentUser - Successfully parsed user data:', {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role
+      });
     } catch (parseError) {
       console.error('❌ getCurrentUser - Error parsing cookie JSON:', parseError);
+      console.log('🔍 getCurrentUser - Raw cookie value:', studentCookie.value);
       return null;
     }
 
-    const userId = userData.id || userData._id;
-    console.log('🔍 getCurrentUser - Extracted user ID:', userId);
-
-    if (!userId) {
+    // Validate required fields
+    if (!userData.id) {
       console.log('❌ getCurrentUser - No user ID found in cookie data');
+      return null;
+    }
+
+    // STRICT validation - must be student role
+    if (userData.role !== 'student') {
+      console.log('❌ getCurrentUser - Invalid role for student access:', userData.role);
       return null;
     }
 
     console.log('🔍 getCurrentUser - Connecting to database...');
     await connectDB();
     
-    console.log('🔍 getCurrentUser - Searching for user with ID:', userId);
-    const user = await Student.findById(userId).select('-password').lean();
+    console.log('🔍 getCurrentUser - Searching for student with ID:', userData.id);
+    const user = await Student.findById(userData.id).select('-password').lean();
     
     if (!user) {
-      console.log('❌ getCurrentUser - User not found in database for ID:', userId);
+      console.log('❌ getCurrentUser - Student not found in database for ID:', userData.id);
       return null;
     }
 
-    console.log('🔍 getCurrentUser - Raw user data from DB:', user);
-
-    // Simple type assertion
+    console.log('✅ getCurrentUser - Student found in database:', (user as any).name);
+    
     const userDataFromDB = user as any;
     
     const formattedUser = {
@@ -65,15 +89,116 @@ export async function getCurrentUser() {
       updatedAt: userDataFromDB.updatedAt
     };
 
-    console.log('✅ getCurrentUser - Successfully found user:', formattedUser.name);
-    console.log('✅ getCurrentUser - User role:', formattedUser.role);
-    console.log('✅ getCurrentUser - User year:', formattedUser.year);
+    console.log('✅ getCurrentUser - Successfully returning student:', formattedUser.name);
     
     return formattedUser;
   } catch (error) {
     console.error('❌ getCurrentUser - Unexpected error:', error);
     return null;
   }
+}
+
+// Student-specific session verification (NO REDIRECTS)
+export async function verifyStudentSession() {
+  try {
+    const cookieStore = await cookies();
+    
+    // USE ONLY NEW COOKIE NAME
+    const studentDataCookie = cookieStore.get('student-session-v2')?.value;
+
+    if (!studentDataCookie) {
+      return { isValid: false, error: 'No student session found' };
+    }
+
+    const studentData = JSON.parse(studentDataCookie);
+    
+    // Verify it's actually a student session
+    if (studentData.role !== 'student') {
+      return { isValid: false, error: 'Not a student session' };
+    }
+
+    await connectDB();
+    const student = await Student.findById(studentData.id);
+    
+    if (!student) {
+      return { isValid: false, error: 'Student account not found' };
+    }
+
+    return { 
+      isValid: true, 
+      student: {
+        id: student._id.toString(),
+        name: student.name,
+        email: student.email,
+        role: 'student',
+        year: student.year,
+        college: student.college,
+        profiles: student.profiles || {},
+        interests: student.interests || []
+      }
+    };
+  } catch (error) {
+    console.error('❌ verifyStudentSession - Error:', error);
+    return { isValid: false, error: 'Student session verification failed' };
+  }
+}
+
+// For student dashboard - NO REDIRECT, just return status
+export async function checkStudentAuth() {
+  const session = await verifyStudentSession();
+  
+  if (!session.isValid || !session.student) {
+    console.log('🛑 checkStudentAuth - No valid student session');
+    return { authenticated: false, student: null };
+  }
+  
+  console.log('✅ checkStudentAuth - Student session valid for:', session.student.email);
+  
+  return {
+    authenticated: true,
+    student: session.student
+  };
+}
+
+// Student-only logout - NO REDIRECTS
+export async function studentLogout() {
+  console.log('🔒 Student-only logout initiated');
+  
+  const cookieStore = await cookies();
+  
+  // Clear ALL student-related cookies including new one
+  const studentCookies = [
+    'student-data', 
+    'user-data',
+    'student-session-v2'
+  ];
+  
+  studentCookies.forEach(cookieName => {
+    const hadCookie = !!cookieStore.get(cookieName);
+    cookieStore.delete(cookieName);
+    console.log(`🗑️ studentLogout - Deleted student cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
+  });
+  
+  // Verify student cookies are cleared but admin cookies remain
+  const studentDataAfter = cookieStore.get('student-data');
+  const userDataAfter = cookieStore.get('user-data');
+  const studentSessionV2After = cookieStore.get('student-session-v2');
+  const adminDataAfter = cookieStore.get('admin-data');
+  
+  console.log('✅ studentLogout - Verification:', {
+    studentDataAfter: studentDataAfter ? 'STILL_EXISTS' : 'DELETED',
+    userDataAfter: userDataAfter ? 'STILL_EXISTS' : 'DELETED',
+    studentSessionV2After: studentSessionV2After ? 'STILL_EXISTS' : 'DELETED',
+    adminDataAfter: adminDataAfter ? 'STILL_EXISTS' : 'DELETED'
+  });
+
+  console.log('✅ studentLogout - All student cookies cleared, admin sessions preserved');
+  
+  return { 
+    success: true, 
+    message: 'Student logout successful',
+    redirectUrl: '/students-auth/login?logout=success&t=' + Date.now()
+  };
 }
 
 export async function getUserData(userId: string) {
@@ -227,15 +352,15 @@ export async function requireStudentAuth() {
   
   if (!user) {
     console.log('❌ requireStudentAuth - No user found, redirecting to login');
-    redirect('/students-auth/login?error=no_user&redirect=/students'); // FIXED PATH
+    redirect('/students-auth/login?error=no_user&redirect=/students');
   }
   
   if (user.role !== 'student') {
     console.log('❌ requireStudentAuth - Invalid role, redirecting to login');
-    redirect('/students-auth/login?error=invalid_role&redirect=/students'); // FIXED PATH
+    redirect('/students-auth/login?error=invalid_role&redirect=/students');
   }
   
-  console.log('✅ requireStudentAuth - User authenticated:', user.name);
+  console.log('✅ requireStudentAuth - Student authenticated:', user.name);
   return user;
 }
 
@@ -244,8 +369,74 @@ export async function requireAuth() {
   const user = await getCurrentUser();
   
   if (!user) {
-    redirect('/students-auth/login?redirect=' + encodeURIComponent('/dashboard')); // FIXED PATH
+    redirect('/students-auth/login?redirect=' + encodeURIComponent('/dashboard'));
   }
   
   return user;
+}
+
+// Check existing student auth for login page
+export async function checkExistingStudentAuth() {
+  try {
+    const session = await verifyStudentSession();
+    
+    if (session.isValid) {
+      console.log('✅ checkExistingStudentAuth - Student authenticated');
+      return true;
+    }
+    
+    console.log('✅ checkExistingStudentAuth - No student session');
+    return false;
+  } catch (error) {
+    console.log('✅ checkExistingStudentAuth - Error, assuming no session');
+    return false;
+  }
+}
+
+// Get current student session data (for client-side use)
+export async function getCurrentStudentSession() {
+  try {
+    const cookieStore = await cookies();
+    
+    // USE ONLY NEW COOKIE NAME
+    const studentDataCookie = cookieStore.get('student-session-v2')?.value;
+
+    if (!studentDataCookie) {
+      return { isLoggedIn: false, student: null };
+    }
+
+    const studentData = JSON.parse(studentDataCookie);
+    
+    // Only return if it's actually a student session
+    if (studentData.role !== 'student') {
+      return { isLoggedIn: false, student: null };
+    }
+    
+    return { 
+      isLoggedIn: true, 
+      student: studentData 
+    };
+  } catch (error) {
+    console.error('❌ getCurrentStudentSession - Error:', error);
+    return { isLoggedIn: false, student: null };
+  }
+}
+
+// Check if student session exists without validation (for middleware)
+export async function hasStudentSession() {
+  try {
+    const cookieStore = await cookies();
+    
+    // USE ONLY NEW COOKIE NAME
+    const studentDataCookie = cookieStore.get('student-session-v2')?.value;
+    
+    if (!studentDataCookie) {
+      return false;
+    }
+    
+    const studentData = JSON.parse(studentDataCookie);
+    return studentData.role === 'student';
+  } catch (error) {
+    return false;
+  }
 }

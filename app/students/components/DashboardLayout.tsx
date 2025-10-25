@@ -1,3 +1,4 @@
+// app/students/components/DashboardLayout.tsx
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
@@ -5,17 +6,21 @@ import { useState } from 'react';
 import { logout } from '../../students-auth/logout/actions';
 
 interface User {
-  id: string;
+  _id: string;
   name: string;
   email: string;
-  year: number;
-  college: string;
   role: string;
+  year: string;
+  college?: string;
+  profiles?: any;
+  interests?: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  user: User;
+  user: User | null;
 }
 
 export default function DashboardLayout({ children, user }: DashboardLayoutProps) {
@@ -39,26 +44,42 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      // Clear client-side storage first
+      // Nuclear option - clear everything client-side
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('user-authenticated');
-        sessionStorage.removeItem('user-authenticated');
-        localStorage.removeItem('auth-timestamp');
+        // Clear all storage
         localStorage.clear();
         sessionStorage.clear();
         
-        // Clear cookies client-side as backup
-        document.cookie = 'user-data=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        document.cookie = 'session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        // Clear all cookies for current domain (nuclear approach)
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const eqPos = cookie.indexOf('=');
+          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+          
+          // Clear cookie with all possible variations
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname};`;
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
+        }
+        
+        console.log('🧹 NUCLEAR: Cleared all client-side data and cookies');
       }
       
-      await logout();
+      // Call server logout
+      const result = await logout();
+      
+      if (result.success) {
+        console.log('✅ Server logout successful, forcing redirect');
+        // Force hard redirect with cache busting
+        window.location.href = result.redirectUrl + '&t=' + Date.now() + '&v2=true';
+      } else {
+        console.error('❌ Server logout failed, forcing redirect anyway');
+        window.location.href = '/students-auth/login?logout=success&fallback=true&t=' + Date.now() + '&v2=true';
+      }
       
     } catch (error) {
       console.error('Logout failed:', error);
-      // Even if server logout fails, redirect with success
-      // This prevents the user from getting stuck
-      window.location.href = '/students-auth/login?logout=success&fallback=true';
+      window.location.href = '/students-auth/login?logout=success&fallback=true&t=' + Date.now() + '&v2=true';
     }
   };
 
@@ -66,18 +87,30 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
     router.push(path);
   };
 
+  // User data helpers
   const getUserInitials = () => {
-    return user.name
-      .split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+    if (!user?.name) return 'ST';
+    return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   const getCollegeShortName = () => {
-    if (!user.college) return 'College';
-    return user.college.split(' ')[0];
+    if (!user?.college) return 'College';
+    return user.college.split(' ').map(word => word[0]).join('').toUpperCase();
+  };
+
+  const getDisplayName = () => {
+    if (!user?.name) return 'Student User';
+    return user.name;
+  };
+
+  const getDisplayEmail = () => {
+    if (!user?.email) return 'student@example.com';
+    return user.email;
+  };
+
+  const getDisplayYear = () => {
+    if (!user?.year) return '1';
+    return user.year;
   };
 
   return (
@@ -130,15 +163,15 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
               <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-blue-800"></div>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate" title={user.name}>
-                {user.name}
+              <p className="text-sm font-semibold text-white truncate">
+                {getDisplayName()}
               </p>
-              <p className="text-xs text-cyan-200 truncate" title={user.email}>
-                {user.email}
+              <p className="text-xs text-cyan-200 truncate">
+                {getDisplayEmail()}
               </p>
               <div className="flex items-center space-x-2 mt-1">
-                <p className="text-xs text-cyan-300 truncate" title={user.college}>
-                  Year {user.year} • {getCollegeShortName()}
+                <p className="text-xs text-cyan-300 truncate">
+                  Year {getDisplayYear()} • {getCollegeShortName()}
                 </p>
                 <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30">
                   Student
@@ -189,7 +222,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
               <p className="text-green-200 text-xs mt-1">You are safely authenticated</p>
             </div>
             
-            {/* Updated Logout Button */}
+            {/* Logout Button */}
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}

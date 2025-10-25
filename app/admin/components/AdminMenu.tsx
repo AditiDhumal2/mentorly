@@ -1,4 +1,3 @@
-// app/admin/(dashboard)/components/AdminMenu.tsx
 'use client';
 
 import Link from 'next/link';
@@ -11,8 +10,10 @@ import {
   TrendingUp, 
   Target, 
   Settings,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from 'lucide-react';
+import AdminLogout from './AdminLogout';
 
 const menuItems = [
   { 
@@ -71,15 +72,15 @@ export default function AdminMenu() {
 
   return (
     <aside className="w-80 flex-shrink-0">
-      <nav className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-6 border border-gray-200/60 hover:shadow-lg transition-all duration-300">
+      <nav className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-6 border border-gray-200/60 hover:shadow-lg transition-all duration-300 h-full flex flex-col">
         {/* Sidebar Header */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
           <p className="text-sm text-gray-500 mt-1">Manage your platform</p>
         </div>
 
-        {/* Menu Items */}
-        <ul className="space-y-2">
+        {/* Menu Items - Grow to take available space */}
+        <ul className="space-y-2 flex-1">
           {menuItems.map((item) => {
             const IconComponent = item.icon;
             const active = isActive(item.href);
@@ -132,8 +133,24 @@ export default function AdminMenu() {
           })}
         </ul>
 
+        {/* Logout Section */}
+        <div className="mt-6 pt-6 border-t border-gray-200/60">
+          <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200/60 bg-white/50">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-100 to-pink-100 flex items-center justify-center text-red-600">
+                <LogOut className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-medium text-gray-900">Admin User</div>
+                <div className="text-xs text-gray-500">Ready to sign out?</div>
+              </div>
+            </div>
+            <AdminLogout variant="minimal" />
+          </div>
+        </div>
+
         {/* Sidebar Footer */}
-        <div className="mt-8 pt-6 border-t border-gray-200/60">
+        <div className="mt-4">
           <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200/50">
             <div className="text-sm font-medium text-purple-900">Need help?</div>
             <div className="text-xs text-purple-700 mt-1">Check our documentation</div>

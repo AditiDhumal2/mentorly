@@ -1,7 +1,9 @@
+// app/actions/roadmap-actions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
 import { Roadmap } from '@/models/Roadmap';
+import { cookies } from 'next/headers';
 
 // Add proper TypeScript interfaces
 interface RoadmapStep {
@@ -17,6 +19,7 @@ interface RoadmapStep {
   estimatedDuration: string;
   priority: number;
   languageSpecific: boolean;
+  prerequisites?: string[];
 }
 
 interface RoadmapData {
@@ -87,11 +90,35 @@ function serializeForClient(data: any): any {
   return data;
 }
 
+// Helper function to get current student from session
+async function getCurrentStudent() {
+  try {
+    const cookieStore = await cookies();
+    const studentCookie = cookieStore.get('student-session-v2');
+    
+    if (!studentCookie?.value) {
+      return null;
+    }
+    
+    const studentData = JSON.parse(studentCookie.value);
+    
+    // Verify it's actually a student session
+    if (studentData.role !== 'student') {
+      return null;
+    }
+    
+    return studentData;
+  } catch (error) {
+    console.error('Error getting current student from session:', error);
+    return null;
+  }
+}
+
 export async function getRoadmapAction(year: number, languageId: string = 'python'): Promise<RoadmapResult> {
   try {
     await connectDB();
     
-    console.log(`Fetching roadmap for year ${year}, language: ${languageId}`);
+    console.log(`📚 Fetching roadmap for year ${year}, language: ${languageId}`);
     
     // Validate inputs
     if (!year || year < 1 || year > 4) {
@@ -112,7 +139,7 @@ export async function getRoadmapAction(year: number, languageId: string = 'pytho
     }).lean();
 
     if (!roadmap) {
-      console.log(`No roadmap found for year ${year}, language: ${languageId}. Falling back to default language.`);
+      console.log(`📚 No roadmap found for year ${year}, language: ${languageId}. Falling back to default language.`);
       
       // Fallback to default language (python) if specific language roadmap doesn't exist
       const defaultRoadmap = await Roadmap.findOne({ 
@@ -143,10 +170,10 @@ export async function getRoadmapAction(year: number, languageId: string = 'pytho
       };
     }
 
-    console.log(`Found roadmap for ${languageId} year ${year}`);
+    console.log(`✅ Found roadmap for ${languageId} year ${year}`);
     return { success: true, data: serializeForClient(roadmap) };
   } catch (error) {
-    console.error('Error getting roadmap:', error);
+    console.error('❌ Error getting roadmap:', error);
     return { success: false, error: 'Failed to load roadmap' };
   }
 }
@@ -155,11 +182,27 @@ export async function getRoadmapProgressAction(userId: string, languageId?: stri
   try {
     await connectDB();
     
-    // In a real implementation, you would fetch progress from the User model
-    // For now, return empty progress array with proper typing
+    // Get current student to verify access
+    const currentStudent = await getCurrentStudent();
+    if (!currentStudent) {
+      return { 
+        success: false, 
+        error: 'Student authentication required' 
+      };
+    }
+    
+    // Verify the student is accessing their own progress
+    if (currentStudent.id !== userId) {
+      return { 
+        success: false, 
+        error: 'Access denied' 
+      };
+    }
+    
+    // In a real implementation, you would fetch progress from the Student model
     const progress: any[] = [];
     
-    console.log(`Getting progress for user ${userId}, language: ${languageId}, year: ${year}`);
+    console.log(`📊 Getting progress for student ${userId}, language: ${languageId}, year: ${year}`);
     
     return { 
       success: true, 
@@ -168,13 +211,22 @@ export async function getRoadmapProgressAction(userId: string, languageId?: stri
       } 
     };
   } catch (error) {
-    console.error('Error getting roadmap progress:', error);
+    console.error('❌ Error getting roadmap progress:', error);
     return { success: false, error: 'Failed to load progress' };
   }
 }
 
 export async function getAllRoadmapsAction(): Promise<RoadmapResult> {
   try {
+    // Verify admin access for this action
+    const currentStudent = await getCurrentStudent();
+    if (!currentStudent) {
+      return { 
+        success: false, 
+        error: 'Authentication required' 
+      };
+    }
+    
     await connectDB();
     
     const roadmaps = await Roadmap.find({})
@@ -183,7 +235,7 @@ export async function getAllRoadmapsAction(): Promise<RoadmapResult> {
 
     return { success: true, data: serializeForClient(roadmaps) };
   } catch (error) {
-    console.error('Error getting all roadmaps:', error);
+    console.error('❌ Error getting all roadmaps:', error);
     return { success: false, error: 'Failed to load roadmaps' };
   }
 }
@@ -205,27 +257,46 @@ export async function getRoadmapsByYearAction(year: number): Promise<RoadmapResu
 
     return { success: true, data: serializeForClient(roadmaps) };
   } catch (error) {
-    console.error('Error getting roadmaps by year:', error);
+    console.error('❌ Error getting roadmaps by year:', error);
     return { success: false, error: 'Failed to load roadmaps' };
   }
 }
 
 export async function createRoadmapAction(roadmapData: any): Promise<RoadmapResult> {
   try {
+    // Verify admin access for this action
+    const currentStudent = await getCurrentStudent();
+    if (!currentStudent) {
+      return { 
+        success: false, 
+        error: 'Authentication required' 
+      };
+    }
+    
     await connectDB();
     
     const roadmap = new Roadmap(roadmapData);
     await roadmap.save();
     
+    console.log('✅ Roadmap created successfully');
     return { success: true, data: serializeForClient(roadmap) };
   } catch (error) {
-    console.error('Error creating roadmap:', error);
+    console.error('❌ Error creating roadmap:', error);
     return { success: false, error: 'Failed to create roadmap' };
   }
 }
 
 export async function updateRoadmapAction(roadmapId: string, updateData: any): Promise<RoadmapResult> {
   try {
+    // Verify admin access for this action
+    const currentStudent = await getCurrentStudent();
+    if (!currentStudent) {
+      return { 
+        success: false, 
+        error: 'Authentication required' 
+      };
+    }
+    
     await connectDB();
     
     const roadmap = await Roadmap.findByIdAndUpdate(
@@ -238,15 +309,25 @@ export async function updateRoadmapAction(roadmapId: string, updateData: any): P
       return { success: false, error: 'Roadmap not found' };
     }
     
+    console.log('✅ Roadmap updated successfully');
     return { success: true, data: serializeForClient(roadmap) };
   } catch (error) {
-    console.error('Error updating roadmap:', error);
+    console.error('❌ Error updating roadmap:', error);
     return { success: false, error: 'Failed to update roadmap' };
   }
 }
 
 export async function deleteRoadmapAction(roadmapId: string): Promise<RoadmapResult> {
   try {
+    // Verify admin access for this action
+    const currentStudent = await getCurrentStudent();
+    if (!currentStudent) {
+      return { 
+        success: false, 
+        error: 'Authentication required' 
+      };
+    }
+    
     await connectDB();
     
     const roadmap = await Roadmap.findByIdAndDelete(roadmapId);
@@ -255,9 +336,10 @@ export async function deleteRoadmapAction(roadmapId: string): Promise<RoadmapRes
       return { success: false, error: 'Roadmap not found' };
     }
     
+    console.log('✅ Roadmap deleted successfully');
     return { success: true, data: { message: 'Roadmap deleted successfully' } };
   } catch (error) {
-    console.error('Error deleting roadmap:', error);
+    console.error('❌ Error deleting roadmap:', error);
     return { success: false, error: 'Failed to delete roadmap' };
   }
 }
@@ -271,7 +353,7 @@ export async function getAvailableLanguagesAction(year?: number): Promise<Roadma
     
     return { success: true, data: serializeForClient(roadmaps) };
   } catch (error) {
-    console.error('Error getting available languages:', error);
+    console.error('❌ Error getting available languages:', error);
     return { success: false, error: 'Failed to load available languages' };
   }
 }
@@ -293,13 +375,22 @@ export async function getAvailableYearsAction(languageId?: string): Promise<Road
     
     return { success: true, data: serializeForClient(availableYears) };
   } catch (error) {
-    console.error('Error getting available years:', error);
+    console.error('❌ Error getting available years:', error);
     return { success: false, error: 'Failed to load available years' };
   }
 }
 
 export async function getUserYearProgressAction(userId: string): Promise<RoadmapResult> {
   try {
+    // Verify student access
+    const currentStudent = await getCurrentStudent();
+    if (!currentStudent || currentStudent.id !== userId) {
+      return { 
+        success: false, 
+        error: 'Access denied' 
+      };
+    }
+    
     await connectDB();
     
     // Mock data - in real implementation, fetch from user progress
@@ -315,13 +406,22 @@ export async function getUserYearProgressAction(userId: string): Promise<Roadmap
       data: serializeForClient(yearProgress)
     };
   } catch (error) {
-    console.error('Error getting user year progress:', error);
+    console.error('❌ Error getting user year progress:', error);
     return { success: false, error: 'Failed to load year progress' };
   }
 }
 
 export async function getRoadmapYearsOverview(userId: string, languageId: string): Promise<RoadmapResult> {
   try {
+    // Verify student access
+    const currentStudent = await getCurrentStudent();
+    if (!currentStudent || currentStudent.id !== userId) {
+      return { 
+        success: false, 
+        error: 'Access denied' 
+      };
+    }
+    
     await connectDB();
     
     const years = [1, 2, 3, 4];
@@ -363,7 +463,7 @@ export async function getRoadmapYearsOverview(userId: string, languageId: string
     
     return { success: true, data: serializeForClient(overview) };
   } catch (error) {
-    console.error('Error getting roadmap years overview:', error);
+    console.error('❌ Error getting roadmap years overview:', error);
     return { success: false, error: 'Failed to load years overview' };
   }
 }
@@ -387,7 +487,7 @@ export async function initializeLanguageRoadmaps(): Promise<RoadmapResult> {
           const roadmap = new Roadmap(roadmapData);
           await roadmap.save();
           createdCount++;
-          console.log(`Created roadmap for ${language} year ${year}`);
+          console.log(`✅ Created roadmap for ${language} year ${year}`);
         } else {
           // Update existing roadmap with latest structure
           const updateData = getDefaultRoadmapData(language, year);
@@ -396,12 +496,12 @@ export async function initializeLanguageRoadmaps(): Promise<RoadmapResult> {
             updatedAt: new Date()
           });
           updatedCount++;
-          console.log(`Updated roadmap for ${language} year ${year}`);
+          console.log(`✅ Updated roadmap for ${language} year ${year}`);
         }
       }
     }
     
-    console.log(`✅ Roadmap initialization completed: ${createdCount} created, ${updatedCount} updated`);
+    console.log(`🎉 Roadmap initialization completed: ${createdCount} created, ${updatedCount} updated`);
     return { 
       success: true, 
       data: serializeForClient({ 
@@ -411,7 +511,7 @@ export async function initializeLanguageRoadmaps(): Promise<RoadmapResult> {
       }) 
     };
   } catch (error) {
-    console.error('Error initializing roadmaps:', error);
+    console.error('❌ Error initializing roadmaps:', error);
     return { success: false, error: 'Failed to initialize roadmaps' };
   }
 }
@@ -437,7 +537,8 @@ async function createBasicRoadmap(year: number, languageId: string): Promise<Roa
         ],
         estimatedDuration: '3-4 weeks',
         priority: 1,
-        languageSpecific: true
+        languageSpecific: true,
+        prerequisites: []
       },
       {
         title: 'Build Your First Project',
@@ -452,7 +553,8 @@ async function createBasicRoadmap(year: number, languageId: string): Promise<Roa
         ],
         estimatedDuration: '2 weeks',
         priority: 2,
-        languageSpecific: false
+        languageSpecific: false,
+        prerequisites: []
       }
     ],
     createdAt: new Date(),
@@ -463,6 +565,7 @@ async function createBasicRoadmap(year: number, languageId: string): Promise<Roa
   const roadmap = new Roadmap(basicRoadmap);
   await roadmap.save();
   
+  console.log(`✅ Created basic roadmap for ${languageId} year ${year}`);
   return basicRoadmap;
 }
 
@@ -492,7 +595,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '3 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           },
           {
             title: 'Build a Calculator App',
@@ -507,7 +611,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '1 week',
             priority: 2,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       },
@@ -528,7 +633,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '4 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       },
@@ -549,7 +655,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '6 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       },
@@ -570,7 +677,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '8 weeks',
             priority: 1,
-            languageSpecific: false
+            languageSpecific: false,
+            prerequisites: []
           }
         ]
       }
@@ -598,7 +706,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '4 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           },
           {
             title: 'Build a Todo App',
@@ -613,7 +722,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '2 weeks',
             priority: 2,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       },
@@ -634,7 +744,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '5 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       },
@@ -655,7 +766,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '6 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       },
@@ -676,7 +788,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '4 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       }
@@ -704,7 +817,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '4 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           },
           {
             title: 'Build a Console Calculator',
@@ -724,7 +838,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '2 weeks',
             priority: 2,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       },
@@ -745,7 +860,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '5 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       },
@@ -766,7 +882,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '6 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       },
@@ -787,7 +904,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '4 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       }
@@ -810,7 +928,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '5 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       }
@@ -833,7 +952,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '4 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       }
@@ -856,7 +976,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
             ],
             estimatedDuration: '5 weeks',
             priority: 1,
-            languageSpecific: true
+            languageSpecific: true,
+            prerequisites: []
           }
         ]
       }
@@ -883,7 +1004,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
         ],
         estimatedDuration: '4-6 weeks',
         priority: 1,
-        languageSpecific: true
+        languageSpecific: true,
+        prerequisites: []
       },
       {
         title: 'Real-World Project Development',
@@ -898,7 +1020,8 @@ function getDefaultRoadmapData(language: string, year: number): RoadmapData {
         ],
         estimatedDuration: '8 weeks',
         priority: 2,
-        languageSpecific: false
+        languageSpecific: false,
+        prerequisites: []
       }
     ],
     createdAt: new Date(),

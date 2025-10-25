@@ -1,45 +1,84 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 
 /**
- * Quick session check without DB call (uses cookie only)
- * For layout-level redirects and guest checks
+ * Quick session check without DB call (uses cookies only)
+ * NO REDIRECTS - just returns session status
  */
 export async function checkSession() {
   try {
     const cookieStore = await cookies();
+    const adminCookie = cookieStore.get('admin-data');
     const userCookie = cookieStore.get('user-data');
     
-    if (!userCookie?.value) {
-      return { isLoggedIn: false, user: null };
+    // Check admin session first
+    if (adminCookie?.value) {
+      const adminData = JSON.parse(adminCookie.value);
+      return { 
+        isLoggedIn: true, 
+        user: adminData,
+        role: 'admin'
+      };
     }
     
-    const userData = JSON.parse(userCookie.value);
-    return { 
-      isLoggedIn: true, 
-      user: userData 
-    };
+    // Check student session
+    if (userCookie?.value) {
+      const userData = JSON.parse(userCookie.value);
+      return { 
+        isLoggedIn: true, 
+        user: userData,
+        role: 'student'
+      };
+    }
+    
+    return { isLoggedIn: false, user: null, role: null };
   } catch (error) {
     console.error('❌ checkSession - Error:', error);
-    return { isLoggedIn: false, user: null };
+    return { isLoggedIn: false, user: null, role: null };
   }
 }
 
 /**
- * Require guest - redirect to students if already logged in
- * Uses quick cookie check for performance
+ * Check if user is guest - NO REDIRECTS
  */
 export async function requireGuest() {
   console.log('🔐 requireGuest - Checking if user is guest...');
   
-  const { isLoggedIn, user } = await checkSession();
+  const { isLoggedIn, role } = await checkSession();
   
-  if (isLoggedIn) {
-    console.log('🔄 requireGuest - User already authenticated, redirecting to students');
-    redirect('/students');
-  }
+  return { 
+    isGuest: !isLoggedIn,
+    role: role 
+  };
+}
+
+/**
+ * Check if user is student - NO REDIRECTS
+ */
+export async function requireStudent() {
+  console.log('🔐 requireStudent - Checking if user is student...');
   
-  console.log('✅ requireGuest - User is guest, allowing access');
+  const { isLoggedIn, role } = await checkSession();
+  
+  return { 
+    isStudent: isLoggedIn && role === 'student',
+    isLoggedIn,
+    role
+  };
+}
+
+/**
+ * Check if user is admin - NO REDIRECTS
+ */
+export async function requireAdmin() {
+  console.log('🔐 requireAdmin - Checking if user is admin...');
+  
+  const { isLoggedIn, role } = await checkSession();
+  
+  return { 
+    isAdmin: isLoggedIn && role === 'admin',
+    isLoggedIn,
+    role
+  };
 }

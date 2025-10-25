@@ -1,29 +1,31 @@
-// app/roadmap/page.tsx
-// Add these lines to prevent caching issues
+// app/students/roadmap/page.tsx
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { getCurrentUser } from '@/lib/session';
+import { getCurrentUser } from '@/actions/userActions';
 import { getRoadmapAction, getRoadmapProgressAction } from '@/actions/roadmap-actions';
 import { languages, getLanguageById } from '@/lib/languages';
 import RoadmapClient from './components/roadmap-client';
-import { connectDB } from '@/lib/db';
-import { Student } from '@/models/Students'; // Changed from User to Student
 
 // Temporary function to replace missing import
 async function getUserLanguagesAction(userId: string) {
   return {
     success: true,
     data: {
-      preferredLanguage: 'python' // Default language
+      preferredLanguage: 'python'
     }
   };
 }
 
-export default async function RoadmapPage() {
+export default async function StudentRoadmapPage() {
+  console.log('📍 /students/roadmap - Loading student roadmap...');
+  
   const user = await getCurrentUser();
   
+  console.log('🔍 StudentRoadmapPage - User session:', user);
+  
   if (!user) {
+    console.log('❌ No student session found for /students/roadmap');
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="text-center bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
@@ -32,105 +34,119 @@ export default async function RoadmapPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-3">Access Denied</h1>
-          <p className="text-gray-600 mb-6">Please log in to view your personalized learning roadmap</p>
-          <a href="/auth/login" className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
-            Sign In
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">Student Login Required</h1>
+          <p className="text-gray-600 mb-6">Please log in with your student account to access the roadmap</p>
+          <a href="/students-auth/login" className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
+            Student Login
           </a>
         </div>
       </div>
     );
   }
 
+  // Verify it's actually a student
+  if (user.role !== 'student') {
+    console.log('❌ User is not a student:', user.role);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">Access Restricted</h1>
+          <p className="text-gray-600 mb-6">This page is only accessible to students.</p>
+          <a href="/dashboard" className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
+            Go to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('✅ Student authenticated for roadmap:', user.name, 'Year:', user.year);
+
   try {
+    const userYear = user.year || 1;
     const [languagesResult] = await Promise.all([
-      getUserLanguagesAction(user.id)
+      getUserLanguagesAction(user._id) // Use _id instead of id
     ]);
 
     const preferredLanguage = languagesResult.success && languagesResult.data 
       ? languagesResult.data.preferredLanguage 
       : 'python';
 
+    console.log('📚 Loading roadmap for year:', userYear, 'language:', preferredLanguage);
+
     const [roadmapResult, progressResult] = await Promise.all([
-      getRoadmapAction(user.year, preferredLanguage),
-      getRoadmapProgressAction(user.id)
+      getRoadmapAction(userYear, preferredLanguage),
+      getRoadmapProgressAction(user._id) // Use _id instead of id
     ]);
 
     // Handle roadmap loading errors
     if (!roadmapResult.success || !roadmapResult.data) {
+      console.log('❌ Roadmap loading failed:', roadmapResult.error);
       return (
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center bg-red-500/10 backdrop-blur-lg rounded-2xl p-8 border border-red-400/30 max-w-md mx-auto mt-8">
-            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-400/30">
-              <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="text-center bg-red-50 rounded-2xl p-8 border border-red-200 max-w-md mx-auto">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-3">Roadmap Unavailable</h1>
-            <p className="text-red-200 mb-2">
+            <h1 className="text-2xl font-bold text-gray-900 mb-3">Roadmap Unavailable</h1>
+            <p className="text-gray-600 mb-2">
               {roadmapResult.error || 'We couldn\'t load your roadmap'}
             </p>
-            <p className="text-red-300 text-sm">Please try refreshing the page or contact support</p>
+            <p className="text-gray-500 text-sm">Please try refreshing the page or contact support</p>
           </div>
         </div>
       );
     }
 
     // Handle progress loading errors
-    if (!progressResult.success || !progressResult.data) {
-      return (
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center bg-yellow-500/10 backdrop-blur-lg rounded-2xl p-8 border border-yellow-400/30 max-w-md mx-auto mt-8">
-            <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-yellow-400/30">
-              <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-3">Progress Data Issue</h1>
-            <p className="text-yellow-200 mb-2">
-              {progressResult.error || 'We couldn\'t load your progress data'}
-            </p>
-            <p className="text-yellow-300 text-sm">Your progress tracking might be temporarily unavailable</p>
-          </div>
-        </div>
-      );
+    if (!progressResult.success) {
+      console.log('⚠️ Progress loading issue:', progressResult.error);
+      // Continue with empty progress instead of showing error
     }
 
     const userLanguage = getLanguageById(preferredLanguage) || languages[0];
 
-    // Data is already serialized by the server action, so we can pass it directly
+    console.log('✅ Roadmap loaded successfully');
+
     return (
       <RoadmapClient 
         roadmap={roadmapResult.data} 
-        progress={progressResult.data.progress}
-        currentYear={user.year}
-        userId={user.id}
+        progress={progressResult.data?.progress || []}
+        currentYear={userYear}
+        userId={user._id} // Use _id instead of id
         languages={languages}
         userLanguage={userLanguage}
         preferredLanguage={preferredLanguage}
-        studentCurrentYear={user.year} // Add this line to fix the error
+        studentCurrentYear={userYear}
       />
     );
   } catch (error) {
-    console.error('Error loading roadmap page:', error);
+    console.error('❌ Error loading roadmap page:', error);
     
     return (
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center bg-red-500/10 backdrop-blur-lg rounded-2xl p-8 border border-red-400/30 max-w-md mx-auto mt-8">
-          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-400/30">
-            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="text-center bg-red-50 rounded-2xl p-8 border border-red-200 max-w-md mx-auto">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m-6 0l3-3m-3 3V4m0 16a8 8 0 100-16 8 8 0 000 16z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-3">Unexpected Error</h1>
-          <p className="text-red-200 mb-2">Something went wrong while loading your roadmap</p>
-          <p className="text-red-300 text-sm">Please try refreshing the page</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="mt-4 px-6 py-3 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-colors"
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">Unexpected Error</h1>
+          <p className="text-gray-600 mb-2">Something went wrong while loading your roadmap</p>
+          <p className="text-gray-500 text-sm">Please try refreshing the page</p>
+          <a 
+            href="/students/roadmap"
+            className="mt-4 inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
           >
             Refresh Page
-          </button>
+          </a>
         </div>
       </div>
     );

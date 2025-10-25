@@ -1,7 +1,6 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 
 export interface AuthenticatedUser {
   id: string;
@@ -12,17 +11,17 @@ export interface AuthenticatedUser {
   college: string;
 }
 
-export async function requireStudentAuth(): Promise<AuthenticatedUser> {
+// NO REDIRECTS - just return authentication status
+export async function requireStudentAuth(): Promise<{ authenticated: boolean; user?: AuthenticatedUser }> {
   const cookieStore = await cookies();
   const userCookie = cookieStore.get('user-data');
   
   console.log('🔐 AUTH - Starting authentication check');
   console.log('🔐 AUTH - Cookie exists:', !!userCookie);
-  console.log('🔐 AUTH - Cookie value:', userCookie?.value ? 'PRESENT' : 'MISSING');
   
   if (!userCookie?.value) {
-    console.log('🛑 AUTH - NO AUTH COOKIE - Redirecting to login');
-    redirect('/students-auth/login?error=unauthorized');
+    console.log('🛑 AUTH - NO AUTH COOKIE');
+    return { authenticated: false };
   }
   
   try {
@@ -38,22 +37,25 @@ export async function requireStudentAuth(): Promise<AuthenticatedUser> {
     if (!userData.id || !userData.email) {
       console.log('🛑 AUTH - Invalid user data in cookie');
       cookieStore.delete('user-data');
-      redirect('/students-auth/login?error=invalid_session');
+      return { authenticated: false };
     }
     
     console.log('✅ AUTH - Student authenticated:', userData.name);
     
     return {
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      role: userData.role || 'student',
-      year: userData.year || 1,
-      college: userData.college || '',
+      authenticated: true,
+      user: {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role || 'student',
+        year: userData.year || 1,
+        college: userData.college || '',
+      }
     };
   } catch (error) {
     console.error('❌ AUTH - Error parsing cookie:', error);
     cookieStore.delete('user-data');
-    redirect('/students-auth/login?error=server_error');
+    return { authenticated: false };
   }
 }

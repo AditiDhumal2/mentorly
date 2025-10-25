@@ -1,41 +1,28 @@
-import { requireStudentAuth } from '@/lib/simple-auth';
+// app/students/layout.tsx
+import '../globals.css';
 import DashboardLayout from './components/DashboardLayout';
-import HistoryManager from './HistoryManager';
+import { getCurrentUser } from '../../actions/userActions'; // ← Use same import as page
 
-export default async function StudentsLayout({
+// Function to convert MongoDB objects to plain objects
+function convertUserToPlainObject(user: any) {
+  if (!user) return null;
+  return JSON.parse(JSON.stringify(user));
+}
+
+export default async function StudentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  console.log('🎯 STUDENTS LAYOUT - Starting');
+  // Fetch user data using the same function as the page
+  const user = await getCurrentUser();
   
-  const user = await requireStudentAuth();
-  
-  console.log('✅ STUDENTS LAYOUT - Access granted for:', user.name);
+  // Convert MongoDB objects to plain objects
+  const plainUser = convertUserToPlainObject(user);
 
   return (
-    <>
-      {/* Set client-side auth flags */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            // Set auth flags when user accesses student pages
-            try {
-              localStorage.setItem('user-authenticated', 'true');
-              sessionStorage.setItem('user-authenticated', 'true');
-              console.log('🔐 Auth flags set for client-side detection');
-            } catch (error) {
-              console.error('Error setting auth flags:', error);
-            }
-          `,
-        }}
-      />
-      <DashboardLayout user={user}>
-        <HistoryManager />
-        {children}
-      </DashboardLayout>
-    </>
+    <DashboardLayout user={plainUser}>
+      {children}
+    </DashboardLayout>
   );
 }
-
-export const dynamic = 'force-dynamic';

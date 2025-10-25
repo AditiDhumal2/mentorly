@@ -1,29 +1,29 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { connectDB } from '@/lib/db';
 import { Admin } from '@/models/Admins';
 import bcrypt from 'bcryptjs';
 
-// Enhanced session verification with cache control
+// Admin-specific session verification (NO REDIRECTS)
 export async function verifyAdminSession() {
   try {
     const cookieStore = await cookies();
-    const userDataCookie = cookieStore.get('user-data')?.value;
+    const adminDataCookie = cookieStore.get('admin-data')?.value;
 
-    if (!userDataCookie) {
-      return { isValid: false, error: 'No session found' };
+    if (!adminDataCookie) {
+      return { isValid: false, error: 'No admin session found' };
     }
 
-    const userData = JSON.parse(userDataCookie);
+    const adminData = JSON.parse(adminDataCookie);
     
-    if (userData.role !== 'admin') {
+    // Verify it's actually an admin session
+    if (adminData.role !== 'admin') {
       return { isValid: false, error: 'Not an admin session' };
     }
 
     await connectDB();
-    const admin = await Admin.findById(userData.id);
+    const admin = await Admin.findById(adminData.id);
     
     if (!admin) {
       return { isValid: false, error: 'Admin account not found' };
@@ -33,6 +33,12 @@ export async function verifyAdminSession() {
       return { isValid: false, error: 'Admin account deactivated' };
     }
 
+    let permissions = admin.permissions || ['read', 'write', 'delete'];
+    
+    if (permissions && typeof permissions === 'object' && !Array.isArray(permissions)) {
+      permissions = { ...permissions };
+    }
+
     return { 
       isValid: true, 
       admin: {
@@ -40,125 +46,206 @@ export async function verifyAdminSession() {
         name: admin.name,
         email: admin.email,
         role: 'admin',
-        permissions: admin.permissions || ['read', 'write', 'delete']
+        permissions: permissions
       }
     };
   } catch (error) {
     console.error('❌ verifyAdminSession - Error:', error);
-    return { isValid: false, error: 'Session verification failed' };
+    return { isValid: false, error: 'Admin session verification failed' };
   }
 }
 
-// Enhanced admin login with cache busting - SIMPLIFIED VERSION
-export async function adminLogin(formData: FormData) {
-  await connectDB();
-  
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-
-  console.log('🔍 adminLogin - Admin-only login attempt for:', email);
-
-  // Validate inputs
-  if (!email || !password) {
-    return { error: 'Email and password are required' };
-  }
-
-  // ONLY check Admin collection - no student fallback
-  const admin = await Admin.findOne({ 
-    email: email.toLowerCase().trim()
-  });
-  
-  if (!admin) {
-    console.log('❌ adminLogin - No admin account found for:', email);
-    return { error: 'No admin account found with this email.' };
-  }
-
-  // Check if admin account is active
-  if (admin.isActive === false) {
-    console.log('❌ adminLogin - Admin account inactive for:', email);
-    return { error: 'Admin account is deactivated. Please contact system administrator.' };
-  }
-
-  const isPasswordValid = await bcrypt.compare(password, admin.password);
-  
-  if (!isPasswordValid) {
-    console.log('❌ adminLogin - Invalid password for:', email);
-    return { error: 'Incorrect password. Please try again.' };
-  }
-
-  const userData = {
-    id: admin._id.toString(),
-    name: admin.name,
-    email: admin.email,
-    role: 'admin',
-    permissions: admin.permissions || ['read', 'write', 'delete'],
-    timestamp: Date.now()
-  };
-
-  console.log('✅ adminLogin - Admin login successful for:', email);
-
-  // Set admin session cookie
-  const cookieStore = await cookies();
-  
-  // Clear any existing cookie first
-  cookieStore.delete('user-data');
-  cookieStore.delete('admin-token');
-  cookieStore.delete('session');
-
-  // Set admin cookie with secure settings
-  cookieStore.set('user-data', JSON.stringify(userData), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 1 week
-    path: '/'
-  });
-
-  console.log('✅ adminLogin - Admin session created');
-  
-  // Redirect to admin dashboard with cache busting
-  redirect('/admin?t=' + Date.now());
-}
-
-// Enhanced logout with cache clearing - SIMPLIFIED VERSION
-export async function adminLogout() {
-  console.log('🔒 Admin logout initiated');
-  
-  const cookieStore = await cookies();
-  
-  // Clear all auth-related cookies
-  cookieStore.delete('user-data');
-  cookieStore.delete('admin-token');
-  cookieStore.delete('session');
-  
-  console.log('✅ adminLogout - All cookies cleared');
-  
-  // Redirect to login with cache busting parameters
-  redirect('/admin-login?logout=success&t=' + Date.now() + '&cache=bust');
-}
-
-// Add this new function to check and handle protected routes
+// For admin dashboard - NO REDIRECT, just return status
 export async function requireAdminAuth() {
   const session = await verifyAdminSession();
   
-  if (!session.isValid) {
-    redirect('/admin-login?auth=required&t=' + Date.now());
+  if (!session.isValid || !session.admin) {
+    console.log('🛑 requireAdminAuth - No valid admin session');
+    return { authenticated: false, admin: null };
   }
   
-  return session.admin;
+  console.log('✅ requireAdminAuth - Admin session valid for:', session.admin.email);
+  
+  return {
+    authenticated: true,
+    admin: {
+      id: session.admin.id,
+      name: session.admin.name,
+      email: session.admin.email,
+      role: session.admin.role,
+      permissions: session.admin.permissions || ['read', 'write', 'delete']
+    }
+  };
 }
 
-// Add this function to check if user is already authenticated (for login page)
+// For admin login page - NO REDIRECT, just return status
 export async function checkExistingAdminAuth() {
-  const session = await verifyAdminSession();
-  
-  if (session.isValid) {
-    redirect('/admin?t=' + Date.now());
+  try {
+    const session = await verifyAdminSession();
+    
+    if (session.isValid) {
+      console.log('✅ checkExistingAdminAuth - Admin authenticated');
+      return true;
+    }
+    
+    console.log('✅ checkExistingAdminAuth - No admin session');
+    return false;
+  } catch (error) {
+    console.log('✅ checkExistingAdminAuth - Error, assuming no session');
+    return false;
   }
-  
-  return null;
 }
 
+// Enhanced admin login - NO REDIRECTS
+export async function adminLogin(formData: FormData) {
+  try {
+    await connectDB();
+    
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    console.log('🔍 adminLogin - Admin-only login attempt for:', email);
+
+    if (!email || !password) {
+      return { success: false, error: 'Email and password are required' };
+    }
+
+    const admin = await Admin.findOne({ 
+      email: email.toLowerCase().trim()
+    });
+    
+    if (!admin) {
+      console.log('❌ adminLogin - No admin account found for:', email);
+      return { success: false, error: 'No admin account found with this email.' };
+    }
+
+    if (admin.isActive === false) {
+      console.log('❌ adminLogin - Admin account inactive for:', email);
+      return { success: false, error: 'Admin account is deactivated. Please contact system administrator.' };
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    
+    if (!isPasswordValid) {
+      console.log('❌ adminLogin - Invalid password for:', email);
+      return { success: false, error: 'Incorrect password. Please try again.' };
+    }
+
+    let permissions = admin.permissions || ['read', 'write', 'delete'];
+    if (permissions && typeof permissions === 'object' && !Array.isArray(permissions)) {
+      permissions = { ...permissions };
+    }
+
+    const adminData = {
+      id: admin._id.toString(),
+      name: admin.name,
+      email: admin.email,
+      role: 'admin',
+      permissions: permissions,
+      loginType: 'admin',
+      timestamp: Date.now()
+    };
+
+    console.log('✅ adminLogin - Admin login successful for:', email);
+
+    const cookieStore = await cookies();
+    
+    // Clear ONLY admin cookies (leave student cookies alone)
+    cookieStore.delete('admin-data');
+
+    // Set ADMIN-SPECIFIC cookie
+    cookieStore.set('admin-data', JSON.stringify(adminData), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/'
+    });
+
+    console.log('✅ adminLogin - Admin session created with admin-data cookie');
+    
+    return { success: true, message: 'Login successful' };
+    
+  } catch (error) {
+    console.error('❌ adminLogin - Error:', error);
+    return { success: false, error: 'Login failed. Please try again.' };
+  }
+}
+
+// ADMIN-ONLY logout - doesn't affect student sessions
+export async function adminLogout() {
+  console.log('🔒 Admin-only logout initiated');
+  
+  const cookieStore = await cookies();
+  
+  // Clear ONLY admin-related cookies (preserve student sessions)
+  const adminCookies = [
+    'admin-data', 
+  ];
+  
+  adminCookies.forEach(cookieName => {
+    const hadCookie = !!cookieStore.get(cookieName);
+    cookieStore.delete(cookieName);
+    console.log(`🗑️ adminLogout - Deleted admin cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
+  });
+  
+  // Verify admin cookies are cleared but student cookies remain
+  const adminDataAfter = cookieStore.get('admin-data');
+  const studentDataAfter = cookieStore.get('student-data');
+  const userDataAfter = cookieStore.get('user-data');
+  
+  console.log('✅ adminLogout - Verification:', {
+    adminDataAfter: adminDataAfter ? 'STILL_EXISTS' : 'DELETED',
+    studentDataAfter: studentDataAfter ? 'STILL_EXISTS' : 'DELETED',
+    userDataAfter: userDataAfter ? 'STILL_EXISTS' : 'DELETED'
+  });
+
+  console.log('✅ adminLogout - Only admin cookies cleared, student sessions preserved');
+  
+  // Return redirect URL for client-side navigation
+  return { 
+    success: true, 
+    message: 'Admin logout successful',
+    redirectUrl: '/admin-login?logout=success&t=' + Date.now()
+  };
+}
+
+// Check if user can access admin routes (for client-side checks)
+export async function canAccessAdmin() {
+  try {
+    const session = await verifyAdminSession();
+    return { 
+      canAccess: session.isValid, 
+      admin: session.isValid ? session.admin : null 
+    };
+  } catch (error) {
+    console.error('❌ canAccessAdmin - Error:', error);
+    return { canAccess: false, admin: null };
+  }
+}
+
+// Get current admin session data (for client-side use)
+export async function getCurrentAdminSession() {
+  try {
+    const cookieStore = await cookies();
+    const adminDataCookie = cookieStore.get('admin-data')?.value;
+
+    if (!adminDataCookie) {
+      return { isLoggedIn: false, admin: null };
+    }
+
+    const adminData = JSON.parse(adminDataCookie);
+    return { 
+      isLoggedIn: true, 
+      admin: adminData 
+    };
+  } catch (error) {
+    console.error('❌ getCurrentAdminSession - Error:', error);
+    return { isLoggedIn: false, admin: null };
+  }
+}
+
+// Admin password change
 export async function changeAdminPassword(currentPassword: string, newPassword: string) {
   try {
     const session = await verifyAdminSession();
@@ -202,6 +289,7 @@ export async function changeAdminPassword(currentPassword: string, newPassword: 
   }
 }
 
+// Create admin account (for super admin use)
 export async function createAdminAccount(adminData: {
   name: string;
   email: string;
@@ -261,6 +349,7 @@ export async function createAdminAccount(adminData: {
   }
 }
 
+// Update admin account
 export async function updateAdminAccount(adminId: string, updateData: {
   name?: string;
   permissions?: string[];
@@ -306,6 +395,7 @@ export async function updateAdminAccount(adminId: string, updateData: {
   }
 }
 
+// Get all admin accounts
 export async function getAdminAccounts() {
   try {
     const session = await verifyAdminSession();
@@ -344,6 +434,7 @@ export async function getAdminAccounts() {
   }
 }
 
+// Delete admin account
 export async function deleteAdminAccount(adminId: string) {
   try {
     const session = await verifyAdminSession();
@@ -379,6 +470,7 @@ export async function deleteAdminAccount(adminId: string) {
   }
 }
 
+// Reset admin password
 export async function resetAdminPassword(adminId: string, newPassword: string) {
   try {
     const session = await verifyAdminSession();
@@ -419,6 +511,7 @@ export async function resetAdminPassword(adminId: string, newPassword: string) {
   }
 }
 
+// Get admin profile
 export async function getAdminProfile() {
   try {
     const session = await verifyAdminSession();
@@ -456,6 +549,7 @@ export async function getAdminProfile() {
   }
 }
 
+// Update admin profile
 export async function updateAdminProfile(updateData: {
   name?: string;
 }) {
@@ -489,43 +583,25 @@ export async function updateAdminProfile(updateData: {
   }
 }
 
-// New function: Force clear all sessions (for security purposes)
-export async function forceClearAllSessions() {
+// ADMIN-ONLY session clear - doesn't affect student sessions
+export async function forceClearAdminSessions() {
   try {
     const cookieStore = await cookies();
     
-    // Clear all possible auth cookies
-    cookieStore.delete('user-data');
+    // Clear ONLY admin cookies
+    cookieStore.delete('admin-data');
     cookieStore.delete('admin-token');
-    cookieStore.delete('session');
-    cookieStore.delete('auth-token');
-    cookieStore.delete('next-auth.session-token');
-    cookieStore.delete('next-auth.csrf-token');
     
-    console.log('✅ forceClearAllSessions - All sessions cleared');
+    console.log('✅ forceClearAdminSessions - Only admin sessions cleared');
     
-    return { success: true, message: 'All sessions cleared successfully' };
+    return { success: true, message: 'Admin sessions cleared successfully' };
   } catch (error) {
-    console.error('❌ forceClearAllSessions - Error:', error);
-    return { error: 'Failed to clear sessions' };
+    console.error('❌ forceClearAdminSessions - Error:', error);
+    return { error: 'Failed to clear admin sessions' };
   }
 }
 
-// New function: Check if user can access admin routes (for client-side checks)
-export async function canAccessAdmin() {
-  try {
-    const session = await verifyAdminSession();
-    return { 
-      canAccess: session.isValid, 
-      admin: session.isValid ? session.admin : null 
-    };
-  } catch (error) {
-    console.error('❌ canAccessAdmin - Error:', error);
-    return { canAccess: false, admin: null };
-  }
-}
-
-// New function: Validate admin session for API routes
+// Validate admin session for API routes
 export async function validateAdminSessionForAPI() {
   const session = await verifyAdminSession();
   
@@ -539,12 +615,12 @@ export async function validateAdminSessionForAPI() {
   
   return { 
     success: true, 
-      admin: session.admin,
-      status: 200
-    };
+    admin: session.admin,
+    status: 200
+  };
 }
 
-// New function: Refresh admin session (extend cookie lifetime)
+// Refresh admin session (extend cookie lifetime)
 export async function refreshAdminSession() {
   try {
     const session = await verifyAdminSession();
@@ -553,23 +629,30 @@ export async function refreshAdminSession() {
       return { success: false, error: 'No valid session to refresh' };
     }
 
-    const userData = {
+    // Ensure permissions is serializable
+    let permissions = session.admin.permissions || ['read', 'write', 'delete'];
+    if (permissions && typeof permissions === 'object' && !Array.isArray(permissions)) {
+      permissions = { ...permissions };
+    }
+
+    const adminData = {
       id: session.admin.id,
       name: session.admin.name,
       email: session.admin.email,
       role: 'admin',
-      permissions: session.admin.permissions,
+      permissions: permissions,
+      loginType: 'admin',
       timestamp: Date.now()
     };
 
     const cookieStore = await cookies();
     
     // Refresh the cookie with updated timestamp
-    cookieStore.set('user-data', JSON.stringify(userData), {
+    cookieStore.set('admin-data', JSON.stringify(adminData), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
+      maxAge: 60 * 60 * 24 * 7,
       path: '/'
     });
 
@@ -579,5 +662,33 @@ export async function refreshAdminSession() {
   } catch (error) {
     console.error('❌ refreshAdminSession - Error:', error);
     return { success: false, error: 'Failed to refresh session' };
+  }
+}
+
+// Helper function to check if user is admin (for mixed auth scenarios)
+export async function isUserAdmin() {
+  try {
+    const session = await verifyAdminSession();
+    return session.isValid;
+  } catch (error) {
+    console.error('❌ isUserAdmin - Error:', error);
+    return false;
+  }
+}
+
+// Check if admin session exists without validation (for middleware)
+export async function hasAdminSession() {
+  try {
+    const cookieStore = await cookies();
+    const adminDataCookie = cookieStore.get('admin-data')?.value;
+    
+    if (!adminDataCookie) {
+      return false;
+    }
+    
+    const adminData = JSON.parse(adminDataCookie);
+    return adminData.role === 'admin';
+  } catch (error) {
+    return false;
   }
 }
