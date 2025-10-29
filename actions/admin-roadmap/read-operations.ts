@@ -3,8 +3,16 @@
 
 import { Roadmap } from '@/models/Roadmap';
 import { connectDB } from '@/lib/db';
+import type { 
+  Roadmap as RoadmapType, 
+  RoadmapActionResponse, 
+  RoadmapsActionResponse 
+} from '@/types/admin-roadmap';
 
-export async function getRoadmapAction(year: number, language: string) {
+export async function getRoadmapAction(
+  year: number, 
+  language: string
+): Promise<RoadmapActionResponse> {
   try {
     await connectDB();
     
@@ -44,7 +52,7 @@ export async function getRoadmapAction(year: number, language: string) {
   }
 }
 
-export async function getAllRoadmapsAction() {
+export async function getAllRoadmapsAction(): Promise<RoadmapsActionResponse> {
   try {
     await connectDB();
     
@@ -63,12 +71,12 @@ export async function getAllRoadmapsAction() {
     return {
       success: false,
       error: error.message || 'Failed to fetch roadmaps',
-      data: []
+      data: null
     };
   }
 }
 
-function transformRoadmapData(roadmap: any) {
+function transformRoadmapData(roadmap: any): RoadmapType {
   return {
     ...roadmap,
     _id: roadmap._id.toString(),

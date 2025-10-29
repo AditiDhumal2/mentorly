@@ -4,34 +4,15 @@
 import { revalidatePath } from 'next/cache';
 import { Roadmap } from '@/models/Roadmap';
 import { connectDB } from '@/lib/db';
+import type { 
+  CreateRoadmapStepPayload, 
+  UpdateRoadmapStepPayload,
+  ActionResponse 
+} from '@/types/admin-roadmap';
 
-// Types used only by roadmap steps
-interface Resource {
-  _id?: string;
-  title: string;
-  url: string;
-  type: 'video' | 'article' | 'documentation' | 'exercise' | 'quiz';
-  description?: string;
-  duration?: string;
-}
-
-export interface RoadmapStep {
-  _id?: string;
-  title: string;
-  description: string;
-  category: string;
-  priority: number;
-  estimatedDuration: string;
-  languageSpecific: boolean;
-  resources: Resource[];
-  prerequisites: string[];
-  year: number;
-  language: string;
-  order?: number;
-  applyToAllLanguages?: boolean;
-}
-
-export async function createRoadmapStepAction(stepData: Omit<RoadmapStep, '_id'>) {
+export async function createRoadmapStepAction(
+  stepData: CreateRoadmapStepPayload
+): Promise<ActionResponse> {
   try {
     await connectDB();
     
@@ -54,7 +35,6 @@ export async function createRoadmapStepAction(stepData: Omit<RoadmapStep, '_id'>
           });
         }
 
-        // ✅ FIXED: Remove redundant year/language assignment
         const newStep = {
           ...stepData,
           languageSpecific: false,
@@ -84,7 +64,6 @@ export async function createRoadmapStepAction(stepData: Omit<RoadmapStep, '_id'>
         });
       }
 
-      // ✅ FIXED: Remove redundant year/language assignment
       const newStep = {
         ...stepData,
         applyToAllLanguages: false
@@ -116,7 +95,10 @@ export async function createRoadmapStepAction(stepData: Omit<RoadmapStep, '_id'>
   }
 }
 
-export async function updateRoadmapStepAction(stepId: string, stepData: Partial<RoadmapStep>) {
+export async function updateRoadmapStepAction(
+  stepId: string, 
+  stepData: UpdateRoadmapStepPayload
+): Promise<ActionResponse> {
   try {
     await connectDB();
     
@@ -144,7 +126,33 @@ export async function updateRoadmapStepAction(stepId: string, stepData: Partial<
 
     const currentStep = roadmap.steps[stepIndex];
     
-    if (stepData.applyToAllLanguages && !currentStep.applyToAllLanguages) {
+    if (currentStep.applyToAllLanguages && !stepData.applyToAllLanguages) {
+      // Handle removing from "Apply to All Languages"
+      const allLanguages = ['python', 'javascript', 'java', 'cpp', 'go', 'rust'];
+      
+      for (const lang of allLanguages) {
+        if (lang === roadmap.language) continue;
+        
+        const targetRoadmap = await Roadmap.findOne({ year: roadmap.year, language: lang });
+        if (targetRoadmap) {
+          targetRoadmap.steps = targetRoadmap.steps.filter(
+            (step: any) => !(step.applyToAllLanguages && step.title === currentStep.title)
+          );
+          await targetRoadmap.save();
+        }
+      }
+      
+      roadmap.steps[stepIndex] = {
+        ...currentStep,
+        ...stepData,
+        applyToAllLanguages: false,
+        languageSpecific: true
+      };
+      
+      await roadmap.save();
+      
+    } else if (stepData.applyToAllLanguages && !currentStep.applyToAllLanguages) {
+      // Step was language-specific, now applying to all languages
       roadmap.steps.splice(stepIndex, 1);
       await roadmap.save();
       
@@ -164,7 +172,6 @@ export async function updateRoadmapStepAction(stepId: string, stepData: Partial<
           });
         }
 
-        // ✅ FIXED: Remove redundant year/language assignment
         const updatedStep = {
           ...stepData,
           languageSpecific: false,
@@ -193,19 +200,19 @@ export async function updateRoadmapStepAction(stepId: string, stepData: Partial<
         message: `Step updated for all ${allLanguages.length} languages`
       };
     } else {
-      // ✅ FIXED: Update the step with all data including year/language
+      // Regular update
       roadmap.steps[stepIndex] = {
         ...roadmap.steps[stepIndex],
         ...stepData
       };
       await roadmap.save();
-
-      revalidatePath('/admin/roadmap');
-      return {
-        success: true,
-        message: 'Step updated successfully'
-      };
     }
+
+    revalidatePath('/admin/roadmap');
+    return {
+      success: true,
+      message: 'Step updated successfully'
+    };
   } catch (error: any) {
     console.error('Error updating roadmap step:', error);
     return {
@@ -215,7 +222,9 @@ export async function updateRoadmapStepAction(stepId: string, stepData: Partial<
   }
 }
 
-export async function deleteRoadmapStepAction(stepId: string) {
+export async function deleteRoadmapStepAction(
+  stepId: string
+): Promise<ActionResponse> {
   try {
     await connectDB();
     
@@ -252,7 +261,10 @@ export async function deleteRoadmapStepAction(stepId: string) {
   }
 }
 
-export async function reorderRoadmapStepsAction(roadmapId: string, newOrder: string[]) {
+export async function reorderRoadmapStepsAction(
+  roadmapId: string, 
+  newOrder: string[]
+): Promise<ActionResponse> {
   try {
     await connectDB();
     

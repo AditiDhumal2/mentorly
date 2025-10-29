@@ -1,21 +1,15 @@
+// app/students/roadmap/components/RoadmapView.tsx
 'use client';
 
-import { Language } from '../../../../lib/languages';
+import { Language } from '@/lib/languages';
 import StepCard from './step-card';
-
-interface RoadmapViewProps {
-  roadmap: any;
-  progress: any;
-  currentYear: number;
-  userId: string;
-  selectedLanguage: Language;
-  engagementData: { [key: string]: any };
-  onTrackResourceView: (stepId: string, resource: any) => Promise<void>;
-  onTrackVideoProgress: (stepId: string, timeSpent: number) => Promise<void>;
-  onTrackQuizCompletion: (stepId: string, score: number) => Promise<void>;
-  onManualComplete: (stepId: string) => Promise<void>;
-  onRefreshProgress: () => Promise<void>;
-}
+import type { 
+  RoadmapViewProps, 
+  EngagementData, 
+  ProgressData,
+  RoadmapStep,
+  RoadmapData
+} from '@/types/student-roadmap';
 
 export default function RoadmapView({
   roadmap,
@@ -31,60 +25,49 @@ export default function RoadmapView({
   onRefreshProgress
 }: RoadmapViewProps) {
   
-  // Safe progress data handling
-  const getSafeProgressArray = () => {
+  // Safe progress data handling with proper typing
+  const getSafeProgressArray = (): ProgressData[] => {
     if (!progress) return [];
     
     // Handle different progress data structures
     if (Array.isArray(progress)) {
       return progress;
-    } else if (progress && typeof progress === 'object') {
-      // If progress is an object with a progress array
-      if (Array.isArray(progress.progress)) {
-        return progress.progress;
-      }
-      // If progress is an object with steps array
-      else if (Array.isArray(progress.steps)) {
-        return progress.steps;
-      }
-      // If it's an object with completion data
-      else if (progress.completedSteps !== undefined) {
-        // Convert to array format if needed
-        return Object.keys(progress).map(key => ({
-          stepId: key,
-          completed: progress[key].completed || false
-        }));
-      }
+    } 
+    
+    // If progress is wrapped in an object with progress property
+    if (progress && typeof progress === 'object' && 'progress' in progress) {
+      const progressObj = progress as { progress: ProgressData[] };
+      return Array.isArray(progressObj.progress) ? progressObj.progress : [];
     }
     
     return [];
   };
 
-  const getProgressForStep = (stepId: string) => {
+  const getProgressForStep = (stepId: string): ProgressData | undefined => {
     const safeProgress = getSafeProgressArray();
-    return safeProgress.find((p: any) => p.stepId === stepId);
+    return safeProgress.find((p: ProgressData) => p.stepId === stepId);
   };
 
   // Show warning if using fallback roadmap
-  const isFallback = roadmap.isFallback;
+  const isFallback = roadmap.isFallback || false;
   const requestedLanguage = roadmap.requestedLanguage;
 
   // Calculate overall progress statistics safely
   const totalSteps = roadmap.steps?.length || 0;
   const safeProgress = getSafeProgressArray();
-  const completedSteps = safeProgress.filter((p: any) => p.completed).length;
+  const completedSteps = safeProgress.filter((p: ProgressData) => p.completed).length;
   const completionRate = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
   // Calculate average engagement safely
   const engagementValues = Object.values(engagementData);
-  const totalEngagement = engagementValues.reduce((sum: number, data: any) => 
+  const totalEngagement = engagementValues.reduce((sum: number, data: EngagementData) => 
     sum + (data.engagementScore || 0), 0);
   const averageEngagement = engagementValues.length > 0 
     ? Math.round(totalEngagement / engagementValues.length) 
     : 0;
 
   // Count auto-completed steps
-  const autoCompletedSteps = engagementValues.filter((data: any) => data.autoCompleted).length;
+  const autoCompletedSteps = engagementValues.filter((data: EngagementData) => data.autoCompleted).length;
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -198,7 +181,7 @@ export default function RoadmapView({
 
       {/* Roadmap Steps */}
       <div className="space-y-6">
-        {roadmap.steps?.map((step: any, index: number) => {
+        {roadmap.steps?.map((step: RoadmapStep, index: number) => {
           const stepProgress = getProgressForStep(step._id);
           const stepEngagement = engagementData[step._id] || {
             engagementScore: 0,

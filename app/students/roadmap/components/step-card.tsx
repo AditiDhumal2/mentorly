@@ -1,18 +1,66 @@
+// app/students/roadmap/components/StepCard.tsx
 'use client';
 
 import { useState } from 'react';
+import type { StepCardProps, QuickAction, Resource, RoadmapStep } from '@/types/student-roadmap';
 
-interface StepCardProps {
-  step: any;
-  index: number;
-  isCompleted: boolean;
-  userId: string;
-  engagementData: any;
-  onTrackResourceView: (stepId: string, resource: any) => Promise<void>;
-  onTrackVideoProgress: (stepId: string, timeSpent: number) => Promise<void>;
-  onTrackQuizCompletion: (stepId: string, score: number) => Promise<void>;
-  onManualComplete: (stepId: string) => Promise<void>;
-}
+// Default quick actions (fallback if none are saved)
+const defaultQuickActions: QuickAction[] = [
+  {
+    id: '1',
+    title: '+30min Study Time',
+    description: 'Track 30 minutes of focused study time',
+    type: 'study',
+    duration: '30min',
+    icon: '📚',
+    color: 'blue',
+    difficulty: 'beginner',
+    category: 'study',
+    tags: ['quick', 'study', 'time-tracking'],
+    isActive: true,
+    points: 30,
+    link: '/study-timer',
+    targetResource: 'study',
+    targetLanguage: 'all',
+    targetYear: 0
+  },
+  {
+    id: '2',
+    title: 'Complete Practice Quiz',
+    description: 'Mark a practice quiz as completed',
+    type: 'quiz',
+    duration: '15min',
+    icon: '🧠',
+    color: 'purple',
+    difficulty: 'intermediate',
+    category: 'quiz',
+    tags: ['quick', 'quiz', 'assessment'],
+    isActive: true,
+    points: 85,
+    link: '/quizzes',
+    targetResource: 'quiz',
+    targetLanguage: 'all',
+    targetYear: 0
+  },
+  {
+    id: '3',
+    title: 'Submit Code Exercise',
+    description: 'Submit a coding exercise for review',
+    type: 'exercise',
+    duration: '45min',
+    icon: '💻',
+    color: 'green',
+    difficulty: 'intermediate',
+    category: 'exercise',
+    tags: ['quick', 'coding', 'practice'],
+    isActive: true,
+    points: 100,
+    link: '/exercises',
+    targetResource: 'exercise',
+    targetLanguage: 'all',
+    targetYear: 0
+  }
+];
 
 export default function StepCard({
   step,
@@ -28,7 +76,26 @@ export default function StepCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
 
-  const handleResourceClick = async (resource: any) => {
+  // Get admin-configured quick actions
+  const getAdminQuickActions = (): QuickAction[] => {
+    try {
+      if (typeof window !== 'undefined') {
+        const savedActions = localStorage.getItem('admin-quick-actions');
+        if (savedActions) {
+          const actions = JSON.parse(savedActions) as QuickAction[];
+          // Only return active actions
+          return actions.filter((action: QuickAction) => action.isActive !== false);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading admin quick actions:', error);
+    }
+    
+    // Fallback to defaults (only active ones)
+    return defaultQuickActions.filter(action => action.isActive !== false);
+  };
+
+  const handleResourceClick = async (resource: Resource) => {
     await onTrackResourceView(step._id, resource);
   };
 
@@ -47,6 +114,59 @@ export default function StepCard({
     } finally {
       setIsCompleting(false);
     }
+  };
+
+  // Handle quick action clicks with link support
+  const handleQuickAction = async (action: QuickAction) => {
+    // If action has a link, navigate to it
+    if (action.link) {
+      window.open(action.link, '_blank');
+    }
+    
+    // If action has a resource URL, open it
+    if (action.resourceUrl) {
+      window.open(action.resourceUrl, '_blank');
+    }
+
+    // Track the action based on type
+    switch (action.type) {
+      case 'study':
+        const studyMinutes = parseDurationToMinutes(action.duration);
+        await handleVideoProgress(studyMinutes);
+        break;
+      
+      case 'quiz':
+        await handleQuizComplete(action.points);
+        break;
+      
+      case 'exercise':
+        await handleQuizComplete(action.points);
+        break;
+      
+      case 'video':
+        const videoMinutes = parseDurationToMinutes(action.duration);
+        await handleVideoProgress(videoMinutes);
+        break;
+      
+      default:
+        const defaultMinutes = parseDurationToMinutes(action.duration);
+        await handleVideoProgress(defaultMinutes);
+        break;
+    }
+  };
+
+  const parseDurationToMinutes = (duration: string): number => {
+    if (!duration) return 30;
+    
+    const lowerDuration = duration.toLowerCase();
+    
+    if (lowerDuration.includes('15min') || lowerDuration.includes('15 min')) return 15;
+    if (lowerDuration.includes('30min') || lowerDuration.includes('30 min')) return 30;
+    if (lowerDuration.includes('45min') || lowerDuration.includes('45 min')) return 45;
+    if (lowerDuration.includes('1h') || lowerDuration.includes('1 hour')) return 60;
+    if (lowerDuration.includes('2h') || lowerDuration.includes('2 hours')) return 120;
+    
+    return 30;
   };
 
   const formatTime = (minutes: number): string => {
@@ -73,6 +193,26 @@ export default function StepCard({
   };
 
   const isAutoCompleted = engagementData?.autoCompleted || false;
+
+  const getColorClasses = (color: string) => {
+    const colors: Record<string, string> = {
+      blue: 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200 hover:shadow-md',
+      purple: 'bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-200 hover:shadow-md',
+      green: 'bg-green-100 text-green-700 hover:bg-green-200 border-green-200 hover:shadow-md',
+      red: 'bg-red-100 text-red-700 hover:bg-red-200 border-red-200 hover:shadow-md',
+      yellow: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 border-yellow-200 hover:shadow-md'
+    };
+    return colors[color] || colors.blue;
+  };
+
+  const getActionIcon = (action: QuickAction) => {
+    if (action.link || action.resourceUrl) {
+      return '🔗'; // Link icon for actions with URLs
+    }
+    return action.icon;
+  };
+
+  const quickActions = getAdminQuickActions();
 
   return (
     <div className={`bg-white rounded-2xl border-2 transition-all duration-300 hover:shadow-lg ${
@@ -188,7 +328,7 @@ export default function StepCard({
           </h4>
           
           <div className="grid gap-3">
-            {step.resources?.map((resource: any, resourceIndex: number) => (
+            {step.resources?.map((resource: Resource, resourceIndex: number) => (
               <a
                 key={resourceIndex}
                 href={resource.url}
@@ -213,7 +353,7 @@ export default function StepCard({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        handleVideoProgress(30); // Track 30 minutes of video watching
+                        handleVideoProgress(30);
                       }}
                       className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200 transition-colors"
                     >
@@ -228,30 +368,64 @@ export default function StepCard({
             ))}
           </div>
 
-          {/* Quick Actions */}
-          <div className="mt-6 pt-4 border-t border-gray-200">
-            <h5 className="font-medium text-gray-900 mb-3">Quick Actions</h5>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => handleVideoProgress(30)}
-                className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 transition-colors"
-              >
-                +30min Study Time
-              </button>
-              <button
-                onClick={() => handleQuizComplete(85)}
-                className="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200 transition-colors"
-              >
-                Complete Practice Quiz
-              </button>
-              <button
-                onClick={() => handleQuizComplete(100)}
-                className="px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200 transition-colors"
-              >
-                Submit Code Exercise
-              </button>
+          {/* Admin-Configured Quick Actions with Links */}
+          {quickActions.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <h5 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                <span>⚡</span>
+                Quick Actions
+                <span className="text-sm text-gray-500 font-normal">
+                  ({quickActions.length} available)
+                </span>
+              </h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {quickActions.map((action, actionIndex) => (
+                  <button
+                    key={actionIndex}
+                    onClick={() => handleQuickAction(action)}
+                    className={`p-3 rounded-lg border transition-all duration-200 font-medium text-left group ${getColorClasses(action.color)}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{getActionIcon(action)}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm leading-tight">
+                          {action.title}
+                        </div>
+                        <div className="text-xs text-gray-600 mt-1 line-clamp-2">
+                          {action.description}
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="text-xs px-1.5 py-0.5 bg-white/50 rounded">
+                            {action.duration}
+                          </span>
+                          {(action.link || action.resourceUrl) && (
+                            <span className="text-xs text-blue-600 flex items-center gap-1">
+                              <span>🔗</span>
+                              <span>Link</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        →
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              
+              {/* Quick Actions Info */}
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-500">💡</span>
+                  <div className="text-xs text-blue-700">
+                    <strong>Tip:</strong> Quick actions with link icons (🔗) will open external resources. 
+                    All actions automatically track your progress.
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Step Metadata */}
           <div className="mt-4 pt-4 border-t border-gray-200">

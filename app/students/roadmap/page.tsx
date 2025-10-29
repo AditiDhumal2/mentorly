@@ -3,19 +3,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { getCurrentUser } from '@/actions/userActions';
-import { getRoadmapAction, getRoadmapProgressAction } from '@/actions/roadmap-actions';
+import { 
+  getRoadmapAction, 
+  getRoadmapProgressAction,
+  getAvailableLanguagesAction 
+} from '@/actions/student-roadmap'; 
 import { languages, getLanguageById } from '@/lib/languages';
 import RoadmapClient from './components/roadmap-client';
-
-// Temporary function to replace missing import
-async function getUserLanguagesAction(userId: string) {
-  return {
-    success: true,
-    data: {
-      preferredLanguage: 'python'
-    }
-  };
-}
 
 export default async function StudentRoadmapPage() {
   console.log('📍 /students/roadmap - Loading student roadmap...');
@@ -69,19 +63,18 @@ export default async function StudentRoadmapPage() {
 
   try {
     const userYear = user.year || 1;
-    const [languagesResult] = await Promise.all([
-      getUserLanguagesAction(user._id) // Use _id instead of id
-    ]);
-
-    const preferredLanguage = languagesResult.success && languagesResult.data 
-      ? languagesResult.data.preferredLanguage 
+    
+    // Get available languages to determine preferred language
+    const languagesResult = await getAvailableLanguagesAction();
+    const preferredLanguage = languagesResult.success && languagesResult.data && languagesResult.data.length > 0
+      ? languagesResult.data[0] // Use first available language
       : 'python';
 
     console.log('📚 Loading roadmap for year:', userYear, 'language:', preferredLanguage);
 
     const [roadmapResult, progressResult] = await Promise.all([
       getRoadmapAction(userYear, preferredLanguage),
-      getRoadmapProgressAction(user._id) // Use _id instead of id
+      getRoadmapProgressAction(user._id, preferredLanguage, userYear) // ✅ Updated to match new signature
     ]);
 
     // Handle roadmap loading errors
@@ -120,7 +113,7 @@ export default async function StudentRoadmapPage() {
         roadmap={roadmapResult.data} 
         progress={progressResult.data?.progress || []}
         currentYear={userYear}
-        userId={user._id} // Use _id instead of id
+        userId={user._id}
         languages={languages}
         userLanguage={userLanguage}
         preferredLanguage={preferredLanguage}

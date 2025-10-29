@@ -1,44 +1,31 @@
+// app/students/roadmap/components/roadmap-client.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Language, languages } from '../../../../lib/languages';
-import { updatePreferredLanguageAction } from '../../../../actions/language-actions';
-import { getRoadmapAction, getUserYearProgressAction } from '../../../../actions/roadmap-actions';
+import { Language, languages } from '@/lib/languages';
+import { updatePreferredLanguageAction } from '@/actions/language-actions';
 import { 
-  getUserProgressStatsAction, 
-  getRoadmapProgressAction,
+  getRoadmapAction, 
+  getUserYearProgressAction,
+  getRoadmapProgressAction 
+} from '@/actions/student-roadmap';
+import { 
+  getUserProgressStatsAction,
   trackResourceViewAction,
   trackTimeSpentAction,
   trackSubmissionAction,
   markStepCompletedAction,
   getStepEngagementAction
-} from '../../../../actions/auto-progress-actions';
+} from '@/actions/auto-progress-actions';
 import RoadmapView from './roadmap-view';
-
-interface RoadmapClientProps {
-  roadmap: any;
-  progress: any;
-  currentYear: number;
-  userId: string;
-  languages: Language[];
-  userLanguage: Language;
-  preferredLanguage: string;
-  studentCurrentYear: number;
-}
-
-interface ProgressStats {
-  completedSteps: number;
-  totalSteps: number;
-  completionRate: number;
-  totalTimeSpent: number;
-  resourcesViewed: number;
-  currentStreak: number;
-  longestStreak: number;
-  averageEngagement: number;
-  totalCodeSubmissions: number;
-  totalProjectSubmissions: number;
-  autoCompletedSteps: number;
-}
+import type { 
+  RoadmapClientProps, 
+  RoadmapData, 
+  ProgressData, 
+  ProgressStats,
+  EngagementData,
+  YearProgress
+} from '@/types/student-roadmap';
 
 const YEAR_DESCRIPTIONS = {
   1: {
@@ -71,8 +58,8 @@ const YEAR_DESCRIPTIONS = {
   }
 };
 
-const getYearLabel = (year: number) => {
-  const labels: { [key: number]: string } = {
+const getYearLabel = (year: number): string => {
+  const labels: Record<number, string> = {
     1: '1st Year - Foundation',
     2: '2nd Year - Skill Development', 
     3: '3rd Year - Specialization',
@@ -80,6 +67,17 @@ const getYearLabel = (year: number) => {
   };
   return labels[year] || `Year ${year}`;
 };
+
+interface YearOption {
+  value: number;
+  label: string;
+  description: string;
+  isRecommended: boolean;
+  isCompleted: boolean;
+  isFuture: boolean;
+  progress: number;
+  icon: string;
+}
 
 export default function RoadmapClient({
   roadmap: initialRoadmap,
@@ -95,14 +93,14 @@ export default function RoadmapClient({
   const [selectedYear, setSelectedYear] = useState<number>(initialCurrentYear);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
-  const [roadmap, setRoadmap] = useState(initialRoadmap);
-  const [progress, setProgress] = useState(initialProgress);
+  const [roadmap, setRoadmap] = useState<RoadmapData>(initialRoadmap);
+  const [progress, setProgress] = useState<ProgressData[]>(initialProgress);
   const [isLoading, setIsLoading] = useState(false);
   const [progressStats, setProgressStats] = useState<ProgressStats | null>(null);
-  const [engagementData, setEngagementData] = useState<{[key: string]: any}>({});
-  const [yearProgress, setYearProgress] = useState<{[key: number]: any}>({});
+  const [engagementData, setEngagementData] = useState<Record<string, EngagementData>>({});
+  const [yearProgress, setYearProgress] = useState<Record<number, YearProgress>>({});
 
-  const normalizeProgress = (progressData: any): any[] => {
+  const normalizeProgress = (progressData: any): ProgressData[] => {
     if (!progressData) return [];
     
     if (Array.isArray(progressData)) {
@@ -159,7 +157,7 @@ export default function RoadmapClient({
     if (!roadmap?.steps) return;
     
     try {
-      const engagementMap: {[key: string]: any} = {};
+      const engagementMap: Record<string, EngagementData> = {};
       
       for (const step of roadmap.steps) {
         const result = await getStepEngagementAction(userId, step._id);
@@ -191,7 +189,7 @@ export default function RoadmapClient({
         
         const [newRoadmapResult, newProgressResult] = await Promise.all([
           getRoadmapAction(selectedYear, languageId),
-          getRoadmapProgressAction(userId, languageId)
+          getRoadmapProgressAction(userId, languageId, selectedYear)
         ]);
         
         if (newRoadmapResult.success && newRoadmapResult.data) {
@@ -232,7 +230,7 @@ export default function RoadmapClient({
       
       const [newRoadmapResult, newProgressResult] = await Promise.all([
         getRoadmapAction(year, selectedLanguage.id),
-        getRoadmapProgressAction(userId, selectedLanguage.id)
+        getRoadmapProgressAction(userId, selectedLanguage.id, year)
       ]);
       
       if (newRoadmapResult.success && newRoadmapResult.data) {
@@ -256,7 +254,7 @@ export default function RoadmapClient({
     }
   };
 
-  const updateRoadmapForYear = (baseRoadmap: any, year: number) => {
+  const updateRoadmapForYear = (baseRoadmap: RoadmapData, year: number): RoadmapData => {
     const yearInfo = YEAR_DESCRIPTIONS[year as keyof typeof YEAR_DESCRIPTIONS];
     
     return {
@@ -264,7 +262,7 @@ export default function RoadmapClient({
       title: yearInfo?.title || baseRoadmap.title,
       description: yearInfo?.description || baseRoadmap.description,
       year: year,
-      steps: baseRoadmap.steps?.map((step: any) => ({
+      steps: baseRoadmap.steps?.map((step) => ({
         ...step,
         yearContext: `Year ${year} - ${yearInfo?.focus}`
       })) || []
@@ -347,7 +345,7 @@ export default function RoadmapClient({
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
-  const getSafeProgressStats = () => {
+  const getSafeProgressStats = (): ProgressStats | null => {
     if (!progressStats) return null;
 
     return {
@@ -365,7 +363,7 @@ export default function RoadmapClient({
     };
   };
 
-  const getYearOptions = () => {
+  const getYearOptions = (): YearOption[] => {
     return [1, 2, 3, 4].map(year => {
       const progress = yearProgress[year] || { completed: 0, total: 0 };
       const completionRate = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
@@ -374,7 +372,7 @@ export default function RoadmapClient({
       return {
         value: year,
         label: getYearLabel(year),
-        description: yearInfo?.focus,
+        description: yearInfo?.focus || '',
         isRecommended: year === studentCurrentYear,
         isCompleted: year < studentCurrentYear,
         isFuture: year > studentCurrentYear,

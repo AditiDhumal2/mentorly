@@ -10,11 +10,7 @@ import {
   updateRoadmapStepAction,
   deleteRoadmapStepAction,
   reorderRoadmapStepsAction,
-  createQuickAction,
-  updateQuickAction,
-  deleteQuickAction,
   type RoadmapStep,
-  type QuickAction
 } from '@/actions/admin-roadmap';
 import RoadmapControls from './components/RoadmapControls';
 import RoadmapInfo from './components/RoadmapInfo';
@@ -27,7 +23,6 @@ export default function AdminRoadmapPage() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('python');
   const [roadmap, setRoadmap] = useState<any>(null);
   const [steps, setSteps] = useState<RoadmapStep[]>([]);
-  const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [editingStep, setEditingStep] = useState<RoadmapStep | null>(null);
   const [showStepForm, setShowStepForm] = useState(false);
@@ -43,11 +38,11 @@ export default function AdminRoadmapPage() {
       if (result.success && result.data) {
         setRoadmap(result.data);
         setSteps(result.data.steps || []);
-        setQuickActions(result.data.quickActions || []);
+        // ✅ REMOVED: setQuickActions - not needed anymore
       } else {
         setRoadmap(null);
         setSteps([]);
-        setQuickActions([]);
+        // ✅ REMOVED: setQuickActions - not needed anymore
       }
     } catch (error) {
       console.error('Error loading roadmap:', error);
@@ -91,35 +86,7 @@ export default function AdminRoadmapPage() {
     }
   };
 
-  const handleCreateQuickAction = async (actionData: Omit<QuickAction, '_id'>) => {
-    // ✅ Updated: Don't need roadmapId anymore since we use year and language
-    const result = await createQuickAction('', actionData);
-    if (result.success) {
-      await loadRoadmap();
-    }
-    return result;
-  };
-
-  const handleUpdateQuickAction = async (actionId: string, actionData: Partial<QuickAction>) => {
-    // ✅ Updated: Don't need roadmapId anymore since we use year and language
-    const result = await updateQuickAction('', actionId, actionData);
-    if (result.success) {
-      await loadRoadmap();
-    }
-    return result;
-  };
-
-  const handleDeleteQuickAction = async (actionId: string) => {
-    // ✅ Updated: Don't need roadmapId anymore since we use year and language
-    if (confirm('Are you sure you want to delete this quick action?')) {
-      const result = await deleteQuickAction('', actionId);
-      if (result.success) {
-        await loadRoadmap();
-      }
-      return result;
-    }
-    return { success: false, error: 'Cancelled by user' };
-  };
+  // ✅ REMOVED: All quick action handler functions
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -151,18 +118,8 @@ export default function AdminRoadmapPage() {
           />
         )}
 
-        {/* Quick Actions Section */}
-        {roadmap && (
-          <QuickActionsSection
-            quickActions={quickActions}
-            roadmapId={roadmap._id}
-            roadmapYear={selectedYear}
-            roadmapLanguage={selectedLanguage}
-            onQuickActionCreate={handleCreateQuickAction}
-            onQuickActionUpdate={handleUpdateQuickAction}
-            onQuickActionDelete={handleDeleteQuickAction}
-          />
-        )}
+        {/* Quick Actions Section - ✅ FIXED: No props needed */}
+        <QuickActionsSection />
 
         {/* Steps List */}
         <div className="space-y-4 mt-8">
@@ -218,8 +175,8 @@ export default function AdminRoadmapPage() {
         {(showStepForm || editingStep) && (
           <StepFormModal
             step={editingStep}
-            currentYear={selectedYear} // ✅ Fixed prop name
-            currentLanguage={selectedLanguage} // ✅ Fixed prop name
+            currentYear={selectedYear}
+            currentLanguage={selectedLanguage}
             onSubmit={editingStep ? 
               (data) => handleUpdateStep(editingStep._id!, data) : 
               handleCreateStep
