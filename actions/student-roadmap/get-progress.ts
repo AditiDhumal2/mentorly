@@ -1,4 +1,3 @@
-// actions/student-roadmap/get-progress.ts
 'use server';
 
 import { connectDB } from '@/lib/db';

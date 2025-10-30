@@ -1,4 +1,4 @@
-// app/students/roadmap/components/roadmap-client.tsx
+// app/students/roadmap/components/RoadmapClient.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -160,9 +160,12 @@ export default function RoadmapClient({
       const engagementMap: Record<string, EngagementData> = {};
       
       for (const step of roadmap.steps) {
-        const result = await getStepEngagementAction(userId, step._id);
+        // Convert step._id to string safely
+        const stepId = step._id ? step._id.toString() : `step-${step.title}`;
+        
+        const result = await getStepEngagementAction(userId, stepId);
         if (result.success && result.data) {
-          engagementMap[step._id] = result.data;
+          engagementMap[stepId] = result.data;
         }
       }
       

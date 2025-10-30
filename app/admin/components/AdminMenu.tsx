@@ -48,7 +48,7 @@ const menuItems = [
   },
   { 
     name: 'Career Domains', 
-    href: '/admin/domains', 
+    href: '/admin/careerdomains', 
     icon: Target,
     description: 'Career categories'
   },

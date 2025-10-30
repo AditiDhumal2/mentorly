@@ -1,45 +1,10 @@
-// actions/student-roadmap/get-years-overview.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
 import { Roadmap } from '@/models/Roadmap';
 import { cookies } from 'next/headers';
-import type { YearsOverviewActionResponse, YearOverview, RoadmapData } from '@/types/student-roadmap';
-import { Types } from 'mongoose';
-
-// Type for the roadmap document from MongoDB
-interface RoadmapDocument {
-  _id: Types.ObjectId;
-  year: number;
-  language: string;
-  title: string;
-  description: string;
-  steps: Array<{
-    _id: Types.ObjectId;
-    title: string;
-    description: string;
-    category: string;
-    resources: Array<{
-      _id?: Types.ObjectId;
-      title: string;
-      url: string;
-      type: string;
-      description?: string;
-      duration?: string;
-    }>;
-    estimatedDuration: string;
-    priority: number;
-    languageSpecific: boolean;
-    prerequisites: string[];
-    year?: number;
-    language?: string;
-    order?: number;
-    applyToAllLanguages?: boolean;
-  }>;
-  createdAt: Date;
-  updatedAt: Date;
-  __v?: number;
-}
+import type { YearsOverviewActionResponse, YearOverview } from '@/types/student-roadmap';
+import type { RoadmapDocument } from '@/types/roadmap-base';
 
 // Helper function to get current student from session
 async function getCurrentStudent(): Promise<{ id: string; role: string } | null> {
@@ -95,7 +60,7 @@ export async function getRoadmapYearsOverview(userId: string, languageId: string
     const overview: YearOverview[] = [];
     
     for (const year of years) {
-      // Use proper typing for the MongoDB query
+      // Use the shared RoadmapDocument type
       const roadmap = await Roadmap.findOne({ 
         year, 
         language: languageId.toLowerCase() 
@@ -111,7 +76,7 @@ export async function getRoadmapYearsOverview(userId: string, languageId: string
           label: getYearLabel(year)
         });
       } else {
-        // Check if default language roadmap exists with proper typing
+        // Check if default language roadmap exists
         const defaultRoadmap = await Roadmap.findOne({ 
           year, 
           language: 'python' 

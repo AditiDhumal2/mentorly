@@ -1,61 +1,17 @@
 // types/student-roadmap.ts
+import { Types } from 'mongoose';
+import type { 
+  BaseResource, 
+  BaseRoadmapStep, 
+  BaseRoadmapData,
+  RoadmapDocument 
+} from './roadmap-base';
 
 // ========== CORE DATA TYPES ==========
 
-export interface QuickAction {
-  id: string;
-  title: string;
-  description: string;
-  type: 'study' | 'quiz' | 'exercise' | 'video' | 'reading' | 'project';
-  duration: string;
-  icon: string;
-  color: 'blue' | 'purple' | 'green' | 'red' | 'yellow';
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  category: string;
-  tags: string[];
-  isActive: boolean;
-  points: number;
-  link?: string;
-  resourceUrl?: string;
-  targetResource?: string;
-  targetLanguage?: string;
-  targetYear?: number;
-}
-
-export interface Resource {
-  _id?: string;
-  title: string;
-  url: string;
-  type: 'video' | 'article' | 'documentation' | 'exercise' | 'quiz';
-  description?: string;
-  duration?: string;
-}
-
-export interface RoadmapStep {
-  _id: string;
-  title: string;
-  description: string;
-  category: string;
-  priority: number;
-  estimatedDuration: string;
-  languageSpecific: boolean;
-  resources: Resource[];
-  prerequisites: string[];
-  year?: number; // Changed from required to optional
-  language: string;
-  order?: number;
-  applyToAllLanguages?: boolean;
-}
-
-export interface RoadmapData {
-  _id?: string;
-  year: number;
-  language: string;
-  title: string;
-  description: string;
-  steps: RoadmapStep[];
-  createdAt?: Date;
-  updatedAt?: Date;
+export interface Resource extends BaseResource {}
+export interface RoadmapStep extends BaseRoadmapStep {}
+export interface RoadmapData extends BaseRoadmapData {
   isFallback?: boolean;
   requestedLanguage?: string;
 }
@@ -374,4 +330,26 @@ export interface UserPreferences {
   dailyGoal: number; // in minutes
   autoTrackProgress: boolean;
   showCompletedSteps: boolean;
+}
+
+// ========== QUICK ACTION TYPES ==========
+
+export interface QuickAction {
+  id: string;
+  title: string;
+  description: string;
+  type: 'study' | 'quiz' | 'exercise' | 'video' | 'reading' | 'project';
+  duration: string;
+  icon: string;
+  color: 'blue' | 'purple' | 'green' | 'red' | 'yellow';
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  category: string;
+  tags: string[];
+  isActive: boolean;
+  points: number;
+  link?: string;
+  resourceUrl?: string;
+  targetResource?: string;
+  targetLanguage?: string;
+  targetYear?: number;
 }

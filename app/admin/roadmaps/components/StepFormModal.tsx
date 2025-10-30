@@ -3,30 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Language, languages } from '@/lib/languages';
-
-interface Resource {
-  _id?: string;
-  title: string;
-  url: string;
-  type: 'video' | 'article' | 'documentation' | 'exercise' | 'quiz';
-  description?: string;
-  duration?: string;
-}
-
-interface RoadmapStep {
-  _id?: string;
-  title: string;
-  description: string;
-  category: string;
-  priority: number;
-  estimatedDuration: string;
-  languageSpecific: boolean;
-  resources: Resource[];
-  prerequisites: string[];
-  year: number;
-  language: string;
-  applyToAllLanguages?: boolean;
-}
+import type { RoadmapStep, Resource } from '@/types/admin-roadmap';
 
 interface StepFormModalProps {
   step?: RoadmapStep | null;

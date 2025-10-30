@@ -1,9 +1,9 @@
-// actions/student-roadmap/get-roadmap.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
 import { Roadmap } from '@/models/Roadmap';
-import type { RoadmapActionResponse, RoadmapData, RoadmapStep, Resource } from '@/types/student-roadmap';
+import type { RoadmapActionResponse, RoadmapData } from '@/types/student-roadmap';
+import type { RoadmapDocument } from '@/types/roadmap-base';
 import { Types } from 'mongoose';
 
 // Helper function to serialize MongoDB data for client components
@@ -120,66 +120,6 @@ async function createBasicRoadmap(year: number, languageId: string): Promise<Roa
   return basicRoadmap;
 }
 
-// Type for the roadmap document from MongoDB
-interface RoadmapDocument {
-  _id: Types.ObjectId;
-  year: number;
-  language: string;
-  title: string;
-  description: string;
-  steps: Array<{
-    _id: Types.ObjectId;
-    title: string;
-    description: string;
-    category: string;
-    resources: Array<{
-      _id?: Types.ObjectId;
-      title: string;
-      url: string;
-      type: string;
-      description?: string;
-      duration?: string;
-    }>;
-    estimatedDuration: string;
-    priority: number;
-    languageSpecific: boolean;
-    prerequisites: string[];
-    year?: number;
-    language?: string;
-    order?: number;
-    applyToAllLanguages?: boolean;
-  }>;
-  createdAt: Date;
-  updatedAt: Date;
-  __v?: number;
-}
-
-// Helper function to convert MongoDB step to RoadmapStep
-function convertToRoadmapStep(step: RoadmapDocument['steps'][0], roadmapYear: number, roadmapLanguage: string): RoadmapStep {
-  return {
-    _id: step._id.toString(),
-    title: step.title,
-    description: step.description,
-    category: step.category,
-    resources: step.resources.map(resource => ({
-      _id: resource._id?.toString(),
-      title: resource.title,
-      url: resource.url,
-      type: resource.type as 'video' | 'article' | 'documentation' | 'exercise' | 'quiz',
-      description: resource.description,
-      duration: resource.duration
-    })),
-    estimatedDuration: step.estimatedDuration,
-    priority: step.priority,
-    languageSpecific: step.languageSpecific,
-    prerequisites: step.prerequisites,
-    year: step.year, // Now optional, so no issue
-    language: step.language ?? roadmapLanguage,
-    order: step.order,
-    applyToAllLanguages: step.applyToAllLanguages
-  };
-}
-
 export async function getRoadmapAction(year: number, languageId: string = 'python'): Promise<RoadmapActionResponse> {
   try {
     await connectDB();
@@ -234,9 +174,28 @@ export async function getRoadmapAction(year: number, languageId: string = 'pytho
         language: defaultRoadmap.language,
         title: defaultRoadmap.title,
         description: defaultRoadmap.description,
-        steps: defaultRoadmap.steps.map(step => 
-          convertToRoadmapStep(step, defaultRoadmap.year, defaultRoadmap.language)
-        ),
+        steps: defaultRoadmap.steps.map(step => ({
+          _id: step._id.toString(),
+          title: step.title,
+          description: step.description,
+          category: step.category,
+          resources: step.resources.map(resource => ({
+            _id: resource._id?.toString(),
+            title: resource.title,
+            url: resource.url,
+            type: resource.type as 'video' | 'article' | 'documentation' | 'exercise' | 'quiz',
+            description: resource.description,
+            duration: resource.duration
+          })),
+          estimatedDuration: step.estimatedDuration,
+          priority: step.priority,
+          languageSpecific: step.languageSpecific,
+          prerequisites: step.prerequisites,
+          year: step.year,
+          language: step.language ?? defaultRoadmap.language,
+          order: step.order,
+          applyToAllLanguages: step.applyToAllLanguages
+        })),
         createdAt: defaultRoadmap.createdAt,
         updatedAt: defaultRoadmap.updatedAt,
         isFallback: true,
@@ -256,9 +215,28 @@ export async function getRoadmapAction(year: number, languageId: string = 'pytho
       language: roadmap.language,
       title: roadmap.title,
       description: roadmap.description,
-      steps: roadmap.steps.map(step => 
-        convertToRoadmapStep(step, roadmap.year, roadmap.language)
-      ),
+      steps: roadmap.steps.map(step => ({
+        _id: step._id.toString(),
+        title: step.title,
+        description: step.description,
+        category: step.category,
+        resources: step.resources.map(resource => ({
+          _id: resource._id?.toString(),
+          title: resource.title,
+          url: resource.url,
+          type: resource.type as 'video' | 'article' | 'documentation' | 'exercise' | 'quiz',
+          description: resource.description,
+          duration: resource.duration
+        })),
+        estimatedDuration: step.estimatedDuration,
+        priority: step.priority,
+        languageSpecific: step.languageSpecific,
+        prerequisites: step.prerequisites,
+        year: step.year,
+        language: step.language ?? roadmap.language,
+        order: step.order,
+        applyToAllLanguages: step.applyToAllLanguages
+      })),
       createdAt: roadmap.createdAt,
       updatedAt: roadmap.updatedAt
     };

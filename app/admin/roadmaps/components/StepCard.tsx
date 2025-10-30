@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { type RoadmapStep } from '@/actions/admin-roadmap'; // ✅ Import type from actions
+import type { RoadmapStep } from '@/types/admin-roadmap';
 
 interface StepCardProps {
   step: RoadmapStep;
@@ -14,6 +14,9 @@ interface StepCardProps {
 
 export default function StepCard({ step, index, onEdit, onDelete, onUpdate }: StepCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Convert step._id to string safely
+  const stepId = step._id ? step._id.toString() : `temp-${index}`;
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -59,7 +62,7 @@ export default function StepCard({ step, index, onEdit, onDelete, onUpdate }: St
               Edit
             </button>
             <button
-              onClick={() => step._id && onDelete(step._id)}
+              onClick={() => onDelete(stepId)}
               className="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors"
             >
               Delete

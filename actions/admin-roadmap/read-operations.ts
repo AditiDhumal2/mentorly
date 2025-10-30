@@ -1,4 +1,3 @@
-// actions/admin-roadmap/read-operations.ts
 'use server';
 
 import { Roadmap } from '@/models/Roadmap';
@@ -8,6 +7,7 @@ import type {
   RoadmapActionResponse, 
   RoadmapsActionResponse 
 } from '@/types/admin-roadmap';
+import type { RoadmapDocumentWithQuickActions } from '@/types/roadmap-base';
 
 export async function getRoadmapAction(
   year: number, 
@@ -19,7 +19,7 @@ export async function getRoadmapAction(
     const roadmap = await Roadmap.findOne({
       year,
       language
-    }).lean();
+    }).lean<RoadmapDocumentWithQuickActions>();
 
     if (!roadmap) {
       return {
@@ -58,7 +58,7 @@ export async function getAllRoadmapsAction(): Promise<RoadmapsActionResponse> {
     
     const roadmaps = await Roadmap.find({})
       .sort({ year: 1, language: 1 })
-      .lean();
+      .lean<RoadmapDocumentWithQuickActions[]>();
 
     const roadmapsData = roadmaps.map(roadmap => transformRoadmapData(roadmap));
 
@@ -76,13 +76,17 @@ export async function getAllRoadmapsAction(): Promise<RoadmapsActionResponse> {
   }
 }
 
-function transformRoadmapData(roadmap: any): RoadmapType {
+function transformRoadmapData(roadmap: RoadmapDocumentWithQuickActions): RoadmapType {
   return {
-    ...roadmap,
     _id: roadmap._id.toString(),
+    year: roadmap.year,
+    language: roadmap.language,
+    title: roadmap.title,
+    description: roadmap.description,
     steps: (roadmap.steps || []).map((step: any) => ({
       ...step,
       _id: step._id.toString(),
+      language: step.language || roadmap.language, // Fallback to roadmap language
       resources: (step.resources || []).map((resource: any) => ({
         ...resource,
         _id: resource._id?.toString()
@@ -97,6 +101,8 @@ function transformRoadmapData(roadmap: any): RoadmapType {
         ...resource,
         _id: resource._id?.toString()
       }))
-    }))
+    })),
+    createdAt: roadmap.createdAt,
+    updatedAt: roadmap.updatedAt
   };
 }

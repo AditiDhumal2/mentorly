@@ -3,7 +3,7 @@
 
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { logout } from '../../students-auth/logout/actions';
+import { studentLogout } from '@/actions/userActions';
 
 interface User {
   _id: string;
@@ -32,7 +32,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
     { name: 'Dashboard', icon: '🏠', path: '/students', description: 'Overview and analytics' },
     { name: 'Learning Roadmap', icon: '🗺️', path: '/students/roadmap', description: 'Your learning path' },
     { name: 'Placement Hub', icon: '💼', path: '/students/placement', description: 'Career opportunities' },
-    { name: 'Career Domains', icon: '🎯', path: '/students/career-domains', description: 'Explore career paths' },
+    { name: 'Career Domains', icon: '🎯', path: '/students/careerdomains', description: 'Explore career paths' },
     { name: 'Market Trends', icon: '📊', path: '/students/market-trends', description: 'Industry insights' },
     { name: 'Personal Branding', icon: '⭐', path: '/students/branding', description: 'Build your profile' },
     { name: 'Resources', icon: '📚', path: '/students/resources', description: 'Learning materials' },
@@ -44,42 +44,21 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      // Nuclear option - clear everything client-side
-      if (typeof window !== 'undefined') {
-        // Clear all storage
-        localStorage.clear();
-        sessionStorage.clear();
-        
-        // Clear all cookies for current domain (nuclear approach)
-        const cookies = document.cookie.split(';');
-        for (let cookie of cookies) {
-          const eqPos = cookie.indexOf('=');
-          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-          
-          // Clear cookie with all possible variations
-          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname};`;
-          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
-        }
-        
-        console.log('🧹 NUCLEAR: Cleared all client-side data and cookies');
-      }
-      
-      // Call server logout
-      const result = await logout();
+      const result = await studentLogout();
       
       if (result.success) {
-        console.log('✅ Server logout successful, forcing redirect');
-        // Force hard redirect with cache busting
-        window.location.href = result.redirectUrl + '&t=' + Date.now() + '&v2=true';
+        console.log('✅ Student logout successful, redirecting...');
+        // Use hard redirect to ensure clean state
+        window.location.href = result.redirectUrl;
       } else {
-        console.error('❌ Server logout failed, forcing redirect anyway');
-        window.location.href = '/students-auth/login?logout=success&fallback=true&t=' + Date.now() + '&v2=true';
+        console.error('❌ Student logout failed');
+        // Fallback redirect
+        window.location.href = '/students-auth/login?logout=success&fallback=true';
       }
-      
     } catch (error) {
       console.error('Logout failed:', error);
-      window.location.href = '/students-auth/login?logout=success&fallback=true&t=' + Date.now() + '&v2=true';
+      // Final fallback
+      window.location.href = '/students-auth/login?logout=success&error=true';
     }
   };
 

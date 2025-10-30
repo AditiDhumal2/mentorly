@@ -76,6 +76,9 @@ export default function StepCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
 
+  // Convert step._id to string safely
+  const stepId = step._id ? step._id.toString() : `step-${index}`;
+
   // Get admin-configured quick actions
   const getAdminQuickActions = (): QuickAction[] => {
     try {
@@ -96,21 +99,21 @@ export default function StepCard({
   };
 
   const handleResourceClick = async (resource: Resource) => {
-    await onTrackResourceView(step._id, resource);
+    await onTrackResourceView(stepId, resource);
   };
 
   const handleVideoProgress = async (minutes: number) => {
-    await onTrackVideoProgress(step._id, minutes);
+    await onTrackVideoProgress(stepId, minutes);
   };
 
   const handleQuizComplete = async (score: number) => {
-    await onTrackQuizCompletion(step._id, score);
+    await onTrackQuizCompletion(stepId, score);
   };
 
   const handleManualComplete = async () => {
     setIsCompleting(true);
     try {
-      await onManualComplete(step._id);
+      await onManualComplete(stepId);
     } finally {
       setIsCompleting(false);
     }

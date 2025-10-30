@@ -1,4 +1,3 @@
-// actions/admin-roadmap/quick-actions.ts
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -10,6 +9,7 @@ import type {
   UpdateQuickActionPayload,
   ActionResponse  
 } from '@/types/admin-roadmap';
+import type { RoadmapDocumentWithQuickActions } from '@/types/roadmap-base';
 
 export async function createQuickAction(
   roadmapId: string, 
@@ -66,7 +66,7 @@ export async function updateQuickAction(
   roadmapId: string, 
   actionId: string, 
   actionData: UpdateQuickActionPayload
-): Promise<ActionResponse> {  // ✅ FIXED: Changed return type
+): Promise<ActionResponse> {
   try {
     await connectDB();
     
@@ -79,13 +79,19 @@ export async function updateQuickAction(
       };
     }
     
-    const roadmap = await Roadmap.findOne({ year, language });
+    const roadmap = await Roadmap.findOne({ year, language }).lean<RoadmapDocumentWithQuickActions>();
     
     if (!roadmap) {
       return { success: false, error: 'Roadmap not found' };
     }
 
-    const actionIndex = roadmap.quickActions.findIndex(
+    // For update operations, we need the document instance, not the lean version
+    const roadmapDoc = await Roadmap.findOne({ year, language });
+    if (!roadmapDoc) {
+      return { success: false, error: 'Roadmap not found' };
+    }
+
+    const actionIndex = roadmapDoc.quickActions.findIndex(
       (action: any) => action._id.toString() === actionId
     );
 
@@ -93,11 +99,11 @@ export async function updateQuickAction(
       return { success: false, error: 'Quick action not found' };
     }
 
-    roadmap.quickActions[actionIndex] = {
-      ...roadmap.quickActions[actionIndex],
+    roadmapDoc.quickActions[actionIndex] = {
+      ...roadmapDoc.quickActions[actionIndex],
       ...actionData
     };
-    await roadmap.save();
+    await roadmapDoc.save();
 
     revalidatePath('/admin/roadmap');
     return {
@@ -116,7 +122,7 @@ export async function updateQuickAction(
 export async function deleteQuickAction(
   roadmapId: string, 
   actionId: string
-): Promise<ActionResponse> {  // ✅ FIXED: Changed return type
+): Promise<ActionResponse> {
   try {
     await connectDB();
     

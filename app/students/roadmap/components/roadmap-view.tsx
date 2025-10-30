@@ -182,8 +182,11 @@ export default function RoadmapView({
       {/* Roadmap Steps */}
       <div className="space-y-6">
         {roadmap.steps?.map((step: RoadmapStep, index: number) => {
-          const stepProgress = getProgressForStep(step._id);
-          const stepEngagement = engagementData[step._id] || {
+          // Convert step._id to string safely
+          const stepId = step._id ? step._id.toString() : `step-${selectedLanguage.id}-${currentYear}-${index}`;
+          
+          const stepProgress = getProgressForStep(stepId);
+          const stepEngagement = engagementData[stepId] || {
             engagementScore: 0,
             timeSpent: 0,
             resourcesViewed: 0,
@@ -194,12 +197,9 @@ export default function RoadmapView({
           
           const isCompleted = stepProgress?.completed || stepEngagement.completed || false;
           
-          // Create a unique key
-          const stepKey = step._id || `step-${selectedLanguage.id}-${currentYear}-${index}`;
-          
           return (
             <StepCard
-              key={stepKey}
+              key={stepId}
               step={step}
               index={index}
               isCompleted={isCompleted}
