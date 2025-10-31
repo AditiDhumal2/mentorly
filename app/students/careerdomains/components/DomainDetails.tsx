@@ -1,12 +1,7 @@
-// app/students/careerdomains/components/DomainDetails.tsx
 'use client';
 
 import { useState } from 'react';
 import { ICareerDomain } from '@/types/careerDomains';
-import SkillTag from './SkillTag';
-import ProjectList from './ProjectList';
-import SalaryTable from './SalaryTable';
-import ResourceLink from './ResourceLink';
 
 interface DomainDetailsProps {
   domain: ICareerDomain;
@@ -31,64 +26,133 @@ export default function DomainDetails({ domain }: DomainDetailsProps) {
       case 'Overview':
         return (
           <div className="space-y-6">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-blue-200/50">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-4">Domain Overview</h3>
-              <p className="text-gray-700 leading-relaxed text-lg">{domain.description}</p>
+              <p className="text-gray-600 leading-relaxed">{domain.description}</p>
             </div>
             
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-green-200/50">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Common Roles</h3>
-              <div className="flex flex-wrap gap-3">
-                {domain.roles.map((role, index) => (
-                  <span 
-                    key={index} 
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-sm"
-                  >
-                    {role}
-                  </span>
-                ))}
+            {domain.roles && domain.roles.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Common Roles</h3>
+                <div className="flex flex-wrap gap-3">
+                  {domain.roles.map((role, index) => (
+                    <span 
+                      key={index} 
+                      className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium border border-blue-200"
+                    >
+                      {role}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         );
 
       case 'Key Skills':
         return (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-blue-200/50">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">Essential Skills</h3>
-            <SkillTag skills={domain.skills} />
+            <div className="flex flex-wrap gap-2">
+              {domain.skills?.map((skill, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium border border-blue-200"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
           </div>
         );
 
       case 'Tools and Technologies':
         return (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-200/50">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">Tools & Technologies</h3>
-            <SkillTag skills={domain.tools} />
+            <div className="flex flex-wrap gap-2">
+              {domain.tools?.map((tool, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium border border-gray-200"
+                >
+                  {tool}
+                </span>
+              ))}
+            </div>
           </div>
         );
 
       case 'Project Ideas':
         return (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-orange-200/50">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">Project Ideas</h3>
-            <ProjectList projects={domain.projects} />
+            <div className="space-y-3">
+              {domain.projects?.map((project, index) => (
+                <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h4 className="font-semibold text-gray-900 mb-2">{project}</h4>
+                </div>
+              ))}
+            </div>
           </div>
         );
 
       case 'Salary Insights':
         return (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-green-200/50">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">Salary Insights</h3>
-            <SalaryTable salary={domain.averageSalary} roles={domain.roles} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="text-center p-6 bg-green-50 rounded-xl border border-green-200">
+                <h4 className="text-lg font-semibold text-green-800 mb-2">India</h4>
+                <div className="text-3xl font-bold text-green-600 mb-2">
+                  {domain.averageSalary?.india || 'Not available'}
+                </div>
+                <p className="text-green-700 text-sm">Average annual salary</p>
+              </div>
+              <div className="text-center p-6 bg-blue-50 rounded-xl border border-blue-200">
+                <h4 className="text-lg font-semibold text-blue-800 mb-2">International</h4>
+                <div className="text-3xl font-bold text-blue-600 mb-2">
+                  {domain.averageSalary?.abroad || 'Not available'}
+                </div>
+                <p className="text-blue-700 text-sm">Average annual salary</p>
+              </div>
+            </div>
           </div>
         );
 
       case 'Learning Resources':
         return (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-cyan-200/50">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">Learning Resources</h3>
-            <ResourceLink resources={domain.resources} />
+            <div className="space-y-3">
+              {domain.resources?.map((resource, index) => (
+                <a
+                  key={index}
+                  href={resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-gray-900">{resource.title}</h4>
+                    {resource.type && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                        {resource.type}
+                      </span>
+                    )}
+                  </div>
+                  {/* Resource URL preview */}
+                  <p className="text-gray-500 text-sm mt-2 truncate">
+                    {resource.url.replace(/^https?:\/\//, '')}
+                  </p>
+                </a>
+              ))}
+              {(!domain.resources || domain.resources.length === 0) && (
+                <div className="text-center py-8 text-gray-500">
+                  No learning resources available for this domain yet.
+                </div>
+              )}
+            </div>
           </div>
         );
 
@@ -99,26 +163,26 @@ export default function DomainDetails({ domain }: DomainDetailsProps) {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-blue-200/50 mb-6 shadow-sm">
+      {/* Domain Header Card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold text-gray-900 mb-3">
               {domain.name}
             </h1>
-            <p className="text-gray-600 text-lg leading-relaxed max-w-4xl">
+            <p className="text-gray-600 leading-relaxed">
               {domain.description}
             </p>
           </div>
-          <div className="ml-6 w-20 h-20 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+          <div className="ml-6 w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl">
             {domain.name.split(' ').map(word => word[0]).join('').slice(0, 2)}
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-blue-200/50">
-        <div className="border-b border-gray-200/50">
+      {/* Tabs Navigation */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+        <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto px-6">
             {tabs.map((tab) => (
               <button
@@ -126,7 +190,7 @@ export default function DomainDetails({ domain }: DomainDetailsProps) {
                 onClick={() => setActiveTab(tab)}
                 className={`px-6 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-200 ${
                   activeTab === tab
-                    ? 'border-blue-500 text-blue-600 bg-blue-50/50'
+                    ? 'border-blue-600 text-blue-600 bg-blue-50'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
