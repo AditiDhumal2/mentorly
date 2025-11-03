@@ -1,4 +1,4 @@
-// lib/actions/user-actions.ts
+// mentorly/actions/userActions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';

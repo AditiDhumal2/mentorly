@@ -1,4 +1,3 @@
-// app/students/components/DashboardLayout.tsx
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
@@ -34,8 +33,9 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
     { name: 'Placement Hub', icon: '💼', path: '/students/placement', description: 'Career opportunities' },
     { name: 'Career Domains', icon: '🎯', path: '/students/careerdomains', description: 'Explore career paths' },
     { name: 'Market Trends', icon: '📊', path: '/students/market-trends', description: 'Industry insights' },
-    { name: 'Personal Branding', icon: '⭐', path: '/students/branding', description: 'Build your profile' },
+    { name: 'Personal Branding', icon: '⭐', path: '/students/professionalbranding', description: 'Build your profile' },
     { name: 'Resources', icon: '📚', path: '/students/resources', description: 'Learning materials' },
+    { name: 'Community Forum', icon: '💬', path: '/students/communityforum', description: 'Connect & discuss' },
     { name: 'Progress Tracking', icon: '📈', path: '/students/progress', description: 'Your achievements' },
   ];
 

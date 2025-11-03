@@ -4,9 +4,15 @@ interface ResourceCardProps {
   resource: ResourceResponse;
   onEdit: (resource: ResourceResponse) => void;
   onDelete: (resourceId: string) => void;
+  isDeleting?: boolean; // Add this line
 }
 
-export default function ResourceCard({ resource, onEdit, onDelete }: ResourceCardProps) {
+export default function ResourceCard({ 
+  resource, 
+  onEdit, 
+  onDelete, 
+  isDeleting = false // Add this with default value
+}: ResourceCardProps) {
   const getTypeColor = (type: string) => {
     const colors = {
       course: 'bg-green-100 text-green-800',
@@ -41,15 +47,24 @@ export default function ResourceCard({ resource, onEdit, onDelete }: ResourceCar
         <div className="flex space-x-2">
           <button
             onClick={() => onEdit(resource)}
-            className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+            disabled={isDeleting}
+            className="text-purple-600 hover:text-purple-800 text-sm font-medium disabled:text-purple-400 disabled:cursor-not-allowed"
           >
             Edit
           </button>
           <button
             onClick={() => onDelete(resource._id)}
-            className="text-red-600 hover:text-red-800 text-sm font-medium"
+            disabled={isDeleting}
+            className="text-red-600 hover:text-red-800 text-sm font-medium disabled:text-red-400 disabled:cursor-not-allowed flex items-center gap-1"
           >
-            Delete
+            {isDeleting ? (
+              <>
+                <div className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
+                Deleting...
+              </>
+            ) : (
+              'Delete'
+            )}
           </button>
         </div>
       </div>

@@ -10,8 +10,10 @@ import {
   TrendingUp, 
   Target, 
   Settings,
+  MessageSquare,
   ChevronRight,
-  LogOut
+  LogOut,
+  BadgeCheck
 } from 'lucide-react';
 import AdminLogout from './AdminLogout';
 
@@ -51,6 +53,18 @@ const menuItems = [
     href: '/admin/careerdomains', 
     icon: Target,
     description: 'Career categories'
+  },
+  { 
+    name: 'Professional Branding', 
+    href: '/admin/professionalbranding', 
+    icon: BadgeCheck,
+    description: 'Branding checklists'
+  },
+  { 
+    name: 'Community Forum', 
+    href: '/admin/communityforum', 
+    icon: MessageSquare,
+    description: 'Moderate discussions'
   },
   { 
     name: 'System Settings', 

@@ -5,6 +5,40 @@ import { CareerDomain } from '@/models/CareerDomain';
 import { revalidatePath } from 'next/cache';
 import { ICareerDomain, ServerActionResponse, BulkActionResponse, CareerDomainsStats } from '@/types/careerDomains';
 
+// ==================== WRAPPER ACTIONS FOR FORMS ====================
+
+// Wrapper for form action (returns void - compatible with React forms)
+export async function createCareerDomainAction(formData: FormData): Promise<void> {
+  try {
+    await createCareerDomain(formData);
+    // No return value needed - this satisfies the React form action signature
+  } catch (error) {
+    // Errors are already handled in createCareerDomain, but we catch here too
+    // to prevent unhandled promise rejections
+    console.error('Error in createCareerDomainAction wrapper:', error);
+  }
+}
+
+// Wrapper for update action (returns void - compatible with React forms)
+export async function updateCareerDomainAction(id: string, formData: FormData): Promise<void> {
+  try {
+    await updateCareerDomain(id, formData);
+  } catch (error) {
+    console.error('Error in updateCareerDomainAction wrapper:', error);
+  }
+}
+
+// Wrapper for delete action (returns void - compatible with React forms)
+export async function deleteCareerDomainAction(id: string): Promise<void> {
+  try {
+    await deleteCareerDomain(id);
+  } catch (error) {
+    console.error('Error in deleteCareerDomainAction wrapper:', error);
+  }
+}
+
+// ==================== MAIN ACTIONS WITH FULL RESPONSES ====================
+
 // Admin: Create new career domain
 export async function createCareerDomain(formData: FormData): Promise<ServerActionResponse> {
   try {
@@ -59,7 +93,6 @@ export async function createCareerDomain(formData: FormData): Promise<ServerActi
     };
   }
 }
-
 
 export async function updateCareerDomain(id: string, formData: FormData): Promise<ServerActionResponse> {
   try {
@@ -117,7 +150,6 @@ export async function deleteCareerDomain(id: string): Promise<ServerActionRespon
     };
   }
 }
-
 
 export async function getCareerDomainById(id: string): Promise<ICareerDomain | null> {
   try {

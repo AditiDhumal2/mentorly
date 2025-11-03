@@ -1,5 +1,9 @@
 // app/admin/careerdomains/page.tsx
-import { getAllCareerDomains, getCareerDomainsStats } from '@/actions/careerdomain-admin-actions';
+import { 
+  getAllCareerDomains, 
+  getCareerDomainsStats, 
+  createCareerDomainAction  // Import the wrapper action instead
+} from '@/actions/careerdomain-admin-actions';
 import AdminDomainTable from './components/AdminDomainTable';
 import StatsOverview from './components/StatsOverview';
 import EmptyState from './components/EmptyState';
@@ -10,7 +14,7 @@ interface SearchParams {
 }
 
 interface AdminCareerDomainsPageProps {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>;
 }
 
 // Extended stats interface with calculated properties
@@ -21,7 +25,9 @@ interface ExtendedCareerDomainsStats extends CareerDomainsStats {
 }
 
 export default async function AdminCareerDomainsPage({ searchParams }: AdminCareerDomainsPageProps) {
-  const searchTerm = searchParams.search || '';
+  // Await the searchParams promise first
+  const params = await searchParams;
+  const searchTerm = params.search || '';
   
   // Load data on the server
   const [domains, stats] = await Promise.all([
@@ -110,6 +116,7 @@ export default async function AdminCareerDomainsPage({ searchParams }: AdminCare
                       placeholder="Search domains, skills, or descriptions..."
                       defaultValue={searchTerm}
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      suppressHydrationWarning
                     />
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,12 +135,13 @@ export default async function AdminCareerDomainsPage({ searchParams }: AdminCare
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-          {/* Create Domain Form Sidebar - Pure HTML Form */}
+          {/* Create Domain Form Sidebar - Using Server Action Wrapper */}
           <div className="xl:col-span-1">
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 sticky top-6">
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Create New Domain</h3>
-                <form action="/api/career-domains" method="POST" className="space-y-4">
+                {/* FIXED: Using the wrapper action that returns void */}
+                <form action={createCareerDomainAction} className="space-y-4">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                       Domain Name
@@ -145,6 +153,7 @@ export default async function AdminCareerDomainsPage({ searchParams }: AdminCare
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="e.g., Web Development"
+                      suppressHydrationWarning
                     />
                   </div>
                   <div>
@@ -158,6 +167,7 @@ export default async function AdminCareerDomainsPage({ searchParams }: AdminCare
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Describe this career domain..."
+                      suppressHydrationWarning
                     />
                   </div>
                   <div>
@@ -171,11 +181,40 @@ export default async function AdminCareerDomainsPage({ searchParams }: AdminCare
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="JavaScript, React, Node.js, ..."
+                      suppressHydrationWarning
+                    />
+                  </div>
+                  {/* Optional fields - you can add these later */}
+                  <div>
+                    <label htmlFor="tools" className="block text-sm font-medium text-gray-700 mb-1">
+                      Tools (comma separated)
+                    </label>
+                    <textarea
+                      id="tools"
+                      name="tools"
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="VS Code, Git, Docker, ..."
+                      suppressHydrationWarning
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="salaryIndia" className="block text-sm font-medium text-gray-700 mb-1">
+                      Average Salary in India
+                    </label>
+                    <input
+                      type="text"
+                      id="salaryIndia"
+                      name="salaryIndia"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="e.g., ₹8-15 LPA"
+                      suppressHydrationWarning
                     />
                   </div>
                   <button
                     type="submit"
                     className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                    suppressHydrationWarning
                   >
                     Create Domain
                   </button>
