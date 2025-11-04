@@ -13,7 +13,8 @@ import {
   MessageSquare,
   ChevronRight,
   LogOut,
-  BadgeCheck
+  BadgeCheck,
+  Briefcase
 } from 'lucide-react';
 import AdminLogout from './AdminLogout';
 
@@ -53,6 +54,12 @@ const menuItems = [
     href: '/admin/careerdomains', 
     icon: Target,
     description: 'Career categories'
+  },
+  { 
+    name: 'Placement Hub', 
+    href: '/admin/placementhub', 
+    icon: Briefcase,
+    description: 'Interview preparation'
   },
   { 
     name: 'Professional Branding', 

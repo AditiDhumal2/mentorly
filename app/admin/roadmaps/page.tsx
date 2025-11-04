@@ -12,7 +12,7 @@ interface SearchParams {
 }
 
 interface AdminRoadmapPageProps {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>;
 }
 
 // Define resource types
@@ -55,10 +55,12 @@ function getResourceDisplay(resource: string | BaseResource): string {
 }
 
 export default async function AdminRoadmapPage({ searchParams }: AdminRoadmapPageProps) {
-  const selectedYear = parseInt(searchParams.year || '1');
-  const selectedLanguage = searchParams.language || 'python';
-  const editingStepId = searchParams.edit;
-  const showCreateForm = searchParams.create === 'true';
+  // ✅ FIX: Await the searchParams Promise
+  const params = await searchParams;
+  const selectedYear = parseInt(params.year || '1');
+  const selectedLanguage = params.language || 'python';
+  const editingStepId = params.edit;
+  const showCreateForm = params.create === 'true';
 
   // Load roadmap data on the server
   const result = await getRoadmapAction(selectedYear, selectedLanguage);
@@ -73,11 +75,11 @@ export default async function AdminRoadmapPage({ searchParams }: AdminRoadmapPag
   const completedSteps = steps.filter(step => step.completed).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white to-purple-50 p-6">
+    <div className="min-h-screen bg-linear-to-br from-white to-purple-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Enhanced Header */}
         <div className="mb-8">
-          <div className="relative bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl shadow-xl overflow-hidden p-8">
+          <div className="relative bg-linear-to-r from-purple-600 to-pink-600 rounded-2xl shadow-xl overflow-hidden p-8">
             {/* Background Pattern */}
             <div className="absolute inset-0 bg-black/10"></div>
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>

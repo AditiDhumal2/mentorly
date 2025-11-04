@@ -6,6 +6,7 @@ import { createResourceAction, updateResourceAction, deleteResourceAction } from
 import ResourceCard from './ResourceCard';
 import ResourceForm from './ResourceForm';
 import Snackbar from '@/components/Snackbar'; 
+import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import { ResourceResponse, CreateResourceInput, UpdateResourceInput } from '@/types/resource';
 
 interface ResourcesClientWrapperProps {
@@ -33,12 +34,58 @@ export default function ResourcesClientWrapper({
     severity: 'success'
   });
 
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    resourceId?: string;
+    resourceTitle?: string;
+  }>({
+    isOpen: false,
+    resourceId: undefined,
+    resourceTitle: undefined
+  });
+
   const showAlert = (message: string, severity: 'success' | 'error' = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
 
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
+  const showDeleteConfirmation = (resourceId: string, resourceTitle: string) => {
+    setDeleteModal({
+      isOpen: true,
+      resourceId,
+      resourceTitle,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    const { resourceId } = deleteModal;
+    
+    if (!resourceId) return;
+
+    setDeletingResourceId(resourceId);
+    
+    try {
+      const result = await deleteResourceAction(resourceId);
+      if (result.success) {
+        setResources(prev => prev.filter(res => res._id !== resourceId));
+        showAlert('Resource deleted successfully!');
+        router.refresh();
+      } else {
+        showAlert(result.message || 'Failed to delete resource', 'error');
+      }
+    } catch (error) {
+      showAlert('An error occurred while deleting the resource', 'error');
+    } finally {
+      setDeletingResourceId(null);
+      setDeleteModal(prev => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  const handleCloseModal = () => {
+    setDeleteModal(prev => ({ ...prev, isOpen: false }));
   };
 
   const handleCreateResource = async (formData: CreateResourceInput | UpdateResourceInput) => {
@@ -70,22 +117,8 @@ export default function ResourcesClientWrapper({
     }
   };
 
-  const handleDeleteResource = async (resourceId: string) => {
-    setDeletingResourceId(resourceId);
-    try {
-      const result = await deleteResourceAction(resourceId);
-      if (result.success) {
-        setResources(prev => prev.filter(res => res._id !== resourceId));
-        showAlert('Resource deleted successfully!');
-        router.refresh();
-      } else {
-        showAlert(result.message || 'Failed to delete resource', 'error');
-      }
-    } catch (error) {
-      showAlert('An error occurred while deleting the resource', 'error');
-    } finally {
-      setDeletingResourceId(null);
-    }
+  const handleDeleteResource = (resourceId: string, resourceTitle: string) => {
+    showDeleteConfirmation(resourceId, resourceTitle);
   };
 
   const filteredResources = filter === 'all' 
@@ -113,7 +146,17 @@ export default function ResourcesClientWrapper({
         message={snackbar.message}
         severity={snackbar.severity}
         onClose={handleCloseSnackbar}
-        autoHideDuration={6000} // 6 seconds for deletion messages
+        autoHideDuration={6000}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={handleCloseModal}
+        onConfirm={handleConfirmDelete}
+        title="Delete Resource"
+        message={`Are you sure you want to delete "${deleteModal.resourceTitle}"? This action cannot be undone.`}
+        isLoading={!!deletingResourceId}
       />
 
       {/* Controls */}
@@ -165,7 +208,7 @@ export default function ResourcesClientWrapper({
               key={resource._id}
               resource={resource}
               onEdit={setEditingResource}
-              onDelete={handleDeleteResource}
+              onDelete={() => handleDeleteResource(resource._id, resource.title)}
               isDeleting={deletingResourceId === resource._id}
             />
           ))}

@@ -8,6 +8,7 @@ import AdminHeader from './AdminHeader';
 import EmptyState from './EmptyState';
 import LoadingState from './LoadingState';
 import Snackbar from '@/components/Snackbar';
+import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import { useState } from 'react';
 
 interface AdminCommunityForumProps {
@@ -35,6 +36,19 @@ export default function AdminCommunityForum({
   });
 
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    type: 'post' | 'reply';
+    postId?: string;
+    replyId?: string;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: 'post',
+    title: '',
+    message: ''
+  });
 
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
@@ -44,42 +58,71 @@ export default function AdminCommunityForum({
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
-  const handleDeletePost = async (postId: string) => {
-    setDeleting(postId);
+  const showDeleteConfirmation = (type: 'post' | 'reply', postId: string, replyId?: string, title?: string) => {
+    const isPost = type === 'post';
+    const itemTitle = title || (isPost ? 'this post' : 'this reply');
+    
+    setDeleteModal({
+      isOpen: true,
+      type,
+      postId,
+      replyId,
+      title: `Delete ${isPost ? 'Post' : 'Reply'}`,
+      message: `Are you sure you want to delete ${itemTitle}? This action cannot be undone.`
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    const { type, postId, replyId } = deleteModal;
+    
+    if (!postId) return;
+
+    // Fix: Use proper string values for setDeleting
+    const deletingId = type === 'post' ? postId : (replyId || '');
+    setDeleting(deletingId);
+    
     try {
-      const result = await onDeletePost(postId);
-      if (result.success) {
-        setPosts(prev => prev.filter(post => post._id !== postId));
-        showSnackbar('Post deleted successfully', 'success');
+      let result;
+      if (type === 'post') {
+        result = await onDeletePost(postId);
+        if (result.success) {
+          setPosts(prev => prev.filter(post => post._id !== postId));
+          showSnackbar('Post deleted successfully', 'success');
+        } else {
+          showSnackbar(result.error || 'Failed to delete post', 'error');
+        }
       } else {
-        showSnackbar(result.error || 'Failed to delete post', 'error');
+        if (!replyId) return;
+        result = await onDeleteReply(postId, replyId);
+        if (result.success) {
+          setPosts(prev => prev.map(post => 
+            post._id === postId 
+              ? { ...post, replies: post.replies.filter(reply => reply._id !== replyId) }
+              : post
+          ));
+          showSnackbar('Reply deleted successfully', 'success');
+        } else {
+          showSnackbar(result.error || 'Failed to delete reply', 'error');
+        }
       }
     } catch (error) {
-      showSnackbar('An error occurred while deleting the post', 'error');
+      showSnackbar(`An error occurred while deleting the ${type}`, 'error');
     } finally {
       setDeleting(null);
+      setDeleteModal(prev => ({ ...prev, isOpen: false }));
     }
   };
 
-  const handleDeleteReply = async (postId: string, replyId: string) => {
-    setDeleting(replyId);
-    try {
-      const result = await onDeleteReply(postId, replyId);
-      if (result.success) {
-        setPosts(prev => prev.map(post => 
-          post._id === postId 
-            ? { ...post, replies: post.replies.filter(reply => reply._id !== replyId) }
-            : post
-        ));
-        showSnackbar('Reply deleted successfully', 'success');
-      } else {
-        showSnackbar(result.error || 'Failed to delete reply', 'error');
-      }
-    } catch (error) {
-      showSnackbar('An error occurred while deleting the reply', 'error');
-    } finally {
-      setDeleting(null);
-    }
+  const handleCloseModal = () => {
+    setDeleteModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleDeletePost = (postId: string, postTitle?: string) => {
+    showDeleteConfirmation('post', postId, undefined, postTitle);
+  };
+
+  const handleDeleteReply = (postId: string, replyId: string) => {
+    showDeleteConfirmation('reply', postId, replyId);
   };
 
   if (loading) {
@@ -110,7 +153,7 @@ export default function AdminCommunityForum({
               <AdminPostCard
                 key={post._id}
                 post={post}
-                onDeletePost={handleDeletePost}
+                onDeletePost={() => handleDeletePost(post._id, post.title)}
                 onDeleteReply={handleDeleteReply}
                 isDeleting={deleting === post._id}
               />
@@ -126,6 +169,16 @@ export default function AdminCommunityForum({
             </p>
           </div>
         )}
+
+        {/* Delete Confirmation Modal */}
+        <DeleteConfirmationModal
+          isOpen={deleteModal.isOpen}
+          onClose={handleCloseModal}
+          onConfirm={handleConfirmDelete}
+          title={deleteModal.title}
+          message={deleteModal.message}
+          isLoading={!!deleting}
+        />
 
         {/* Snackbar for notifications */}
         <Snackbar

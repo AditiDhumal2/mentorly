@@ -30,7 +30,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
   const menuItems = [
     { name: 'Dashboard', icon: '🏠', path: '/students', description: 'Overview and analytics' },
     { name: 'Learning Roadmap', icon: '🗺️', path: '/students/roadmap', description: 'Your learning path' },
-    { name: 'Placement Hub', icon: '💼', path: '/students/placement', description: 'Career opportunities' },
+    { name: 'Placement Hub', icon: '💼', path: '/students/placementhub', description: 'Career opportunities' },
     { name: 'Career Domains', icon: '🎯', path: '/students/careerdomains', description: 'Explore career paths' },
     { name: 'Market Trends', icon: '📊', path: '/students/market-trends', description: 'Industry insights' },
     { name: 'Personal Branding', icon: '⭐', path: '/students/professionalbranding', description: 'Build your profile' },
