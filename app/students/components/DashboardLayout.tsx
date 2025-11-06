@@ -37,6 +37,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
     { name: 'Resources', icon: '📚', path: '/students/resources', description: 'Learning materials' },
     { name: 'Community Forum', icon: '💬', path: '/students/communityforum', description: 'Connect & discuss' },
     { name: 'Progress Tracking', icon: '📈', path: '/students/progress', description: 'Your achievements' },
+    { name: 'Higher Education', icon: '🎓', path: '/students/highereducation', description: 'Study abroad guidance' },
   ];
 
   const isActive = (path: string) => pathname === path;

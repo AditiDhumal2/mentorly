@@ -14,7 +14,8 @@ import {
   ChevronRight,
   LogOut,
   BadgeCheck,
-  Briefcase
+  Briefcase,
+  GraduationCap
 } from 'lucide-react';
 import AdminLogout from './AdminLogout';
 
@@ -72,6 +73,12 @@ const menuItems = [
     href: '/admin/communityforum', 
     icon: MessageSquare,
     description: 'Moderate discussions'
+  },
+  { 
+    name: 'Higher Education', 
+    href: '/admin/highereducation', 
+    icon: GraduationCap,
+    description: 'Study abroad management'
   },
   { 
     name: 'System Settings', 
