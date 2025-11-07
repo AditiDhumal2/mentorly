@@ -61,7 +61,7 @@ export interface TA_RAGuide {
 
 export interface ExamPreparation {
   _id: string;
-  examType: 'gre' | 'ielts' | 'toefl' | 'gmat';
+  examType: 'gre' | 'ielts' | 'toefl' | 'gmat' | 'new-exam';
   studyPlan: StudyWeek[];
   recommendedScore: ScoreRange;
   testCenters: string[];
@@ -95,7 +95,7 @@ export interface ScoreRange {
 
 export interface ApplicationDocument {
   _id: string;
-  type: 'sop' | 'lor' | 'cv' | 'portfolio' | 'transcripts';
+  type: 'sop' | 'lor' | 'cv' | 'portfolio' | 'transcripts' | 'new-document';
   title: string;
   guidelines: string[];
   templates: DocumentTemplate[];
@@ -220,4 +220,25 @@ export interface TimelineItem {
   completed: boolean;
   important?: boolean;
   _id?: string;
+}
+
+// Helper types for the admin components
+export interface CountriesManagerProps {
+  countries: Country[];
+}
+
+export interface ExamsManagerProps {
+  exams: ExamPreparation[];
+}
+
+export interface DocumentsManagerProps {
+  documents: ApplicationDocument[];
+}
+
+// Add the missing HigherEducationData type
+export interface HigherEducationData {
+  countries: Country[];
+  examPreparations: ExamPreparation[];
+  applicationDocuments: ApplicationDocument[];
+  studentProgress: StudentProgress[];
 }

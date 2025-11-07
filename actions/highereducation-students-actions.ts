@@ -6,6 +6,12 @@ import { HigherEducation } from '@/models/HigherEducation';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from './userActions';
 import mongoose from 'mongoose';
+import { 
+  StudentProgress, 
+  ExamScores, 
+  UniversityApplication,
+  HigherEducationData
+} from '@/types/higher-education';
 
 function serializeDocument(doc: any): any {
   if (!doc) return doc;
@@ -39,7 +45,7 @@ function serializeDocument(doc: any): any {
   return doc;
 }
 
-export async function getHigherEducationData() {
+export async function getHigherEducationData(): Promise<HigherEducationData> {
   try {
     await connectDB();
     
@@ -75,14 +81,14 @@ export async function getHigherEducationData() {
       examPreparations: dataAsAny.examPreparations || [],
       applicationDocuments: dataAsAny.applicationDocuments || [],
       studentProgress: dataAsAny.studentProgress || []
-    });
+    }) as HigherEducationData;
   } catch (error) {
     console.error('❌ Error fetching higher education data:', error);
     throw new Error('Failed to fetch higher education data');
   }
 }
 
-export async function getStudentProgress() {
+export async function getStudentProgress(): Promise<StudentProgress | null> {
   try {
     const user = await getCurrentUser();
     
@@ -102,8 +108,9 @@ export async function getStudentProgress() {
     if (!higherEdData) {
       console.log('📝 Creating initial progress for student:', user._id);
       
-      const initialProgress = {
-        userId: new mongoose.Types.ObjectId(user._id),
+      const initialProgress: StudentProgress = {
+        _id: new mongoose.Types.ObjectId().toString(),
+        userId: user._id,
         currentStep: 1,
         completedSteps: [],
         examScores: {},
@@ -114,28 +121,28 @@ export async function getStudentProgress() {
             name: 'Statement of Purpose', 
             status: 'not_started', 
             lastUpdated: new Date(),
-            _id: new mongoose.Types.ObjectId()
+            _id: new mongoose.Types.ObjectId().toString()
           },
           { 
             type: 'lor', 
             name: 'Letters of Recommendation', 
             status: 'not_started', 
             lastUpdated: new Date(),
-            _id: new mongoose.Types.ObjectId()
+            _id: new mongoose.Types.ObjectId().toString()
           },
           { 
             type: 'cv', 
             name: 'Curriculum Vitae', 
             status: 'not_started', 
             lastUpdated: new Date(),
-            _id: new mongoose.Types.ObjectId()
+            _id: new mongoose.Types.ObjectId().toString()
           },
           { 
             type: 'transcripts', 
             name: 'Academic Transcripts', 
             status: 'not_started', 
             lastUpdated: new Date(),
-            _id: new mongoose.Types.ObjectId()
+            _id: new mongoose.Types.ObjectId().toString()
           }
         ],
         timeline: [
@@ -144,33 +151,32 @@ export async function getStudentProgress() {
             deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 
             completed: false,
             important: true,
-            _id: new mongoose.Types.ObjectId()
+            _id: new mongoose.Types.ObjectId().toString()
           },
           { 
             step: 'Prepare for Exams (GRE/IELTS/TOEFL)', 
             deadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), 
             completed: false,
             important: true,
-            _id: new mongoose.Types.ObjectId()
+            _id: new mongoose.Types.ObjectId().toString()
           },
           { 
             step: 'Prepare Application Documents', 
             deadline: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), 
             completed: false,
             important: true,
-            _id: new mongoose.Types.ObjectId()
+            _id: new mongoose.Types.ObjectId().toString()
           },
           { 
             step: 'Submit Applications', 
             deadline: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000), 
             completed: false,
             important: true,
-            _id: new mongoose.Types.ObjectId()
+            _id: new mongoose.Types.ObjectId().toString()
           }
         ],
         profileStrength: 25,
-        targetUniversities: [],
-        _id: new mongoose.Types.ObjectId()
+        targetUniversities: []
       };
 
       const result = await HigherEducation.findOneAndUpdate(
@@ -180,7 +186,7 @@ export async function getStudentProgress() {
       );
 
       console.log('✅ Initial progress created for student');
-      return serializeDocument(initialProgress);
+      return serializeDocument(initialProgress) as StudentProgress;
     }
 
     const progress = higherEdData.studentProgress.find(
@@ -193,14 +199,17 @@ export async function getStudentProgress() {
       documents: progress?.documents?.length
     });
 
-    return serializeDocument(progress) || null;
+    return serializeDocument(progress) as StudentProgress || null;
   } catch (error) {
     console.error('❌ Error fetching student progress:', error);
     throw new Error('Failed to fetch student progress');
   }
 }
 
-export async function updateProgressStep(stepNumber: number, completed: boolean) {
+export async function updateProgressStep(
+  stepNumber: number, 
+  completed: boolean
+): Promise<{ success: boolean }> {
   try {
     const user = await getCurrentUser();
     
@@ -238,7 +247,7 @@ export async function updateProgressStep(stepNumber: number, completed: boolean)
   }
 }
 
-export async function saveExamScores(scores: any) {
+export async function saveExamScores(scores: ExamScores): Promise<{ success: boolean }> {
   try {
     const user = await getCurrentUser();
     
@@ -264,7 +273,10 @@ export async function saveExamScores(scores: any) {
   }
 }
 
-export async function updateDocumentStatus(documentType: string, status: string) {
+export async function updateDocumentStatus(
+  documentType: string, 
+  status: 'not_started' | 'draft' | 'reviewing' | 'completed'
+): Promise<{ success: boolean }> {
   try {
     const user = await getCurrentUser();
     
@@ -299,7 +311,9 @@ export async function updateDocumentStatus(documentType: string, status: string)
   }
 }
 
-export async function addUniversityApplication(applicationData: any) {
+export async function addUniversityApplication(
+  applicationData: Omit<UniversityApplication, '_id'>
+): Promise<{ success: boolean; application?: UniversityApplication }> {
   try {
     const user = await getCurrentUser();
     
@@ -311,9 +325,9 @@ export async function addUniversityApplication(applicationData: any) {
 
     await connectDB();
 
-    const newApplication = {
+    const newApplication: UniversityApplication = {
       ...applicationData,
-      _id: new mongoose.Types.ObjectId()
+      _id: new mongoose.Types.ObjectId().toString()
     };
 
     await HigherEducation.findOneAndUpdate(
@@ -323,7 +337,7 @@ export async function addUniversityApplication(applicationData: any) {
 
     revalidatePath('/students/highereducation');
     console.log('✅ University application added successfully');
-    return { success: true, application: serializeDocument(newApplication) };
+    return { success: true, application: serializeDocument(newApplication) as UniversityApplication };
   } catch (error) {
     console.error('❌ Error adding university application:', error);
     throw new Error('Failed to add application');

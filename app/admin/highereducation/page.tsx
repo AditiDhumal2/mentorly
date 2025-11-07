@@ -1,6 +1,8 @@
+// app/admin/highereducation/page.tsx
 import { getHigherEducationData, getAllStudentProgress } from '@/actions/highereducation-admin-actions';
-import DataManager from './components/DataManager';
+import DataManagementTabs from './components/DataManagementTabs';
 import StudentProgressOverview from './components/StudentProgressOverview';
+import AdminStats from './components/AdminStats';
 
 export default async function AdminHigherEducationPage() {
   const [higherEdData, studentProgress] = await Promise.all([
@@ -8,31 +10,58 @@ export default async function AdminHigherEducationPage() {
     getAllStudentProgress()
   ]);
 
+  // Ensure studentProgress is always an array
   const safeStudentProgress = Array.isArray(studentProgress) ? studentProgress : [];
+
+  // Ensure countries have proper structure and unique IDs
+  const safeCountries = (higherEdData.countries || []).map((country: any) => ({
+    ...country,
+    _id: country._id || `country-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    topInstitutes: country.popularUniversities || [], // Map popularUniversities to topInstitutes
+    visaRequirements: country.visaRequirements || [],
+    costOfLiving: country.costOfLiving || { monthly: '$0', yearly: '$0' },
+    taRaGuide: country.taRaGuide || {
+      eligibility: ['Full-time enrollment in graduate program'],
+      requirements: ['CV/Resume', 'Statement of purpose'],
+      applicationProcess: ['Apply to graduate program'],
+      tips: ['Contact professors early'],
+      documentsRequired: ['Updated CV', 'Academic transcripts'],
+      averageStipend: '$1,500 - $2,500/month'
+    },
+    popularity: country.popularity || 'medium'
+  }));
+
+  // Ensure exams and documents have proper structure
+  const safeExams = higherEdData.examPreparations || [];
+  const safeDocuments = higherEdData.applicationDocuments || [];
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Higher Education Admin</h1>
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Higher Education Admin</h1>
+          <p className="text-gray-600 mt-2">Manage countries, exams, documents, and track student progress</p>
+        </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold mb-2">Countries</h3>
-            <p className="text-3xl font-bold text-blue-600">{higherEdData.countries?.length || 0}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold mb-2">Exams</h3>
-            <p className="text-3xl font-bold text-green-600">{higherEdData.examPreparations?.length || 0}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold mb-2">Students</h3>
-            <p className="text-3xl font-bold text-purple-600">{safeStudentProgress.length}</p>
-          </div>
+        {/* Stats Overview */}
+        <AdminStats 
+          higherEdData={higherEdData} 
+          studentProgress={safeStudentProgress} 
+        />
+
+        {/* Student Progress Overview - Horizontal above Data Management */}
+        <div className="mb-8">
+          <StudentProgressOverview progressData={safeStudentProgress} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <DataManager initialData={higherEdData} />
-          <StudentProgressOverview progressData={safeStudentProgress} />
+        {/* Data Management Tabs */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <DataManagementTabs 
+            countries={safeCountries}
+            exams={safeExams}
+            documents={safeDocuments}
+          />
         </div>
       </div>
     </div>
