@@ -1,3 +1,4 @@
+// app/admin/components/AdminMenu.tsx
 'use client';
 
 import Link from 'next/link';
@@ -15,7 +16,9 @@ import {
   LogOut,
   BadgeCheck,
   Briefcase,
-  GraduationCap
+  GraduationCap,
+  UserCheck,
+  ShieldCheck
 } from 'lucide-react';
 import AdminLogout from './AdminLogout';
 
@@ -27,10 +30,23 @@ const menuItems = [
     description: 'Overview & Analytics'
   },
   { 
+    name: 'Verify Mentors', 
+    href: '/admin/verifymentor', 
+    icon: ShieldCheck,
+    description: 'Approve mentor applications',
+    badge: 'new'
+  },
+  { 
     name: 'Students', 
     href: '/admin/students', 
     icon: Users,
     description: 'Manage student accounts'
+  },
+  { 
+    name: 'Mentors', 
+    href: '/admin/mentors', 
+    icon: UserCheck,
+    description: 'Manage approved mentors'
   },
   { 
     name: 'Roadmaps', 
@@ -103,7 +119,7 @@ export default function AdminMenu() {
       <nav className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-6 border border-gray-200/60 hover:shadow-lg transition-all duration-300 h-full flex flex-col">
         {/* Sidebar Header */}
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
           <p className="text-sm text-gray-500 mt-1">Manage your platform</p>
         </div>
 
@@ -136,12 +152,25 @@ export default function AdminMenu() {
                       {active && (
                         <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full shadow-sm"></div>
                       )}
+                      {/* Badge for new features */}
+                      {item.badge && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full shadow-sm flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">!</span>
+                        </div>
+                      )}
                     </div>
                     <div className="text-left">
-                      <div className={`font-medium transition-colors duration-200 ${
-                        active ? 'text-purple-900' : 'text-gray-900 group-hover:text-purple-700'
-                      }`}>
-                        {item.name}
+                      <div className="flex items-center space-x-2">
+                        <div className={`font-medium transition-colors duration-200 ${
+                          active ? 'text-purple-900' : 'text-gray-900 group-hover:text-purple-700'
+                        }`}>
+                          {item.name}
+                        </div>
+                        {item.badge && (
+                          <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                            New
+                          </span>
+                        )}
                       </div>
                       <div className={`text-xs transition-colors duration-200 ${
                         active ? 'text-purple-600' : 'text-gray-500 group-hover:text-purple-500'

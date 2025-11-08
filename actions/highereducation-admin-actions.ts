@@ -1,4 +1,3 @@
-// actions/highereducation-admin-actions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
@@ -9,7 +8,8 @@ import {
   Country, 
   ExamPreparation, 
   ApplicationDocument, 
-  StudentProgress 
+  StudentProgress,
+  TA_RAGuideItem
 } from '@/types/higher-education';
 
 interface HigherEducationData {
@@ -17,6 +17,18 @@ interface HigherEducationData {
   examPreparations: ExamPreparation[];
   applicationDocuments: ApplicationDocument[];
   studentProgress: StudentProgress[];
+  taRaGuides?: TA_RAGuideItem[];
+}
+
+// Define the database document interface
+interface HigherEducationDocument {
+  countries?: Country[];
+  examPreparations?: ExamPreparation[];
+  applicationDocuments?: ApplicationDocument[];
+  studentProgress?: StudentProgress[];
+  taRaGuides?: TA_RAGuideItem[];
+  _id?: any;
+  __v?: number;
 }
 
 function serializeDocument(doc: any): any {
@@ -51,108 +63,231 @@ function serializeDocument(doc: any): any {
   return doc;
 }
 
-export async function getHigherEducationData(): Promise<HigherEducationData> {
+// Create initial document if it doesn't exist
+async function ensureInitialDocument() {
   try {
-    await connectDB();
-    
-    const data = await HigherEducation.findOne()
-      .populate('studentProgress.userId')
-      .lean();
-
-    if (!data) {
-      return {
+    const existingData = await HigherEducation.findOne();
+    if (!existingData) {
+      console.log('📝 Creating initial HigherEducation document...');
+      const initialData = new HigherEducation({
         countries: [],
         examPreparations: [],
         applicationDocuments: [],
-        studentProgress: []
-      };
+        studentProgress: [],
+        taRaGuides: []
+      });
+      await initialData.save();
+      console.log('✅ Initial document created successfully');
+    }
+  } catch (error) {
+    console.error('❌ Error creating initial document:', error);
+    throw error;
+  }
+}
+
+export async function getHigherEducationData(): Promise<HigherEducationData> {
+  try {
+    await connectDB();
+    await ensureInitialDocument();
+    
+    const data = await HigherEducation.findOne().lean();
+
+    if (!data) {
+      throw new Error('No higher education data found after ensuring initial document');
     }
 
-    // Use type assertion to bypass TypeScript strict checking
-    const dataAsAny = data as any;
+    // Cast to our document interface to fix TypeScript errors
+    const dataAsDoc = data as unknown as HigherEducationDocument;
+
+    console.log('📊 Loaded data counts:', {
+      countries: dataAsDoc.countries?.length || 0,
+      exams: dataAsDoc.examPreparations?.length || 0,
+      documents: dataAsDoc.applicationDocuments?.length || 0,
+      taRaGuides: dataAsDoc.taRaGuides?.length || 0
+    });
 
     return serializeDocument({
-      countries: dataAsAny.countries || [],
-      examPreparations: dataAsAny.examPreparations || [],
-      applicationDocuments: dataAsAny.applicationDocuments || [],
-      studentProgress: dataAsAny.studentProgress || []
+      countries: dataAsDoc.countries || [],
+      examPreparations: dataAsDoc.examPreparations || [],
+      applicationDocuments: dataAsDoc.applicationDocuments || [],
+      studentProgress: dataAsDoc.studentProgress || [],
+      taRaGuides: dataAsDoc.taRaGuides || []
     }) as HigherEducationData;
   } catch (error) {
-    console.error('Error fetching higher education data:', error);
-    throw new Error('Failed to fetch higher education data');
+    console.error('❌ Error fetching higher education data:', error);
+    return {
+      countries: [],
+      examPreparations: [],
+      applicationDocuments: [],
+      studentProgress: [],
+      taRaGuides: []
+    };
   }
 }
 
-export async function updateCountriesData(countriesData: Country[]): Promise<{ success: boolean }> {
+export async function updateCountriesData(countriesData: Country[]): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
+    await ensureInitialDocument();
 
-    await HigherEducation.findOneAndUpdate(
+    console.log('💾 Saving countries data:', countriesData.length);
+    
+    const result = await HigherEducation.findOneAndUpdate(
       {},
       { $set: { countries: countriesData } },
-      { upsert: true, new: true }
+      { upsert: true, new: true, runValidators: true }
     );
 
+    if (!result) {
+      throw new Error('Failed to update countries data');
+    }
+
+    console.log('✅ Countries data saved successfully');
     revalidatePath('/admin/highereducation');
     return { success: true };
-  } catch (error) {
-    console.error('Error updating countries data:', error);
-    throw new Error('Failed to update countries data');
+  } catch (error: any) {
+    console.error('❌ Error updating countries data:', error);
+    return { success: false, error: error.message };
   }
 }
 
-export async function updateExamPreparations(examData: ExamPreparation[]): Promise<{ success: boolean }> {
+export async function updateExamPreparations(examData: ExamPreparation[]): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
+    await ensureInitialDocument();
 
-    await HigherEducation.findOneAndUpdate(
+    console.log('💾 Saving exam preparations:', examData.length);
+    
+    const result = await HigherEducation.findOneAndUpdate(
       {},
       { $set: { examPreparations: examData } },
-      { upsert: true, new: true }
+      { upsert: true, new: true, runValidators: true }
     );
 
+    if (!result) {
+      throw new Error('Failed to update exam preparations');
+    }
+
+    console.log('✅ Exam preparations saved successfully');
     revalidatePath('/admin/highereducation');
     return { success: true };
-  } catch (error) {
-    console.error('Error updating exam preparations:', error);
-    throw new Error('Failed to update exam preparations');
+  } catch (error: any) {
+    console.error('❌ Error updating exam preparations:', error);
+    return { success: false, error: error.message };
   }
 }
 
-export async function updateApplicationDocuments(documentsData: ApplicationDocument[]): Promise<{ success: boolean }> {
+export async function updateApplicationDocuments(documentsData: ApplicationDocument[]): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
+    await ensureInitialDocument();
 
-    await HigherEducation.findOneAndUpdate(
+    console.log('💾 Saving application documents:', documentsData.length);
+    
+    const result = await HigherEducation.findOneAndUpdate(
       {},
       { $set: { applicationDocuments: documentsData } },
-      { upsert: true, new: true }
+      { upsert: true, new: true, runValidators: true }
     );
 
+    if (!result) {
+      throw new Error('Failed to update application documents');
+    }
+
+    console.log('✅ Application documents saved successfully');
     revalidatePath('/admin/highereducation');
     return { success: true };
-  } catch (error) {
-    console.error('Error updating application documents:', error);
-    throw new Error('Failed to update application documents');
+  } catch (error: any) {
+    console.error('❌ Error updating application documents:', error);
+    return { success: false, error: error.message };
   }
 }
 
-export async function getAllStudentProgress(): Promise<StudentProgress[]> {
+export async function updateTARAGuides(guides: TA_RAGuideItem[]): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
+    await ensureInitialDocument();
+    
+    console.log('💼 Updating TA/RA guides:', guides.length);
+    
+    const result = await HigherEducation.findOneAndUpdate(
+      {},
+      { $set: { taRaGuides: guides } },
+      { upsert: true, new: true, runValidators: true }
+    );
 
-    const data = await HigherEducation.findOne()
-      .populate('studentProgress.userId', 'name email college year')
-      .lean();
+    if (!result) {
+      throw new Error('Failed to update TA/RA guides in database');
+    }
+
+    console.log('✅ TA/RA guides updated successfully');
+    revalidatePath('/admin/highereducation');
+    return { success: true };
+  } catch (error: any) {
+    console.error('❌ Error updating TA/RA guides:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getStudentProgress(): Promise<StudentProgress[]> {
+  try {
+    await connectDB();
+    await ensureInitialDocument();
+
+    const data = await HigherEducation.findOne().lean();
 
     if (!data) {
       return [];
     }
 
-    const dataAsAny = data as any;
-    return serializeDocument(dataAsAny.studentProgress || []) as StudentProgress[];
+    // Cast to our document interface
+    const dataAsDoc = data as unknown as HigherEducationDocument;
+    return serializeDocument(dataAsDoc.studentProgress || []) as StudentProgress[];
   } catch (error) {
-    console.error('Error fetching all student progress:', error);
-    throw new Error('Failed to fetch student progress data');
+    console.error('Error fetching student progress:', error);
+    return [];
+  }
+}
+
+export async function getHigherEducationAdminData(): Promise<HigherEducationData> {
+  try {
+    await connectDB();
+    await ensureInitialDocument();
+    
+    console.log('📊 Fetching higher education admin data...');
+    
+    const data = await HigherEducation.findOne().lean();
+
+    if (!data) {
+      console.log('❌ No higher education data found');
+      return {
+        countries: [],
+        examPreparations: [],
+        applicationDocuments: [],
+        studentProgress: [],
+        taRaGuides: []
+      };
+    }
+
+    // Cast to our document interface
+    const dataAsDoc = data as unknown as HigherEducationDocument;
+
+    console.log('✅ Higher education admin data fetched successfully');
+    return serializeDocument({
+      countries: dataAsDoc.countries || [],
+      examPreparations: dataAsDoc.examPreparations || [],
+      applicationDocuments: dataAsDoc.applicationDocuments || [],
+      studentProgress: dataAsDoc.studentProgress || [],
+      taRaGuides: dataAsDoc.taRaGuides || []
+    }) as HigherEducationData;
+  } catch (error) {
+    console.error('❌ Error fetching higher education admin data:', error);
+    return {
+      countries: [],
+      examPreparations: [],
+      applicationDocuments: [],
+      studentProgress: [],
+      taRaGuides: []
+    };
   }
 }

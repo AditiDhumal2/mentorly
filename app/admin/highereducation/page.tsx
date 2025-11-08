@@ -1,39 +1,54 @@
-// app/admin/highereducation/page.tsx
-import { getHigherEducationData, getAllStudentProgress } from '@/actions/highereducation-admin-actions';
+import { getHigherEducationData, getStudentProgress } from '@/actions/highereducation-admin-actions';
 import DataManagementTabs from './components/DataManagementTabs';
 import StudentProgressOverview from './components/StudentProgressOverview';
 import AdminStats from './components/AdminStats';
+import { HigherEducationData, StudentProgress } from '@/types/higher-education';
 
 export default async function AdminHigherEducationPage() {
-  const [higherEdData, studentProgress] = await Promise.all([
-    getHigherEducationData(),
-    getAllStudentProgress()
-  ]);
+  let higherEdData: HigherEducationData;
+  let studentProgress: StudentProgress[] = [];
+
+  try {
+    // Fetch data in parallel
+    const [higherEdDataResult, studentProgressResult] = await Promise.all([
+      getHigherEducationData(),
+      getStudentProgress()
+    ]);
+
+    higherEdData = higherEdDataResult;
+    studentProgress = studentProgressResult || [];
+
+    console.log('📦 Page loaded data:', {
+      countries: higherEdData?.countries?.length || 0,
+      exams: higherEdData?.examPreparations?.length || 0,
+      documents: higherEdData?.applicationDocuments?.length || 0,
+      taRaGuides: higherEdData?.taRaGuides?.length || 0,
+      studentProgress: studentProgress?.length || 0
+    });
+  } catch (error) {
+    console.error('❌ Error loading admin page data:', error);
+    // Fallback data
+    higherEdData = {
+      countries: [],
+      examPreparations: [],
+      applicationDocuments: [],
+      studentProgress: [],
+      taRaGuides: []
+    };
+    studentProgress = [];
+  }
 
   // Ensure studentProgress is always an array
-  const safeStudentProgress = Array.isArray(studentProgress) ? studentProgress : [];
+  const safeStudentProgress: StudentProgress[] = Array.isArray(studentProgress) ? studentProgress : [];
 
-  // Ensure countries have proper structure and unique IDs
-  const safeCountries = (higherEdData.countries || []).map((country: any) => ({
-    ...country,
-    _id: country._id || `country-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    topInstitutes: country.popularUniversities || [], // Map popularUniversities to topInstitutes
-    visaRequirements: country.visaRequirements || [],
-    costOfLiving: country.costOfLiving || { monthly: '$0', yearly: '$0' },
-    taRaGuide: country.taRaGuide || {
-      eligibility: ['Full-time enrollment in graduate program'],
-      requirements: ['CV/Resume', 'Statement of purpose'],
-      applicationProcess: ['Apply to graduate program'],
-      tips: ['Contact professors early'],
-      documentsRequired: ['Updated CV', 'Academic transcripts'],
-      averageStipend: '$1,500 - $2,500/month'
-    },
-    popularity: country.popularity || 'medium'
-  }));
-
-  // Ensure exams and documents have proper structure
-  const safeExams = higherEdData.examPreparations || [];
-  const safeDocuments = higherEdData.applicationDocuments || [];
+  // Create the data object in the expected format
+  const tabData: HigherEducationData & { taRaGuides?: any[] } = {
+    countries: higherEdData?.countries || [],
+    examPreparations: higherEdData?.examPreparations || [],
+    applicationDocuments: higherEdData?.applicationDocuments || [],
+    studentProgress: safeStudentProgress,
+    taRaGuides: higherEdData?.taRaGuides || []
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -57,13 +72,9 @@ export default async function AdminHigherEducationPage() {
 
         {/* Data Management Tabs */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <DataManagementTabs 
-            countries={safeCountries}
-            exams={safeExams}
-            documents={safeDocuments}
-          />
+          <DataManagementTabs data={tabData} />
         </div>
       </div>
-    </div>
+    </div> 
   );
 }

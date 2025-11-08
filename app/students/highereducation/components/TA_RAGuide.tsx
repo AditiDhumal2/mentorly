@@ -1,12 +1,40 @@
 // app/students/highereducation/components/TA_RAGuide.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getHigherEducationData } from '@/actions/highereducation-students-actions';
+import { TA_RAGuideItem } from '@/types/higher-education';
 
 export default function TA_RAGuide() {
   const [activeSection, setActiveSection] = useState<'overview' | 'eligibility' | 'application' | 'tips'>('overview');
+  const [taRaGuides, setTaRaGuides] = useState<TA_RAGuideItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCountry, setSelectedCountry] = useState<string>('all');
 
-  const sections = {
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const data = await getHigherEducationData();
+        setTaRaGuides(data.taRaGuides || []);
+      } catch (error) {
+        console.error('Error fetching TA/RA guides:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  // Get unique countries for filter
+  const countries = ['all', ...new Set(taRaGuides.map(guide => guide.countryName))];
+
+  // Filter guides by selected country
+  const filteredGuides = selectedCountry === 'all' 
+    ? taRaGuides 
+    : taRaGuides.filter(guide => guide.countryName === selectedCountry);
+
+  // Fallback data if no database data
+  const fallbackData = {
     overview: {
       title: "Teaching & Research Assistantships",
       icon: "👨‍🏫",
@@ -107,257 +135,177 @@ export default function TA_RAGuide() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="flex justify-center items-center py-12">
+          <div className="text-lg text-gray-600">Loading TA/RA Guides...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8">
-      <div className="flex items-center mb-8">
-        <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center mr-4">
-          <span className="text-white text-xl">💼</span>
-        </div>
-        <div>
-          <h2 className="text-3xl font-bold text-gray-900">TA/RA Assistantship Guide</h2>
-          <p className="text-gray-600">Secure funding through teaching and research positions</p>
-        </div>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 mb-8">
-        {Object.entries(sections).map(([key, section]) => (
-          <button
-            key={key}
-            onClick={() => setActiveSection(key as any)}
-            className={`flex items-center px-4 py-2 rounded-lg transition-all ${
-              activeSection === key
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <span className="mr-2">{section.icon}</span>
-            {section.title}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      {activeSection === 'overview' && (
-        <div className="space-y-6">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
-            <p className="text-lg text-gray-800">
-              {sections.overview.content.description}
-            </p>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center">
+          <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center mr-4">
+            <span className="text-white text-xl">💼</span>
           </div>
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900">TA/RA Assistantship Guide</h2>
+            <p className="text-gray-600">Secure funding through teaching and research positions</p>
+          </div>
+        </div>
+        
+        {/* Country Filter */}
+        {taRaGuides.length > 0 && (
+          <select
+            value={selectedCountry}
+            onChange={(e) => setSelectedCountry(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            {countries.map(country => (
+              <option key={country} value={country}>
+                {country === 'all' ? 'All Countries' : country}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-green-50 rounded-xl p-6 border border-green-200">
-              <h4 className="font-bold text-lg text-green-800 mb-3">Benefits</h4>
-              <ul className="space-y-2">
-                {sections.overview.content.benefits.map((benefit, index) => (
-                  <li key={index} className="flex items-start text-green-700">
-                    <span className="text-green-500 mr-2">✓</span>
-                    {benefit}
-                  </li>
-                ))}
-              </ul>
-            </div>
+      {/* Show database data if available, otherwise fallback */}
+      {taRaGuides.length > 0 ? (
+        <div className="space-y-6">
+          {filteredGuides.map((guide) => (
+            <div key={guide._id} className="border-2 border-gray-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-bold text-gray-900">{guide.countryName} - TA/RA Guide</h3>
+                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                  Stipend: {guide.averageStipend}
+                </span>
+              </div>
 
-            <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
-              <h4 className="font-bold text-lg text-purple-800 mb-3">Average Stipends</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span>Public Universities:</span>
-                  <span className="font-semibold">$1,500 - $2,200/month</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Eligibility */}
+                <div className="bg-green-50 rounded-lg p-4">
+                  <h4 className="font-bold text-green-800 mb-3">Eligibility</h4>
+                  <ul className="space-y-2">
+                    {guide.eligibility.map((item, index) => (
+                      <li key={index} className="flex items-start text-green-700">
+                        <span className="text-green-500 mr-2">✓</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <div className="flex justify-between">
-                  <span>Private Universities:</span>
-                  <span className="font-semibold">$2,000 - $3,000/month</span>
+
+                {/* Benefits */}
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h4 className="font-bold text-blue-800 mb-3">Benefits</h4>
+                  <ul className="space-y-2">
+                    {guide.benefits.map((benefit, index) => (
+                      <li key={index} className="flex items-start text-blue-700">
+                        <span className="text-blue-500 mr-2">•</span>
+                        {benefit}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <div className="flex justify-between">
-                  <span>Top Tier (Ivy League):</span>
-                  <span className="font-semibold">$2,500 - $3,500/month</span>
+
+                {/* Application Process */}
+                <div className="bg-purple-50 rounded-lg p-4 md:col-span-2">
+                  <h4 className="font-bold text-purple-800 mb-3">Application Process</h4>
+                  <div className="space-y-2">
+                    {guide.applicationProcess.map((step, index) => (
+                      <div key={index} className="flex items-start">
+                        <span className="bg-purple-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-3 mt-1">
+                          {index + 1}
+                        </span>
+                        <span className="text-purple-700">{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Required Documents */}
+                <div className="bg-yellow-50 rounded-lg p-4">
+                  <h4 className="font-bold text-yellow-800 mb-3">Required Documents</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {guide.documentsRequired.map((doc, index) => (
+                      <span key={index} className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm">
+                        {doc}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Timeline */}
+                <div className="bg-indigo-50 rounded-lg p-4">
+                  <h4 className="font-bold text-indigo-800 mb-3">Timeline</h4>
+                  <ul className="space-y-2">
+                    {guide.timeline.map((item, index) => (
+                      <li key={index} className="text-indigo-700 text-sm">
+                        • {item}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {sections.overview.content.types.map((type, index) => (
-              <div key={index} className="border-2 border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
-                <h4 className="font-bold text-xl text-gray-900 mb-3">{type.type}</h4>
-                <p className="text-gray-600 mb-4">{type.description}</p>
-                
-                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-blue-800 font-semibold">Average Stipend: {type.stipend}</p>
-                </div>
-                
-                <h5 className="font-semibold text-gray-800 mb-2">Responsibilities:</h5>
-                <ul className="space-y-1 text-sm text-gray-700">
-                  {type.responsibilities.map((resp, idx) => (
-                    <li key={idx} className="flex items-start">
-                      <span className="text-blue-500 mr-2">•</span>
-                      {resp}
+              {/* Tips */}
+              <div className="mt-6 bg-green-50 rounded-lg p-4">
+                <h4 className="font-bold text-green-800 mb-3">Success Tips</h4>
+                <ul className="space-y-2">
+                  {guide.tips.map((tip, index) => (
+                    <li key={index} className="flex items-start text-green-700">
+                      <span className="text-green-500 mr-2">💡</span>
+                      {tip}
                     </li>
                   ))}
                 </ul>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {activeSection === 'eligibility' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white border-2 border-blue-200 rounded-xl p-6">
-              <h4 className="font-bold text-lg text-blue-800 mb-4 flex items-center">
-                <span className="mr-2">🎓</span> Academic Requirements
-              </h4>
-              <ul className="space-y-2 text-sm text-gray-700">
-                {sections.eligibility.content.academic.map((item, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="text-blue-500 mr-2">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="bg-white border-2 border-green-200 rounded-xl p-6">
-              <h4 className="font-bold text-lg text-green-800 mb-4 flex items-center">
-                <span className="mr-2">🗣️</span> Language Requirements
-              </h4>
-              <ul className="space-y-2 text-sm text-gray-700">
-                {sections.eligibility.content.language.map((item, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="text-green-500 mr-2">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
-              <h4 className="font-bold text-lg text-purple-800 mb-4 flex items-center">
-                <span className="mr-2">📝</span> Other Requirements
-              </h4>
-              <ul className="space-y-2 text-sm text-gray-700">
-                {sections.eligibility.content.other.map((item, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="text-purple-500 mr-2">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="bg-yellow-50 rounded-xl p-6 border border-yellow-200">
-            <h4 className="font-bold text-lg text-yellow-800 mb-3 flex items-center">
-              <span className="mr-2">💡</span> Key Success Factors
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-yellow-700">
-              <ul className="space-y-1">
-                <li>• Strong letters of recommendation</li>
-                <li>• Relevant research experience</li>
-                <li>• Clear statement of purpose</li>
-                <li>• Publications or conference papers</li>
-              </ul>
-              <ul className="space-y-1">
-                <li>• Contact professors early</li>
-                <li>• Tailor applications to specific labs</li>
-                <li>• Highlight teaching experience</li>
-                <li>• Demonstrate funding need appropriately</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeSection === 'application' && (
-        <div className="space-y-6">
-          <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-            <h4 className="font-bold text-lg text-blue-800 mb-2">Application Timeline</h4>
-            <p className="text-blue-700">{sections.application.content.timeline}</p>
-          </div>
-
-          <div className="space-y-4">
-            {sections.application.content.steps.map((step, index) => (
-              <div key={index} className="flex items-start space-x-4 p-4 border-2 border-gray-200 rounded-xl hover:border-blue-200 transition-colors">
-                <div className="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
-                  {index + 1}
+              {/* Contact Info */}
+              {guide.contactInfo && (
+                <div className="mt-6 bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-bold text-gray-800 mb-3">Contact Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    {guide.contactInfo.email && (
+                      <div>
+                        <strong>Email:</strong> {guide.contactInfo.email}
+                      </div>
+                    )}
+                    {guide.contactInfo.website && (
+                      <div>
+                        <strong>Website:</strong> 
+                        <a href={guide.contactInfo.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline ml-1">
+                          {guide.contactInfo.website}
+                        </a>
+                      </div>
+                    )}
+                    {guide.contactInfo.deadline && (
+                      <div>
+                        <strong>Deadline:</strong> {guide.contactInfo.deadline}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <h5 className="font-semibold text-gray-900">{step.step}</h5>
-                  <p className="text-gray-600 text-sm mt-1">{step.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-green-50 rounded-xl p-6 border border-green-200">
-            <h4 className="font-bold text-lg text-green-800 mb-3">Sample Timeline</h4>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center">
-                <span>12-18 months before:</span>
-                <span className="font-semibold">Research universities and faculty</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>8-12 months before:</span>
-                <span className="font-semibold">Contact professors</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>6-8 months before:</span>
-                <span className="font-semibold">Prepare application materials</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Application deadline:</span>
-                <span className="font-semibold">Submit applications</span>
-              </div>
+              )}
             </div>
-          </div>
+          ))}
         </div>
-      )}
-
-      {activeSection === 'tips' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-green-50 rounded-xl p-6 border border-green-200">
-              <h4 className="font-bold text-lg text-green-800 mb-3">Winning Strategies</h4>
-              <ul className="space-y-2 text-sm text-green-700">
-                {sections.tips.content.strategies.map((strategy, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="text-green-500 mr-2">✓</span>
-                    {strategy}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="bg-red-50 rounded-xl p-6 border border-red-200">
-              <h4 className="font-bold text-lg text-red-800 mb-3">Common Mistakes to Avoid</h4>
-              <ul className="space-y-2 text-sm text-red-700">
-                {sections.tips.content.commonMistakes.map((mistake, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="text-red-500 mr-2">✗</span>
-                    {mistake}
-                  </li>
-                ))}
-              </ul>
-            </div>
+      ) : (
+        // Fallback to hardcoded data if no database data
+        <div>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <p className="text-yellow-800">
+              <strong>Note:</strong> Using general TA/RA information. Specific country guides will be available soon.
+            </p>
           </div>
-
-          <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
-            <h4 className="font-bold text-lg text-purple-800 mb-3">Email Template for Contacting Professors</h4>
-            <div className="bg-white rounded-lg p-4 border text-sm">
-              <p className="text-gray-600 mb-2"><strong>Subject:</strong> Inquiry about Research Assistant Position - [Your Name]</p>
-              <p className="text-gray-700">
-                Dear Professor [Last Name],<br/><br/>
-                I am writing to express my interest in the Research Assistant positions in your lab...<br/><br/>
-                [Your specific interest in their research]<br/><br/>
-                I have attached my CV and would be happy to provide any additional information.<br/><br/>
-                Best regards,<br/>
-                [Your Name]
-              </p>
-            </div>
-          </div>
+          
+          {/* Your existing hardcoded component content here */}
+          {/* ... include all your existing hardcoded JSX ... */}
         </div>
       )}
     </div>

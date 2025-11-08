@@ -1,14 +1,13 @@
-// app/admin/highereducation/components/CountriesManager.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { updateCountriesData } from '@/actions/highereducation-admin-actions'; // Fixed import name
+import { updateCountriesData } from '@/actions/highereducation-admin-actions';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import Snackbar from '@/components/Snackbar';
 import { Country, CountriesManagerProps, UniversityDetail, TA_RAGuide } from '@/types/higher-education';
 
 export default function CountriesManager({ countries }: CountriesManagerProps) {
-  const [localCountries, setLocalCountries] = useState<Country[]>(countries);
+  const [localCountries, setLocalCountries] = useState<Country[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [editingCountry, setEditingCountry] = useState<Country | null>(null);
@@ -28,6 +27,27 @@ export default function CountriesManager({ countries }: CountriesManagerProps) {
     setIsClient(true);
   }, []);
 
+  // Initialize local state with proper defaults
+  useEffect(() => {
+    console.log('🔄 CountriesManager received countries:', countries?.length);
+    const safeCountries = (countries || []).map(country => ({
+      _id: country._id || `country-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: country.name || 'Unnamed Country',
+      code: country.code || 'XX',
+      flag: country.flag || '🏳️',
+      topInstitutes: country.topInstitutes || [],
+      visaRequirements: country.visaRequirements || [],
+      costOfLiving: country.costOfLiving || {
+        monthly: '$0',
+        yearly: '$0'
+      },
+      popularity: country.popularity || 'medium',
+      description: country.description || '',
+      taRaGuide: country.taRaGuide
+    }));
+    setLocalCountries(safeCountries);
+  }, [countries]);
+
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
   };
@@ -37,7 +57,7 @@ export default function CountriesManager({ countries }: CountriesManagerProps) {
     setMessage(null);
     
     try {
-      await updateCountriesData(localCountries); // Fixed function name
+      await updateCountriesData(localCountries);
       setMessage({ type: 'success', text: 'Countries data saved successfully!' });
       showSnackbar('Countries data saved successfully!', 'success');
     } catch (error) {
@@ -54,11 +74,12 @@ export default function CountriesManager({ countries }: CountriesManagerProps) {
       name: 'New Country',
       code: 'XX',
       topInstitutes: [],
-      visaRequirements: [],
+      visaRequirements: ['Add visa requirements here'],
       costOfLiving: {
         monthly: '$0',
         yearly: '$0'
-      }
+      },
+      popularity: 'medium'
     };
     setLocalCountries(prev => [...prev, newCountry]);
     showSnackbar('New country added successfully!', 'success');
@@ -87,6 +108,27 @@ export default function CountriesManager({ countries }: CountriesManagerProps) {
     ));
     setEditingCountry(null);
     showSnackbar('Country updated successfully!', 'success');
+  };
+
+  // Safe accessor functions to prevent undefined errors
+  const getTopInstitutes = (country: Country): UniversityDetail[] => {
+    return country.topInstitutes || [];
+  };
+
+  const getVisaRequirements = (country: Country): string[] => {
+    return country.visaRequirements || [];
+  };
+
+  const getCostOfLiving = (country: Country) => {
+    return country.costOfLiving || { monthly: 'N/A', yearly: 'N/A' };
+  };
+
+  const getUniversityName = (uni: UniversityDetail): string => {
+    return uni.name || 'Unnamed University';
+  };
+
+  const getUniversityRanking = (uni: UniversityDetail): number => {
+    return uni.ranking || 0;
   };
 
   const getCountryKey = (country: Country, index: number): string => {
@@ -145,91 +187,103 @@ export default function CountriesManager({ countries }: CountriesManagerProps) {
 
       {/* Countries Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {localCountries.map((country, index) => (
-          <div key={getCountryKey(country, index)} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                {country.flag && <span className="text-2xl">{country.flag}</span>}
-                <div>
-                  <h4 className="font-bold text-gray-900">{country.name}</h4>
-                  <p className="text-sm text-gray-600">{country.code}</p>
+        {localCountries.map((country, index) => {
+          const topInstitutes = getTopInstitutes(country);
+          const visaRequirements = getVisaRequirements(country);
+          const costOfLiving = getCostOfLiving(country);
+
+          return (
+            <div key={getCountryKey(country, index)} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  {country.flag && <span className="text-2xl">{country.flag}</span>}
+                  <div>
+                    <h4 className="font-bold text-gray-900">{country.name}</h4>
+                    <p className="text-sm text-gray-600">{country.code}</p>
+                  </div>
+                </div>
+                {country.popularity && (
+                  <span className={`px-3 py-1 text-xs rounded-full ${
+                    country.popularity === 'high' ? 'bg-green-100 text-green-800' :
+                    country.popularity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {country.popularity}
+                  </span>
+                )}
+              </div>
+
+              {/* Top Institutes */}
+              <div className="mb-4">
+                <h5 className="font-medium text-gray-700 mb-2">Top Institutes ({topInstitutes.length})</h5>
+                <div className="space-y-2">
+                  {topInstitutes.slice(0, 2).map((uni: UniversityDetail, idx: number) => (
+                    <div key={`uni-${index}-${idx}-${getUniversityName(uni).substring(0, 10)}`} className="flex items-center justify-between text-sm bg-gray-50 rounded p-2">
+                      <span className="text-gray-700">{getUniversityName(uni)}</span>
+                      <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded">
+                        Rank #{getUniversityRanking(uni)}
+                      </span>
+                    </div>
+                  ))}
+                  {topInstitutes.length > 2 && (
+                    <div className="text-sm text-gray-500 text-center">
+                      +{topInstitutes.length - 2} more universities
+                    </div>
+                  )}
+                  {topInstitutes.length === 0 && (
+                    <div className="text-sm text-gray-400 text-center">No universities added</div>
+                  )}
                 </div>
               </div>
-              {country.popularity && (
-                <span className={`px-3 py-1 text-xs rounded-full ${
-                  country.popularity === 'high' ? 'bg-green-100 text-green-800' :
-                  country.popularity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {country.popularity}
-                </span>
-              )}
-            </div>
 
-            {/* Top Institutes */}
-            <div className="mb-4">
-              <h5 className="font-medium text-gray-700 mb-2">Top Institutes ({country.topInstitutes?.length || 0})</h5>
-              <div className="space-y-2">
-                {country.topInstitutes?.slice(0, 2).map((uni: UniversityDetail, idx: number) => (
-                  <div key={`uni-${index}-${idx}-${uni.name.substring(0, 10)}`} className="flex items-center justify-between text-sm bg-gray-50 rounded p-2">
-                    <span className="text-gray-700">{uni.name}</span>
-                    <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded">
-                      Rank #{uni.ranking}
-                    </span>
-                  </div>
-                ))}
-                {country.topInstitutes && country.topInstitutes.length > 2 && (
-                  <div className="text-sm text-gray-500 text-center">
-                    +{country.topInstitutes.length - 2} more universities
-                  </div>
-                )}
+              {/* Cost of Living */}
+              <div className="mb-4">
+                <h5 className="font-medium text-gray-700 mb-2">Cost of Living</h5>
+                <div className="text-sm text-gray-600">
+                  <div>Monthly: {costOfLiving.monthly}</div>
+                  <div>Yearly: {costOfLiving.yearly}</div>
+                </div>
+              </div>
+
+              {/* Visa Requirements */}
+              <div className="mb-4">
+                <h5 className="font-medium text-gray-700 mb-2">Visa Requirements ({visaRequirements.length})</h5>
+                <div className="text-sm text-gray-600">
+                  {visaRequirements.slice(0, 2).map((req: string, idx: number) => (
+                    <div key={`visa-${index}-${idx}-${req.substring(0, 10)}`} className="flex items-start mb-1">
+                      <span className="mr-2">•</span>
+                      <span>{req.length > 60 ? req.substring(0, 60) + '...' : req}</span>
+                    </div>
+                  ))}
+                  {visaRequirements.length > 2 && (
+                    <div className="text-gray-500">+{visaRequirements.length - 2} more requirements</div>
+                  )}
+                  {visaRequirements.length === 0 && (
+                    <div className="text-gray-400">No visa requirements added</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex space-x-2 mt-4 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setEditingCountry(country)}
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                  type="button"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteCountry(country._id)}
+                  className="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                  type="button"
+                >
+                  Delete
+                </button>
               </div>
             </div>
-
-            {/* Cost of Living */}
-            <div className="mb-4">
-              <h5 className="font-medium text-gray-700 mb-2">Cost of Living</h5>
-              <div className="text-sm text-gray-600">
-                <div>Monthly: {country.costOfLiving?.monthly || 'N/A'}</div>
-                <div>Yearly: {country.costOfLiving?.yearly || 'N/A'}</div>
-              </div>
-            </div>
-
-            {/* Visa Requirements */}
-            <div className="mb-4">
-              <h5 className="font-medium text-gray-700 mb-2">Visa Requirements ({country.visaRequirements?.length || 0})</h5>
-              <div className="text-sm text-gray-600">
-                {country.visaRequirements?.slice(0, 2).map((req: string, idx: number) => (
-                  <div key={`visa-${index}-${idx}-${req.substring(0, 10)}`} className="flex items-start mb-1">
-                    <span className="mr-2">•</span>
-                    <span>{req.length > 60 ? req.substring(0, 60) + '...' : req}</span>
-                  </div>
-                ))}
-                {country.visaRequirements && country.visaRequirements.length > 2 && (
-                  <div className="text-gray-500">+{country.visaRequirements.length - 2} more requirements</div>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex space-x-2 mt-4 pt-4 border-t border-gray-200">
-              <button
-                onClick={() => setEditingCountry(country)}
-                className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                type="button"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => handleDeleteCountry(country._id)}
-                className="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                type="button"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Empty State */}
@@ -363,7 +417,7 @@ function CountryEditModal({ country, onSave, onClose }: CountryEditModalProps) {
   };
 
   const getUniversityKey = (uni: UniversityDetail, index: number): string => {
-    return uni._id || `university-${index}-${uni.name.substring(0, 10)}`;
+    return uni._id || `university-${index}-${uni.name?.substring(0, 10) || index}`;
   };
 
   return (
@@ -521,7 +575,7 @@ function CountryEditModal({ country, onSave, onClose }: CountryEditModalProps) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">University Name</label>
                       <input
                         type="text"
-                        value={uni.name}
+                        value={uni.name || ''}
                         onChange={(e) => updateUniversity(index, 'name', e.target.value)}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
@@ -530,8 +584,8 @@ function CountryEditModal({ country, onSave, onClose }: CountryEditModalProps) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Ranking</label>
                       <input
                         type="number"
-                        value={uni.ranking}
-                        onChange={(e) => updateUniversity(index, 'ranking', parseInt(e.target.value))}
+                        value={uni.ranking || 0}
+                        onChange={(e) => updateUniversity(index, 'ranking', parseInt(e.target.value) || 0)}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
@@ -539,7 +593,7 @@ function CountryEditModal({ country, onSave, onClose }: CountryEditModalProps) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
                       <input
                         type="url"
-                        value={uni.website}
+                        value={uni.website || ''}
                         onChange={(e) => updateUniversity(index, 'website', e.target.value)}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
