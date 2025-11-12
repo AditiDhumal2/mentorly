@@ -36,21 +36,20 @@ export default function EducationBackground({ education, onEducationChange }: Ed
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Education Background *
-        </label>
-        <p className="text-sm text-gray-600 mb-4">
+    <div className="space-y-6 bg-white/5 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/10 p-8">
+      {/* Header Section */}
+      <div className="space-y-2">
+        <h2 className="text-2xl font-semibold text-white">Education Background *</h2>
+        <p className="text-base text-gray-300">
           Add your educational qualifications to build credibility with students.
         </p>
       </div>
 
       {education.map((edu, index) => (
-        <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+        <div key={index} className="border border-white/10 rounded-lg p-6 bg-white/5">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Degree/Certificate *
               </label>
               <input
@@ -59,12 +58,12 @@ export default function EducationBackground({ education, onEducationChange }: Ed
                 placeholder="e.g., B.Tech Computer Science"
                 value={edu.degree}
                 onChange={(e) => updateEducation(index, 'degree', e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Institution *
               </label>
               <input
@@ -73,12 +72,12 @@ export default function EducationBackground({ education, onEducationChange }: Ed
                 placeholder="e.g., IIT Bombay"
                 value={edu.institution}
                 onChange={(e) => updateEducation(index, 'institution', e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Year of Completion *
               </label>
               <input
@@ -89,7 +88,7 @@ export default function EducationBackground({ education, onEducationChange }: Ed
                 placeholder="e.g., 2020"
                 value={edu.year}
                 onChange={(e) => updateEducation(index, 'year', e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
               />
             </div>
           </div>
@@ -99,7 +98,7 @@ export default function EducationBackground({ education, onEducationChange }: Ed
               <button
                 type="button"
                 onClick={() => removeEducation(index)}
-                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                className="px-4 py-2 bg-red-500/20 text-red-300 text-sm rounded-lg hover:bg-red-500/30 transition-colors border border-red-500/30"
               >
                 Remove
               </button>
@@ -111,7 +110,7 @@ export default function EducationBackground({ education, onEducationChange }: Ed
       <button
         type="button"
         onClick={addEducation}
-        className="flex items-center px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors text-sm"
+        className="flex items-center px-4 py-3 bg-white/10 text-gray-300 rounded-lg hover:bg-white/20 transition-colors text-sm font-medium w-full justify-center border border-white/10"
       >
         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

@@ -1,4 +1,3 @@
-// models/Mentor.ts
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -7,13 +6,13 @@ export interface IMentor extends Document {
   email: string;
   password: string;
   role: 'mentor';
-  college: string;
+  college?: string;
   
   // Mentor-specific fields
   expertise: string[];
-  experience: number;
-  qualification: string;
-  bio: string;
+  experience?: number;
+  qualification?: string;
+  bio?: string;
   availability: boolean;
   rating: number;
   totalSessions: number;
@@ -30,7 +29,13 @@ export interface IMentor extends Document {
   rejectionReason?: string;
   submittedAt: Date;
   reviewedAt?: Date;
-  reviewedBy?: mongoose.Types.ObjectId; // admin who reviewed
+  reviewedBy?: mongoose.Types.ObjectId;
+  
+  // Profile completion tracking
+  profileCompleted: boolean;
+  
+  // Login control
+  canLogin: boolean;
   
   // Professional profiles
   profiles: {
@@ -41,8 +46,8 @@ export interface IMentor extends Document {
   
   // Mentor statistics
   stats: {
-    responseTime: number; // average response time in hours
-    satisfactionRate: number; // percentage
+    responseTime: number;
+    satisfactionRate: number;
     studentsHelped: number;
   };
   
@@ -84,7 +89,7 @@ const mentorSchema = new Schema<IMentor>({
   },
   college: {
     type: String,
-    required: [true, 'College/University is required'],
+    required: false,
     trim: true,
   },
   
@@ -92,21 +97,21 @@ const mentorSchema = new Schema<IMentor>({
   expertise: [String],
   experience: {
     type: Number,
-    required: [true, 'Experience is required'],
+    required: false,
     min: 0
   },
   qualification: {
     type: String,
-    required: [true, 'Qualification is required']
+    required: false
   },
   bio: {
     type: String,
-    required: [true, 'Bio is required'],
+    required: false,
     maxlength: 1000
   },
   availability: {
     type: Boolean,
-    default: false // Default to false until approved
+    default: false
   },
   rating: {
     type: Number,
@@ -143,6 +148,18 @@ const mentorSchema = new Schema<IMentor>({
     ref: 'Admin'
   },
   
+  // Profile completion tracking
+  profileCompleted: {
+    type: Boolean,
+    default: false
+  },
+  
+  // Login control - allow login to complete profile
+  canLogin: {
+    type: Boolean,
+    default: true
+  },
+  
   profiles: {
     linkedin: String,
     github: String,
@@ -150,16 +167,22 @@ const mentorSchema = new Schema<IMentor>({
   },
   
   stats: {
-    responseTime: { type: Number, default: 24 }, // hours
-    satisfactionRate: { type: Number, default: 0 }, // percentage
+    responseTime: { type: Number, default: 24 },
+    satisfactionRate: { type: Number, default: 0 },
     studentsHelped: { type: Number, default: 0 }
   },
   
   preferences: {
     sessionTypes: [String],
     maxSessionsPerWeek: { type: Number, default: 10 },
-    availableDays: [String],
-    timeSlots: [String]
+    availableDays: { 
+      type: [String], 
+      default: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] 
+    },
+    timeSlots: { 
+      type: [String], 
+      default: ['09:00-11:00', '14:00-16:00', '18:00-20:00'] 
+    }
   }
 }, {
   timestamps: true,
@@ -175,6 +198,15 @@ mentorSchema.pre('save', async function(next) {
   } catch (error: any) {
     next(error);
   }
+});
+
+// Modified auto-set logic - only set availability when approved
+mentorSchema.pre('save', function(next) {
+  // Only auto-set availability when approved, don't touch canLogin
+  if (this.isModified('approvalStatus') && this.approvalStatus === 'approved') {
+    this.availability = true;
+  }
+  next();
 });
 
 // Password comparison

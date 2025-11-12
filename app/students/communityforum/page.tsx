@@ -1,12 +1,25 @@
+// app/students/communityforum/page.tsx
 import { getCommunityPosts } from '@/actions/communityforum-students-actions';
 import { CommunityPost } from '@/types/community';
 import StudentCommunityForum from './StudentCommunityForum';
 
 export default async function StudentCommunityForumPage() {
-  // Fetch posts on the server - they are already converted to plain objects
   let posts: CommunityPost[] = [];
   try {
-    posts = await getCommunityPosts();
+    const rawPosts = await getCommunityPosts();
+    
+    // Transform posts to ensure userRole is set
+    posts = rawPosts.map(post => ({
+      ...post,
+      userRole: post.userRole || 'student', // Ensure userRole exists
+      replies: (post.replies || []).map((reply: any) => ({
+        ...reply,
+        userRole: reply.userRole || 'student' // Ensure reply userRole exists
+      }))
+    }));
+    
+    console.log('✅ Loaded posts with roles:', posts.length);
+    
   } catch (error) {
     console.error('Error loading posts:', error);
   }

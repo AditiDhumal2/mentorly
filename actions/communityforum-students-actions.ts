@@ -1,3 +1,4 @@
+// actions/communityforum-students-actions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
@@ -14,27 +15,20 @@ const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
   return id;
 };
 
-// Helper function to convert Mongoose document to plain object
-const toPlainObject = (doc: any): any => {
-  if (doc && typeof doc.toObject === 'function') {
-    return doc.toObject();
-  }
-  return doc;
-};
-
 export async function getCommunityPosts() {
   try {
     await connectDB();
     const posts = await CommunityPost.find({})
       .sort({ createdAt: -1 })
-      .lean() // Use lean() to get plain objects
+      .lean()
       .exec();
     
-    // Convert all Mongoose objects to plain objects
+    // Convert all Mongoose objects to plain objects with proper userRole
     const plainPosts = posts.map(post => ({
       _id: post._id.toString(),
       userId: post.userId.toString(),
       userName: post.userName,
+      userRole: post.userRole || 'student', // Default to student for backward compatibility
       title: post.title,
       content: post.content,
       category: post.category,
@@ -42,6 +36,7 @@ export async function getCommunityPosts() {
         _id: reply._id.toString(),
         userId: reply.userId.toString(),
         userName: reply.userName,
+        userRole: reply.userRole || 'student', // Default to student for backward compatibility
         message: reply.message,
         createdAt: reply.createdAt.toISOString()
       })),
@@ -64,6 +59,7 @@ export async function addCommunityPostAction(data: CreatePostData): Promise<{ su
     const post = new CommunityPost({
       userId: toObjectId(data.userId),
       userName: data.userName,
+      userRole: data.userRole, // Include userRole
       title: data.title,
       content: data.content,
       category: data.category,
@@ -90,6 +86,7 @@ export async function replyToPostAction(postId: string | Types.ObjectId, replyDa
       _id: new Types.ObjectId(),
       userId: toObjectId(replyData.userId),
       userName: replyData.userName,
+      userRole: replyData.userRole, // Include userRole
       message: replyData.message,
       createdAt: new Date(),
     };

@@ -4,8 +4,13 @@
 import { useState, useEffect } from 'react';
 import { getPendingMentors, approveMentor, rejectMentor, getMentorStats } from '@/actions/admin-mentor.actions';
 import { MentorApplication } from '@/actions/admin-mentor.actions';
-import MentorApplicationCard from './components/MentorApplicationCard';
 import StatsOverview from './components/StatsOverview';
+import ConfirmationModal from '@/components/ConfirmationModal';
+import MentorDetailsModal from './components/MentorDetailsModal';
+import MentorTable from './components/MentorTable';
+import BulkActions from './components/BulkActions';
+import Messages from './components/Messages';
+import Header from './components/Header';
 
 export default function VerifyMentorPage() {
   const [mentors, setMentors] = useState<MentorApplication[]>([]);
@@ -13,6 +18,21 @@ export default function VerifyMentorPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [stats, setStats] = useState<any>(null);
+  
+  // Modals state
+  const [selectedMentor, setSelectedMentor] = useState<MentorApplication | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Bulk actions
+  const [selectedMentors, setSelectedMentors] = useState<string[]>([]);
+  const [showApproveAllModal, setShowApproveAllModal] = useState(false);
+  const [showRejectAllModal, setShowRejectAllModal] = useState(false);
+  const [rejectAllReason, setRejectAllReason] = useState('');
 
   useEffect(() => {
     loadData();
@@ -45,49 +65,166 @@ export default function VerifyMentorPage() {
   };
 
   const handleApprove = async (mentorId: string) => {
+    setIsProcessing(true);
     setError('');
     setSuccess('');
     
-    // In a real app, you'd get admin ID from session
-    const adminId = 'admin-user-id';
-    
-    const result = await approveMentor(mentorId, adminId);
+    // FIXED: Remove adminId parameter
+    const result = await approveMentor(mentorId);
     
     if (!result.success) {
       setError(result.error || 'Failed to approve mentor');
     } else {
       setSuccess(result.message || 'Mentor approved successfully');
-      // Remove the approved mentor from the list
       setMentors(mentors.filter(m => m._id !== mentorId));
-      // Reload stats
+      setSelectedMentors(selectedMentors.filter(id => id !== mentorId));
+      
       const statsResult = await getMentorStats();
       if (statsResult.success) {
         setStats(statsResult.stats);
       }
     }
+    
+    setIsProcessing(false);
+    setShowApproveModal(false);
+    setSelectedMentor(null);
   };
 
   const handleReject = async (mentorId: string, reason: string) => {
+    setIsProcessing(true);
     setError('');
     setSuccess('');
     
-    // In a real app, you'd get admin ID from session
-    const adminId = 'admin-user-id';
-    
-    const result = await rejectMentor(mentorId, adminId, reason);
+    // FIXED: Remove adminId parameter
+    const result = await rejectMentor(mentorId, reason);
     
     if (!result.success) {
       setError(result.error || 'Failed to reject mentor');
     } else {
       setSuccess(result.message || 'Mentor rejected successfully');
-      // Remove the rejected mentor from the list
       setMentors(mentors.filter(m => m._id !== mentorId));
-      // Reload stats
+      setSelectedMentors(selectedMentors.filter(id => id !== mentorId));
+      
       const statsResult = await getMentorStats();
       if (statsResult.success) {
         setStats(statsResult.stats);
       }
     }
+    
+    setIsProcessing(false);
+    setShowRejectModal(false);
+    setSelectedMentor(null);
+    setRejectionReason('');
+  };
+
+  const handleApproveAll = async () => {
+    setIsProcessing(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // FIXED: Remove adminId parameter from all calls
+      const results = await Promise.all(
+        selectedMentors.map(mentorId => approveMentor(mentorId))
+      );
+
+      const failed = results.filter(result => !result.success);
+      if (failed.length > 0) {
+        setError(`Failed to approve ${failed.length} mentors`);
+      } else {
+        setSuccess(`Successfully approved ${selectedMentors.length} mentors`);
+        setMentors(mentors.filter(m => !selectedMentors.includes(m._id)));
+        setSelectedMentors([]);
+        
+        const statsResult = await getMentorStats();
+        if (statsResult.success) {
+          setStats(statsResult.stats);
+        }
+      }
+    } catch (err) {
+      setError('Failed to approve selected mentors');
+    } finally {
+      setIsProcessing(false);
+      setShowApproveAllModal(false);
+    }
+  };
+
+  const handleRejectAll = async () => {
+    if (!rejectAllReason.trim()) {
+      setError('Please provide a reason for rejection');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // FIXED: Remove adminId parameter from all calls
+      const results = await Promise.all(
+        selectedMentors.map(mentorId => rejectMentor(mentorId, rejectAllReason))
+      );
+
+      const failed = results.filter(result => !result.success);
+      if (failed.length > 0) {
+        setError(`Failed to reject ${failed.length} mentors`);
+      } else {
+        setSuccess(`Successfully rejected ${selectedMentors.length} mentors`);
+        setMentors(mentors.filter(m => !selectedMentors.includes(m._id)));
+        setSelectedMentors([]);
+        setRejectAllReason('');
+        
+        const statsResult = await getMentorStats();
+        if (statsResult.success) {
+          setStats(statsResult.stats);
+        }
+      }
+    } catch (err) {
+      setError('Failed to reject selected mentors');
+    } finally {
+      setIsProcessing(false);
+      setShowRejectAllModal(false);
+    }
+  };
+
+  const handleSelectMentor = (mentorId: string) => {
+    setSelectedMentors(prev =>
+      prev.includes(mentorId)
+        ? prev.filter(id => id !== mentorId)
+        : [...prev, mentorId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedMentors(
+      selectedMentors.length === mentors.length
+        ? []
+        : mentors.map(m => m._id)
+    );
+  };
+
+  const openDetailsModal = (mentor: MentorApplication) => {
+    setSelectedMentor(mentor);
+    setShowDetailsModal(true);
+  };
+
+  const openApproveModal = (mentor: MentorApplication) => {
+    setSelectedMentor(mentor);
+    setShowApproveModal(true);
+  };
+
+  const openRejectModal = (mentor: MentorApplication) => {
+    setSelectedMentor(mentor);
+    setRejectionReason('');
+    setShowRejectForm(true);
+  };
+
+  const confirmReject = () => {
+    if (!rejectionReason.trim()) {
+      setError('Please provide a reason for rejection');
+      return;
+    }
+    setShowRejectModal(true);
   };
 
   const clearMessages = () => {
@@ -111,60 +248,21 @@ export default function VerifyMentorPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Mentor Verification</h1>
-          <p className="text-gray-600 mt-2">
-            Review and approve mentor applications to maintain platform quality
-          </p>
-        </div>
+        <Header 
+          mentorsCount={mentors.length} 
+          selectedCount={selectedMentors.length}
+          onRefresh={loadData}
+        />
 
-        {/* Messages */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded mb-6">
-            <div className="flex justify-between items-center">
-              <span>{error}</span>
-              <button onClick={clearMessages} className="text-red-400 hover:text-red-600">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
+        <Messages 
+          error={error} 
+          success={success} 
+          onClearMessages={clearMessages} 
+        />
 
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded mb-6">
-            <div className="flex justify-between items-center">
-              <span>{success}</span>
-              <button onClick={clearMessages} className="text-green-400 hover:text-green-600">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Stats Overview */}
         {stats && <StatsOverview stats={stats} />}
 
-        {/* Applications Section */}
         <div className="bg-white rounded-lg shadow-md">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Pending Applications ({mentors.length})
-              </h2>
-              <button
-                onClick={loadData}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-              >
-                Refresh
-              </button>
-            </div>
-          </div>
-
           {mentors.length === 0 ? (
             <div className="text-center py-12">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -176,53 +274,119 @@ export default function VerifyMentorPage() {
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
-              {mentors.map((mentor) => (
-                <div key={mentor._id} className="p-6">
-                  <MentorApplicationCard
-                    mentor={mentor}
-                    onApprove={handleApprove}
-                    onReject={handleReject}
-                  />
-                </div>
-              ))}
-            </div>
+            <MentorTable
+              mentors={mentors}
+              selectedMentors={selectedMentors}
+              onSelectMentor={handleSelectMentor}
+              onSelectAll={handleSelectAll}
+              onViewDetails={openDetailsModal}
+              onApprove={openApproveModal}
+              onReject={openRejectModal}
+            />
           )}
         </div>
 
-        {/* Quick Actions */}
-        {mentors.length > 0 && (
-          <div className="mt-6 bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-            <div className="flex flex-wrap gap-4">
+        <BulkActions
+          selectedCount={selectedMentors.length}
+          onApproveAll={() => setShowApproveAllModal(true)}
+          onRejectAll={() => setShowRejectAllModal(true)}
+          showRejectForm={showRejectForm}
+          rejectAllReason={rejectAllReason}
+          onRejectReasonChange={setRejectAllReason}
+          onShowRejectForm={() => setShowRejectForm(true)}
+          onHideRejectForm={() => {
+            setShowRejectForm(false);
+            setRejectAllReason('');
+          }}
+          onConfirmRejectAll={() => setShowRejectAllModal(true)}
+        />
+      </div>
+
+      {/* Modals */}
+      <MentorDetailsModal
+        isOpen={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        mentor={selectedMentor}
+        onApprove={() => selectedMentor && openApproveModal(selectedMentor)}
+        onReject={() => selectedMentor && openRejectModal(selectedMentor)}
+      />
+
+      <ConfirmationModal
+        isOpen={showApproveModal}
+        onClose={() => setShowApproveModal(false)}
+        onConfirm={() => selectedMentor && handleApprove(selectedMentor._id)}
+        title="Approve Mentor"
+        message={`Are you sure you want to approve ${selectedMentor?.name} as a mentor?`}
+        confirmText="Yes, Approve"
+        type="success"
+        isLoading={isProcessing}
+      />
+
+      {/* Reject Form Modal */}
+      {showRejectForm && selectedMentor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setShowRejectForm(false)} />
+          <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Mentor Application</h3>
+            <p className="text-gray-600 mb-4">Please provide a reason for rejecting {selectedMentor.name}'s application:</p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              rows={4}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            />
+            <div className="flex justify-end space-x-3 mt-4">
               <button
-                onClick={() => {
-                  // Approve all (with confirmation)
-                  if (confirm(`Are you sure you want to approve all ${mentors.length} pending applications?`)) {
-                    mentors.forEach(mentor => handleApprove(mentor._id));
-                  }
-                }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                onClick={() => setShowRejectForm(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
               >
-                Approve All ({mentors.length})
+                Cancel
               </button>
-              
               <button
-                onClick={() => {
-                  // Reject all with a common reason
-                  const reason = prompt('Enter reason for rejecting all applications:');
-                  if (reason) {
-                    mentors.forEach(mentor => handleReject(mentor._id, reason));
-                  }
-                }}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                onClick={confirmReject}
+                disabled={!rejectionReason.trim()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Reject All ({mentors.length})
+                Confirm Reject
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      <ConfirmationModal
+        isOpen={showRejectModal}
+        onClose={() => setShowRejectModal(false)}
+        onConfirm={() => selectedMentor && handleReject(selectedMentor._id, rejectionReason)}
+        title="Confirm Rejection"
+        message={`Are you sure you want to reject ${selectedMentor?.name}'s application?`}
+        confirmText="Yes, Reject"
+        type="danger"
+        isLoading={isProcessing}
+      />
+
+      <ConfirmationModal
+        isOpen={showApproveAllModal}
+        onClose={() => setShowApproveAllModal(false)}
+        onConfirm={handleApproveAll}
+        title="Approve Selected Mentors"
+        message={`Are you sure you want to approve ${selectedMentors.length} selected mentors?`}
+        confirmText={`Approve ${selectedMentors.length} Mentors`}
+        type="success"
+        isLoading={isProcessing}
+      />
+
+      <ConfirmationModal
+        isOpen={showRejectAllModal}
+        onClose={() => setShowRejectAllModal(false)}
+        onConfirm={handleRejectAll}
+        title="Reject Selected Mentors"
+        message={`Are you sure you want to reject ${selectedMentors.length} selected mentors?`}
+        confirmText={`Reject ${selectedMentors.length} Mentors`}
+        type="danger"
+        isLoading={isProcessing}
+      />
     </div>
   );
-} 
+}

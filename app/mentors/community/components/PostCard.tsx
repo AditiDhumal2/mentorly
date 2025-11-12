@@ -9,11 +9,9 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post, onViewPost, userId, onUpvote }: PostCardProps) {
-  // Safe upvote check
   const isUpvoted = userId && post.upvotes && 
     post.upvotes.some(upvoteId => upvoteId === userId);
 
-  // Format date consistently
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -23,7 +21,6 @@ export default function PostCard({ post, onViewPost, userId, onUpvote }: PostCar
     });
   };
 
-  // Role badge component
   const getRoleBadge = (role: 'student' | 'mentor') => {
     const roleStyles = {
       student: 'bg-blue-100 text-blue-800 border border-blue-200',
@@ -32,7 +29,7 @@ export default function PostCard({ post, onViewPost, userId, onUpvote }: PostCar
 
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${roleStyles[role]}`}>
-        {role === 'mentor' ? '👨‍🏫 Mentor' : '👨‍🎓 Student'}
+        {role === 'mentor' ? 'Mentor' : 'Student'}
       </span>
     );
   };

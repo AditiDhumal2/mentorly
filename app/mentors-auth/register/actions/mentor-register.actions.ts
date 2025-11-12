@@ -1,4 +1,3 @@
-// app/mentors-auth/register/actions/mentor-register.actions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
@@ -9,21 +8,95 @@ export interface MentorRegistrationData {
   name: string;
   email: string;
   password: string;
-  college: string;
-  expertise: string[];
-  experience: number;
-  qualification: string;
-  bio: string;
-  skills: string[];
-  education: {
-    degree: string;
-    institution: string;
-    year: number;
-  }[];
-  linkedin?: string;
-  hourlyRate?: number;
 }
 
+export async function mentorRegister(formData: MentorRegistrationData) {
+  try {
+    await connectDB();
+
+    const { name, email, password } = formData;
+
+    console.log('🔑 Starting simple mentor registration for:', email);
+
+    // Check if mentor already exists
+    const existingMentor = await Mentor.findOne({ email });
+    if (existingMentor) {
+      return { error: 'Mentor already exists with this email' };
+    }
+
+    // Create mentor with basic info - CANNOT access dashboard yet
+    const mentor = await Mentor.create({
+      // Basic info from form
+      name,
+      email,
+      password,
+      
+      // Allow login but NOT dashboard access
+      canLogin: true,        // Can login to complete profile
+      profileCompleted: false, // Profile not completed
+      approvalStatus: 'pending', // Not approved by admin
+      availability: false,   // Not available for sessions
+      
+      // Required fields with temporary values
+      college: "Not specified yet - Please complete profile",
+      experience: 0,
+      qualification: "Not specified yet - Please complete profile", 
+      bio: "Please complete your profile to start mentoring students.",
+      
+      // Empty arrays for profile completion
+      expertise: [],
+      skills: [],
+      education: [],
+      
+      // Default values
+      rating: 0,
+      totalSessions: 0,
+      submittedAt: new Date(),
+      
+      // Profiles
+      profiles: {
+        linkedin: "",
+        github: "",
+        portfolio: ""
+      },
+      
+      // Stats
+      stats: {
+        responseTime: 24,
+        satisfactionRate: 0,
+        studentsHelped: 0
+      },
+      
+      // Preferences
+      preferences: {
+        sessionTypes: [],
+        maxSessionsPerWeek: 10,
+        availableDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        timeSlots: ['09:00-11:00', '14:00-16:00', '18:00-20:00']
+      }
+    });
+
+    console.log('✅ Mentor basic registration successful:', mentor._id);
+    console.log('📊 Status - canLogin:', mentor.canLogin, 'profileCompleted:', mentor.profileCompleted, 'approvalStatus:', mentor.approvalStatus);
+    
+    revalidatePath('/admin/mentors');
+    return { 
+      success: true, 
+      mentorId: mentor._id.toString(),
+      message: 'Account created successfully! Please login to complete your profile.' 
+    };
+  } catch (error: any) {
+    console.error('❌ Mentor registration error:', error);
+    
+    if (error.code === 11000) {
+      return { error: 'Email already exists. Please use a different email.' };
+    }
+    
+    return { error: 'Failed to create account. Please try again.' };
+  }
+}
+
+// Mentor categories for the profile completion
 const mentorCategories = [
   'higher-education',
   'career-domains', 
@@ -64,81 +137,3 @@ const getCategoryDescription = (category: string): string => {
   };
   return descriptions[category] || 'Guide students in this area';
 };
-
-export async function mentorRegister(formData: MentorRegistrationData) {
-  try {
-    await connectDB();
-
-    const { 
-      name, 
-      email, 
-      password, 
-      college, 
-      expertise, 
-      experience, 
-      qualification, 
-      bio, 
-      skills, 
-      education,
-      linkedin,
-      hourlyRate 
-    } = formData;
-
-    console.log('🔑 Starting mentor registration for:', email);
-
-    // Validate categories
-    if (!expertise || expertise.length === 0) {
-      return { error: 'Please select at least one mentoring category' };
-    }
-
-    // Check if mentor already exists
-    const existingMentor = await Mentor.findOne({ email });
-    if (existingMentor) {
-      return { error: 'Mentor already exists with this email' };
-    }
-
-    // Create mentor with pending approval
-    const mentor = await Mentor.create({
-      name,
-      email,
-      password,
-      college,
-      expertise,
-      experience,
-      qualification,
-      bio,
-      skills,
-      education,
-      availability: false, // Not available until approved
-      approvalStatus: 'pending',
-      submittedAt: new Date(),
-      profiles: {
-        linkedin: linkedin || ''
-      },
-      hourlyRate: hourlyRate || 0,
-      stats: {
-        responseTime: 24,
-        satisfactionRate: 0,
-        studentsHelped: 0
-      },
-      preferences: {
-        sessionTypes: expertise,
-        maxSessionsPerWeek: 10,
-        availableDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-        timeSlots: ['09:00-11:00', '14:00-16:00', '18:00-20:00']
-      }
-    });
-
-    console.log('✅ Mentor application submitted successfully:', mentor._id);
-    
-    revalidatePath('/admin/mentors');
-    return { 
-      success: true, 
-      mentorId: mentor._id.toString(),
-      message: 'Your mentor application has been submitted successfully! Our admin team will review your application and you will be notified via email once approved. This usually takes 24-48 hours.' 
-    };
-  } catch (error: any) {
-    console.error('❌ Mentor registration error:', error);
-    return { error: 'Failed to submit mentor application: ' + error.message };
-  }
-}

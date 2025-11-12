@@ -3,6 +3,7 @@
 
 import { connectDB } from '@/lib/db';
 import { Student } from '@/models/Students';
+import { Mentor } from '@/models/Mentor';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -16,66 +17,77 @@ export async function getCurrentUser() {
     const allCookies = cookieStore.getAll();
     console.log('🍪 getCurrentUser - All available cookies:', allCookies.map(c => c.name));
     
-    // USE ONLY NEW COOKIE NAME - ignore all old cookies
+    // Check for student session first
     const studentCookie = cookieStore.get('student-session-v2');
+    const mentorCookie = cookieStore.get('mentor-session');
+    const adminCookie = cookieStore.get('admin-data');
+
+    console.log('🔍 getCurrentUser - Session cookies found:', {
+      student: !!studentCookie,
+      mentor: !!mentorCookie,
+      admin: !!adminCookie
+    });
+
+    // Priority: Student > Mentor > Admin
+    if (studentCookie?.value) {
+      console.log('🔍 getCurrentUser - Using student session');
+      return await getStudentFromCookie(studentCookie.value);
+    } else if (mentorCookie?.value) {
+      console.log('🔍 getCurrentUser - Using mentor session');
+      return await getMentorFromCookie(mentorCookie.value);
+    } else if (adminCookie?.value) {
+      console.log('🔍 getCurrentUser - Using admin session');
+      // Add admin session handling if needed
+    }
+
+    console.log('❌ getCurrentUser - No valid session cookie found');
+    return null;
+  } catch (error) {
+    console.error('❌ getCurrentUser - Unexpected error:', error);
+    return null;
+  }
+}
+
+async function getStudentFromCookie(cookieValue: string) {
+  try {
+    console.log('🔍 getStudentFromCookie - Parsing student cookie...');
     
-    console.log('🔍 getCurrentUser - Student cookie found:', !!studentCookie);
-    console.log('🔍 getCurrentUser - Using ONLY student-session-v2 cookie');
-
-    if (!studentCookie) {
-      console.log('❌ getCurrentUser - No student session cookie found');
-      return null;
-    }
-
-    console.log('🔍 getCurrentUser - Cookie value length:', studentCookie.value?.length);
-    
-    if (!studentCookie.value || studentCookie.value.trim() === '') {
-      console.log('❌ getCurrentUser - Cookie exists but value is empty or whitespace');
-      return null;
-    }
-
-    let userData;
-    try {
-      userData = JSON.parse(studentCookie.value);
-      console.log('🔍 getCurrentUser - Successfully parsed user data:', {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        role: userData.role
-      });
-    } catch (parseError) {
-      console.error('❌ getCurrentUser - Error parsing cookie JSON:', parseError);
-      console.log('🔍 getCurrentUser - Raw cookie value:', studentCookie.value);
-      return null;
-    }
+    const userData = JSON.parse(cookieValue);
+    console.log('🔍 getStudentFromCookie - Parsed user data:', {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role
+    });
 
     // Validate required fields
     if (!userData.id) {
-      console.log('❌ getCurrentUser - No user ID found in cookie data');
+      console.log('❌ getStudentFromCookie - No user ID found in cookie data');
       return null;
     }
 
     // STRICT validation - must be student role
     if (userData.role !== 'student') {
-      console.log('❌ getCurrentUser - Invalid role for student access:', userData.role);
+      console.log('❌ getStudentFromCookie - Invalid role for student access:', userData.role);
       return null;
     }
 
-    console.log('🔍 getCurrentUser - Connecting to database...');
+    console.log('🔍 getStudentFromCookie - Connecting to database...');
     await connectDB();
     
-    console.log('🔍 getCurrentUser - Searching for student with ID:', userData.id);
+    console.log('🔍 getStudentFromCookie - Searching for student with ID:', userData.id);
     const user = await Student.findById(userData.id).select('-password').lean();
     
     if (!user) {
-      console.log('❌ getCurrentUser - Student not found in database for ID:', userData.id);
+      console.log('❌ getStudentFromCookie - Student not found in database for ID:', userData.id);
       return null;
     }
 
-    console.log('✅ getCurrentUser - Student found in database:', (user as any).name);
+    console.log('✅ getStudentFromCookie - Student found in database:', (user as any).name);
     
     const userDataFromDB = user as any;
     
+    // ✅ FIX: Create a plain object without Mongoose methods
     const formattedUser = {
       _id: userDataFromDB._id.toString(),
       name: userDataFromDB.name,
@@ -85,15 +97,79 @@ export async function getCurrentUser() {
       college: userDataFromDB.college,
       profiles: userDataFromDB.profiles || {},
       interests: userDataFromDB.interests || [],
-      createdAt: userDataFromDB.createdAt,
-      updatedAt: userDataFromDB.updatedAt
+      createdAt: userDataFromDB.createdAt?.toISOString() || new Date().toISOString(),
+      updatedAt: userDataFromDB.updatedAt?.toISOString() || new Date().toISOString()
     };
 
-    console.log('✅ getCurrentUser - Successfully returning student:', formattedUser.name);
+    console.log('✅ getStudentFromCookie - Successfully returning student:', formattedUser.name);
     
     return formattedUser;
   } catch (error) {
-    console.error('❌ getCurrentUser - Unexpected error:', error);
+    console.error('❌ getStudentFromCookie - Error:', error);
+    return null;
+  }
+}
+
+async function getMentorFromCookie(cookieValue: string) {
+  try {
+    console.log('🔍 getMentorFromCookie - Parsing mentor cookie...');
+    
+    const mentorData = JSON.parse(cookieValue);
+    console.log('🔍 getMentorFromCookie - Parsed mentor data:', {
+      mentorId: mentorData.mentorId,
+      name: mentorData.name,
+      email: mentorData.email,
+      role: mentorData.role
+    });
+
+    // ✅ FIX: Check for mentorId instead of id
+    if (!mentorData.mentorId) {
+      console.log('❌ getMentorFromCookie - No mentorId found in cookie data');
+      return null;
+    }
+
+    // Validate role
+    if (mentorData.role !== 'mentor') {
+      console.log('❌ getMentorFromCookie - Invalid role for mentor access:', mentorData.role);
+      return null;
+    }
+
+    console.log('🔍 getMentorFromCookie - Connecting to database...');
+    await connectDB();
+    
+    // ✅ FIX: Use mentorData.mentorId to find the mentor
+    console.log('🔍 getMentorFromCookie - Searching for mentor with ID:', mentorData.mentorId);
+    const mentor = await Mentor.findById(mentorData.mentorId).select('-password').lean();
+    
+    if (!mentor) {
+      console.log('❌ getMentorFromCookie - Mentor not found in database for ID:', mentorData.mentorId);
+      return null;
+    }
+
+    console.log('✅ getMentorFromCookie - Mentor found in database:', (mentor as any).name);
+    
+    const mentorDataFromDB = mentor as any;
+    
+    // ✅ FIX: Create a plain object without Mongoose methods
+    const formattedMentor = {
+      _id: mentorDataFromDB._id.toString(),
+      name: mentorDataFromDB.name,
+      email: mentorDataFromDB.email,
+      role: mentorDataFromDB.role,
+      expertise: mentorDataFromDB.expertise || [],
+      college: mentorDataFromDB.college,
+      profiles: mentorDataFromDB.profiles || {},
+      experience: mentorDataFromDB.experience,
+      bio: mentorDataFromDB.bio,
+      createdAt: mentorDataFromDB.createdAt?.toISOString() || new Date().toISOString(),
+      updatedAt: mentorDataFromDB.updatedAt?.toISOString() || new Date().toISOString()
+    };
+
+    console.log('✅ getMentorFromCookie - Successfully returning mentor:', formattedMentor.name);
+    
+    return formattedMentor;
+  } catch (error) {
+    console.error('❌ getMentorFromCookie - Error:', error);
     return null;
   }
 }
@@ -118,28 +194,99 @@ export async function verifyStudentSession() {
     }
 
     await connectDB();
-    const student = await Student.findById(studentData.id);
+    const student = await Student.findById(studentData.id).lean();
     
     if (!student) {
       return { isValid: false, error: 'Student account not found' };
     }
 
+    const studentDataFromDB = student as any;
+    
+    // ✅ FIX: Create plain object
     return { 
       isValid: true, 
       student: {
-        id: student._id.toString(),
-        name: student.name,
-        email: student.email,
+        id: studentDataFromDB._id.toString(),
+        name: studentDataFromDB.name,
+        email: studentDataFromDB.email,
         role: 'student',
-        year: student.year,
-        college: student.college,
-        profiles: student.profiles || {},
-        interests: student.interests || []
+        year: studentDataFromDB.year,
+        college: studentDataFromDB.college,
+        profiles: studentDataFromDB.profiles || {},
+        interests: studentDataFromDB.interests || []
       }
     };
   } catch (error) {
     console.error('❌ verifyStudentSession - Error:', error);
     return { isValid: false, error: 'Student session verification failed' };
+  }
+}
+
+// Mentor-specific session verification (NO REDIRECTS) - FIXED VERSION
+export async function verifyMentorSession() {
+  try {
+    const cookieStore = await cookies();
+    
+    const mentorDataCookie = cookieStore.get('mentor-session')?.value;
+
+    if (!mentorDataCookie) {
+      console.log('❌ verifyMentorSession - No mentor session cookie found');
+      return { isValid: false, error: 'No mentor session found' };
+    }
+
+    let mentorData;
+    try {
+      mentorData = JSON.parse(mentorDataCookie);
+      console.log('🔍 verifyMentorSession - Parsed mentor cookie data:', mentorData);
+    } catch (parseError) {
+      console.error('❌ verifyMentorSession - Error parsing mentor cookie:', parseError);
+      return { isValid: false, error: 'Invalid mentor session data' };
+    }
+
+    // Verify it's actually a mentor session
+    if (mentorData.role !== 'mentor') {
+      console.log('❌ verifyMentorSession - Not a mentor session:', mentorData.role);
+      return { isValid: false, error: 'Not a mentor session' };
+    }
+
+    // ✅ FIX: Check for mentorId instead of id
+    if (!mentorData.mentorId) {
+      console.log('❌ verifyMentorSession - No mentorId found in mentor cookie data');
+      return { isValid: false, error: 'No mentor ID found' };
+    }
+
+    await connectDB();
+    
+    // ✅ FIX: Use mentorData.mentorId to find the mentor
+    const mentor = await Mentor.findById(mentorData.mentorId).lean();
+    
+    if (!mentor) {
+      console.log('❌ verifyMentorSession - Mentor not found in database for ID:', mentorData.mentorId);
+      return { isValid: false, error: 'Mentor account not found' };
+    }
+
+    console.log('✅ verifyMentorSession - Mentor found in database:', (mentor as any).name);
+    
+    const mentorDataFromDB = mentor as any;
+    
+    // ✅ FIX: Create plain object without Mongoose methods
+    return { 
+      isValid: true, 
+      mentor: {
+        id: mentorDataFromDB._id.toString(), // ✅ Return database ID, not cookie ID
+        name: mentorDataFromDB.name,
+        email: mentorDataFromDB.email,
+        role: 'mentor',
+        expertise: mentorDataFromDB.expertise || [],
+        college: mentorDataFromDB.college,
+        profiles: mentorDataFromDB.profiles || {},
+        experience: mentorDataFromDB.experience,
+        bio: mentorDataFromDB.bio
+      }
+    };
+  } catch (error) {
+    console.error('❌ verifyMentorSession - Error:', error);
+    return { isValid: false, error: 'Mentor session verification failed' };
   }
 }
 
@@ -157,6 +304,23 @@ export async function checkStudentAuth() {
   return {
     authenticated: true,
     student: session.student
+  };
+}
+
+// For mentor dashboard - NO REDIRECT, just return status
+export async function checkMentorAuth() {
+  const session = await verifyMentorSession();
+  
+  if (!session.isValid || !session.mentor) {
+    console.log('🛑 checkMentorAuth - No valid mentor session');
+    return { authenticated: false, mentor: null };
+  }
+  
+  console.log('✅ checkMentorAuth - Mentor session valid for:', session.mentor.email);
+  
+  return {
+    authenticated: true,
+    mentor: session.mentor
   };
 }
 
@@ -179,25 +343,67 @@ export async function studentLogout() {
     console.log(`🗑️ studentLogout - Deleted student cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
   });
   
-  // Verify student cookies are cleared but admin cookies remain
+  // Verify student cookies are cleared but admin/mentor cookies remain
   const studentDataAfter = cookieStore.get('student-data');
   const userDataAfter = cookieStore.get('user-data');
   const studentSessionV2After = cookieStore.get('student-session-v2');
   const adminDataAfter = cookieStore.get('admin-data');
+  const mentorSessionAfter = cookieStore.get('mentor-session');
   
   console.log('✅ studentLogout - Verification:', {
     studentDataAfter: studentDataAfter ? 'STILL_EXISTS' : 'DELETED',
     userDataAfter: userDataAfter ? 'STILL_EXISTS' : 'DELETED',
     studentSessionV2After: studentSessionV2After ? 'STILL_EXISTS' : 'DELETED',
-    adminDataAfter: adminDataAfter ? 'STILL_EXISTS' : 'DELETED'
+    adminDataAfter: adminDataAfter ? 'STILL_EXISTS' : 'DELETED',
+    mentorSessionAfter: mentorSessionAfter ? 'STILL_EXISTS' : 'DELETED'
   });
 
-  console.log('✅ studentLogout - All student cookies cleared, admin sessions preserved');
+  console.log('✅ studentLogout - All student cookies cleared, admin/mentor sessions preserved');
   
   return { 
     success: true, 
     message: 'Student logout successful',
     redirectUrl: '/students-auth/login?logout=success&t=' + Date.now()
+  };
+}
+
+// Mentor-only logout - NO REDIRECTS
+export async function mentorLogout() {
+  console.log('🔒 Mentor-only logout initiated');
+  
+  const cookieStore = await cookies();
+  
+  // Clear mentor-related cookies
+  const mentorCookies = [
+    'mentor-session',
+    'mentor-data'
+  ];
+  
+  mentorCookies.forEach(cookieName => {
+    const hadCookie = !!cookieStore.get(cookieName);
+    cookieStore.delete(cookieName);
+    console.log(`🗑️ mentorLogout - Deleted mentor cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
+  });
+  
+  // Verify mentor cookies are cleared but student/admin cookies remain
+  const mentorSessionAfter = cookieStore.get('mentor-session');
+  const mentorDataAfter = cookieStore.get('mentor-data');
+  const studentSessionV2After = cookieStore.get('student-session-v2');
+  const adminDataAfter = cookieStore.get('admin-data');
+  
+  console.log('✅ mentorLogout - Verification:', {
+    mentorSessionAfter: mentorSessionAfter ? 'STILL_EXISTS' : 'DELETED',
+    mentorDataAfter: mentorDataAfter ? 'STILL_EXISTS' : 'DELETED',
+    studentSessionV2After: studentSessionV2After ? 'STILL_EXISTS' : 'DELETED',
+    adminDataAfter: adminDataAfter ? 'STILL_EXISTS' : 'DELETED'
+  });
+
+  console.log('✅ mentorLogout - All mentor cookies cleared, student/admin sessions preserved');
+  
+  return { 
+    success: true, 
+    message: 'Mentor logout successful',
+    redirectUrl: '/mentors-auth/login?logout=success&t=' + Date.now()
   };
 }
 
@@ -207,18 +413,25 @@ export async function getUserData(userId: string) {
     
     await connectDB();
     
-    const user = await Student.findById(userId).select('-password').lean();
+    // Try student first, then mentor
+    let user = await Student.findById(userId).select('-password').lean();
+    let userType = 'student';
+    
+    if (!user) {
+      user = await Mentor.findById(userId).select('-password').lean();
+      userType = 'mentor';
+    }
     
     if (!user) {
       console.log('❌ getUserData - User not found for ID:', userId);
       throw new Error('User not found');
     }
 
-    console.log('🔍 getUserData - Found user:', (user as any).name);
+    console.log('🔍 getUserData - Found user:', (user as any).name, `(${userType})`);
 
-    // Simple type assertion to avoid TypeScript errors
     const userData = user as any;
     
+    // ✅ FIX: Create plain object
     const formattedUser = {
       _id: userData._id.toString(),
       name: userData.name,
@@ -228,8 +441,11 @@ export async function getUserData(userId: string) {
       college: userData.college,
       profiles: userData.profiles || {},
       interests: userData.interests || [],
-      createdAt: userData.createdAt,
-      updatedAt: userData.updatedAt
+      expertise: userData.expertise || [],
+      experience: userData.experience,
+      bio: userData.bio,
+      createdAt: userData.createdAt?.toISOString() || new Date().toISOString(),
+      updatedAt: userData.updatedAt?.toISOString() || new Date().toISOString()
     };
 
     console.log('✅ getUserData - Successfully formatted user data');
@@ -246,74 +462,124 @@ export async function getUserProgress(userId: string) {
     
     await connectDB();
     
-    const user = await Student.findById(userId).select('roadmapProgress brandingProgress savedResources year').lean();
+    // Try student first
+    let user = await Student.findById(userId).select('roadmapProgress brandingProgress savedResources year').lean();
+    let userType = 'student';
+    
+    if (!user) {
+      // If not student, try mentor (mentors might have different progress tracking)
+      user = await Mentor.findById(userId).select('expertise experience').lean();
+      userType = 'mentor';
+    }
     
     if (!user) {
       console.log('❌ getUserProgress - User not found for ID:', userId);
       throw new Error('User not found');
     }
 
-    // Simple type assertion
     const userData = user as any;
 
-    console.log('🔍 getUserProgress - Raw progress data:', {
-      roadmapProgress: userData.roadmapProgress,
-      brandingProgress: userData.brandingProgress,
-      savedResources: userData.savedResources
-    });
-
-    // Simple progress calculation
-    const completedRoadmapSteps = userData.roadmapProgress?.filter((p: any) => p.completed).length || 0;
-    const completedBrandingTasks = userData.brandingProgress?.filter((p: any) => p.completed).length || 0;
-    const savedResourcesCount = userData.savedResources?.length || 0;
-
-    console.log('🔍 getUserProgress - Progress calculations:', {
-      completedRoadmapSteps,
-      completedBrandingTasks,
-      savedResourcesCount
-    });
-
-    // Calculate percentages
-    const roadmapProgress = Math.min(completedRoadmapSteps * 5, 100);
-    const brandingProgress = Math.min(completedBrandingTasks * 10, 100);
-
-    console.log('🔍 getUserProgress - Calculated percentages:', {
-      roadmapProgress,
-      brandingProgress
-    });
-
-    // Recent activity
-    const recentActivity = [
-      { type: 'account', title: 'Account Created', time: 'Just now' },
-      { type: 'welcome', title: 'Welcome to CareerCompanion', time: 'Just now' },
-    ];
-
-    // Add actual progress activities if they exist
-    if (completedRoadmapSteps > 0) {
-      recentActivity.unshift({
-        type: 'roadmap',
-        title: `Completed ${completedRoadmapSteps} roadmap steps`,
-        time: 'Recently'
+    if (userType === 'student') {
+      console.log('🔍 getUserProgress - Raw student progress data:', {
+        roadmapProgress: userData.roadmapProgress,
+        brandingProgress: userData.brandingProgress,
+        savedResources: userData.savedResources
       });
-    }
 
-    if (completedBrandingTasks > 0) {
-      recentActivity.unshift({
-        type: 'branding', 
-        title: `Completed ${completedBrandingTasks} branding tasks`,
-        time: 'Recently'
+      // Student progress calculation
+      const completedRoadmapSteps = userData.roadmapProgress?.filter((p: any) => p.completed).length || 0;
+      const completedBrandingTasks = userData.brandingProgress?.filter((p: any) => p.completed).length || 0;
+      const savedResourcesCount = userData.savedResources?.length || 0;
+
+      console.log('🔍 getUserProgress - Student progress calculations:', {
+        completedRoadmapSteps,
+        completedBrandingTasks,
+        savedResourcesCount
       });
+
+      // Calculate percentages
+      const roadmapProgress = Math.min(completedRoadmapSteps * 5, 100);
+      const brandingProgress = Math.min(completedBrandingTasks * 10, 100);
+
+      console.log('🔍 getUserProgress - Student calculated percentages:', {
+        roadmapProgress,
+        brandingProgress
+      });
+
+      // Recent activity for student
+      const recentActivity = [
+        { type: 'account', title: 'Account Created', time: 'Just now' },
+        { type: 'welcome', title: 'Welcome to CareerCompanion', time: 'Just now' },
+      ];
+
+      // Add actual progress activities if they exist
+      if (completedRoadmapSteps > 0) {
+        recentActivity.unshift({
+          type: 'roadmap',
+          title: `Completed ${completedRoadmapSteps} roadmap steps`,
+          time: 'Recently'
+        });
+      }
+
+      if (completedBrandingTasks > 0) {
+        recentActivity.unshift({
+          type: 'branding', 
+          title: `Completed ${completedBrandingTasks} branding tasks`,
+          time: 'Recently'
+        });
+      }
+
+      const progressData = {
+        roadmapProgress,
+        brandingProgress,
+        savedResources: savedResourcesCount,
+        recentActivity: recentActivity.slice(0, 5),
+        userType: 'student'
+      };
+
+      console.log('✅ getUserProgress - Final student progress data:', progressData);
+      return progressData;
+    } else {
+      // Mentor progress (different metrics)
+      console.log('🔍 getUserProgress - Mentor data:', {
+        expertise: userData.expertise,
+        experience: userData.experience
+      });
+
+      const expertiseCount = userData.expertise?.length || 0;
+      const experienceLevel = userData.experience || 'beginner';
+      
+      // Simple mentor progress calculation based on expertise and experience
+      let mentorProgress = 0;
+      if (expertiseCount >= 5) mentorProgress = 100;
+      else if (expertiseCount >= 3) mentorProgress = 75;
+      else if (expertiseCount >= 1) mentorProgress = 50;
+      else mentorProgress = 25;
+
+      const recentActivity = [
+        { type: 'account', title: 'Mentor Account Created', time: 'Just now' },
+        { type: 'welcome', title: 'Welcome to Mentor Platform', time: 'Just now' },
+      ];
+
+      if (expertiseCount > 0) {
+        recentActivity.unshift({
+          type: 'expertise',
+          title: `Added ${expertiseCount} areas of expertise`,
+          time: 'Recently'
+        });
+      }
+
+      const progressData = {
+        mentorProgress,
+        expertiseCount,
+        experienceLevel,
+        recentActivity: recentActivity.slice(0, 5),
+        userType: 'mentor'
+      };
+
+      console.log('✅ getUserProgress - Final mentor progress data:', progressData);
+      return progressData;
     }
-
-    const progressData = {
-      roadmapProgress,
-      brandingProgress,
-      savedResources: savedResourcesCount,
-      recentActivity: recentActivity.slice(0, 5),
-    };
-
-    console.log('✅ getUserProgress - Final progress data:', progressData);
-    return progressData;
   } catch (error) {
     console.error('❌ getUserProgress - Error:', error);
     return {
@@ -323,6 +589,7 @@ export async function getUserProgress(userId: string) {
       recentActivity: [
         { type: 'welcome', title: 'Welcome to CareerCompanion', time: 'Just now' },
       ],
+      userType: 'student'
     };
   }
 }
@@ -364,6 +631,26 @@ export async function requireStudentAuth() {
   return user;
 }
 
+// STRICT Server-side protection for mentor pages
+export async function requireMentorAuth() {
+  console.log('🔐 requireMentorAuth - Starting strict authentication check');
+  
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    console.log('❌ requireMentorAuth - No user found, redirecting to login');
+    redirect('/mentors-auth/login?error=no_user&redirect=/mentors');
+  }
+  
+  if (user.role !== 'mentor') {
+    console.log('❌ requireMentorAuth - Invalid role, redirecting to login');
+    redirect('/mentors-auth/login?error=invalid_role&redirect=/mentors');
+  }
+  
+  console.log('✅ requireMentorAuth - Mentor authenticated:', user.name);
+  return user;
+}
+
 // Enhanced authentication check for any authenticated user
 export async function requireAuth() {
   const user = await getCurrentUser();
@@ -389,6 +676,24 @@ export async function checkExistingStudentAuth() {
     return false;
   } catch (error) {
     console.log('✅ checkExistingStudentAuth - Error, assuming no session');
+    return false;
+  }
+}
+
+// Check existing mentor auth for login page
+export async function checkExistingMentorAuth() {
+  try {
+    const session = await verifyMentorSession();
+    
+    if (session.isValid) {
+      console.log('✅ checkExistingMentorAuth - Mentor authenticated');
+      return true;
+    }
+    
+    console.log('✅ checkExistingMentorAuth - No mentor session');
+    return false;
+  } catch (error) {
+    console.log('✅ checkExistingMentorAuth - Error, assuming no session');
     return false;
   }
 }
@@ -422,6 +727,74 @@ export async function getCurrentStudentSession() {
   }
 }
 
+// Get current mentor session data (for client-side use) - FIXED VERSION
+export async function getCurrentMentorSession() {
+  try {
+    const cookieStore = await cookies();
+    
+    const mentorDataCookie = cookieStore.get('mentor-session')?.value;
+
+    if (!mentorDataCookie) {
+      console.log('❌ getCurrentMentorSession - No mentor session cookie found');
+      return { isLoggedIn: false, mentor: null };
+    }
+
+    let mentorData;
+    try {
+      mentorData = JSON.parse(mentorDataCookie);
+      console.log('🔍 getCurrentMentorSession - Parsed mentor cookie data:', mentorData);
+    } catch (parseError) {
+      console.error('❌ getCurrentMentorSession - Error parsing mentor cookie:', parseError);
+      return { isLoggedIn: false, mentor: null };
+    }
+
+    // Only return if it's actually a mentor session
+    if (mentorData.role !== 'mentor') {
+      console.log('❌ getCurrentMentorSession - Not a mentor session:', mentorData.role);
+      return { isLoggedIn: false, mentor: null };
+    }
+
+    // ✅ FIX: Check for mentorId instead of id
+    if (!mentorData.mentorId) {
+      console.log('❌ getCurrentMentorSession - No mentorId found in mentor cookie data');
+      return { isLoggedIn: false, mentor: null };
+    }
+
+    await connectDB();
+    
+    // ✅ FIX: Use mentorData.mentorId to find the mentor
+    const mentor = await Mentor.findById(mentorData.mentorId).lean();
+    
+    if (!mentor) {
+      console.log('❌ getCurrentMentorSession - Mentor not found in database for ID:', mentorData.mentorId);
+      return { isLoggedIn: false, mentor: null };
+    }
+
+    console.log('✅ getCurrentMentorSession - Mentor found in database:', (mentor as any).name);
+    
+    const mentorDataFromDB = mentor as any;
+    
+    // ✅ FIXED: Return plain object without Mongoose methods
+    return { 
+      isLoggedIn: true, 
+      mentor: {
+        id: mentorDataFromDB._id.toString(), // ✅ This is the correct database ID
+        name: mentorDataFromDB.name,
+        email: mentorDataFromDB.email,
+        role: 'mentor',
+        expertise: mentorDataFromDB.expertise || [],
+        college: mentorDataFromDB.college,
+        profiles: mentorDataFromDB.profiles || {},
+        experience: mentorDataFromDB.experience,
+        bio: mentorDataFromDB.bio
+      }
+    };
+  } catch (error) {
+    console.error('❌ getCurrentMentorSession - Error:', error);
+    return { isLoggedIn: false, mentor: null };
+  }
+}
+
 // Check if student session exists without validation (for middleware)
 export async function hasStudentSession() {
   try {
@@ -436,6 +809,24 @@ export async function hasStudentSession() {
     
     const studentData = JSON.parse(studentDataCookie);
     return studentData.role === 'student';
+  } catch (error) {
+    return false;
+  }
+}
+
+// Check if mentor session exists without validation (for middleware)
+export async function hasMentorSession() {
+  try {
+    const cookieStore = await cookies();
+    
+    const mentorDataCookie = cookieStore.get('mentor-session')?.value;
+    
+    if (!mentorDataCookie) {
+      return false;
+    }
+    
+    const mentorData = JSON.parse(mentorDataCookie);
+    return mentorData.role === 'mentor';
   } catch (error) {
     return false;
   }

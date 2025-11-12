@@ -1,4 +1,4 @@
-// components/PostDetailsModal.tsx
+// app/mentors/community/components/PostDetailsModal.tsx
 'use client';
 
 import { CommunityPost } from '@/types/community';

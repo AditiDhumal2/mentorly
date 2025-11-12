@@ -1,4 +1,4 @@
-// components/ReplyCard.tsx
+// app/mentors/community/components/ReplyCard.tsx
 import { CommunityReply } from '@/types/community';
 
 interface ReplyCardProps {

@@ -1,4 +1,4 @@
-// components/CommunityForum.tsx
+// app/mentors/community/components/CommunityForumUI.tsx
 'use client';
 
 import { CommunityPost } from '@/types/community';
@@ -6,7 +6,7 @@ import PostCard from './PostCard';
 import NewPostModal from './NewPostModal';
 import PostDetailsModal from './PostDetailsModal';
 
-interface CommunityForumProps {
+interface CommunityForumUIProps {
   posts: CommunityPost[];
   loading: boolean;
   onCreatePost: (data: { title: string; content: string; category: string }) => void;
@@ -20,10 +20,10 @@ interface CommunityForumProps {
   onOpenNewPostModal: () => void;
   onClosePostModal: () => void;
   currentUserId?: string;
-  currentUserRole?: 'student' | 'mentor'; // Add this line
+  currentUserRole?: 'student' | 'mentor';
 }
 
-export default function CommunityForum({
+export default function CommunityForumUI({
   posts,
   loading,
   onCreatePost,
@@ -37,8 +37,8 @@ export default function CommunityForum({
   onOpenNewPostModal,
   onClosePostModal,
   currentUserId,
-  currentUserRole // Add this line
-}: CommunityForumProps) {
+  currentUserRole
+}: CommunityForumUIProps) {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -100,7 +100,7 @@ export default function CommunityForum({
           onClose={onClosePostModal}
           onAddReply={onAddReply}
           currentUserId={currentUserId}
-          currentUserRole={currentUserRole} // Pass it here
+          currentUserRole={currentUserRole}
         />
       </div>
     </div>

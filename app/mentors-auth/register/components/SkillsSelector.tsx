@@ -42,29 +42,29 @@ export default function SkillsSelector({ selectedSkills, onSkillsChange }: Skill
   const popularSkills = ['Python', 'JavaScript', 'React', 'Machine Learning', 'AWS', 'Node.js'];
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Technical Skills *
-        </label>
-        <p className="text-sm text-gray-600 mb-4">
+    <div className="space-y-6 bg-white/5 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/10 p-8">
+      {/* Header Section */}
+      <div className="space-y-2">
+        <h2 className="text-2xl font-semibold text-white">Skills & Education</h2>
+        <h3 className="text-lg font-semibold text-white">Technical Skills</h3>
+        <p className="text-base text-gray-300">
           Select the technologies and skills you're proficient in. This helps students find the right mentor.
         </p>
       </div>
 
-      {/* Popular Skills Quick Select */}
-      <div className="mb-6">
-        <h4 className="text-sm font-medium text-gray-700 mb-3">Quick Select Popular Skills:</h4>
+      {/* Popular Skills Section */}
+      <div className="space-y-3">
+        <h4 className="text-md font-semibold text-white">Popular Skills</h4>
         <div className="flex flex-wrap gap-2">
           {popularSkills.map((skill) => (
             <button
               key={skill}
               type="button"
               onClick={() => handleSkillToggle(skill)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 selectedSkills.includes(skill)
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                  : 'bg-white/10 text-gray-300 hover:bg-white/20 border border-white/10'
               }`}
             >
               {skill}
@@ -74,32 +74,36 @@ export default function SkillsSelector({ selectedSkills, onSkillsChange }: Skill
       </div>
 
       {/* All Skills Grid */}
-      <div className="max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-          {technicalSkills.map((skill) => (
-            <label
-              key={skill}
-              className={`flex items-center p-2 rounded cursor-pointer transition-colors ${
-                selectedSkills.includes(skill)
-                  ? 'bg-blue-100 border border-blue-300'
-                  : 'hover:bg-gray-100'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={selectedSkills.includes(skill)}
-                onChange={() => handleSkillToggle(skill)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
-              />
-              <span className="text-sm text-gray-700">{skill}</span>
-            </label>
-          ))}
+      <div className="space-y-3">
+        <h4 className="text-md font-semibold text-white">All Skills</h4>
+        <div className="max-h-80 overflow-y-auto border border-white/10 rounded-lg p-4 bg-white/5">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {technicalSkills.map((skill) => (
+              <label
+                key={skill}
+                className={`flex items-center p-2 rounded-md cursor-pointer transition-colors border ${
+                  selectedSkills.includes(skill)
+                    ? 'bg-purple-500/20 border-purple-500/50 text-white'
+                    : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedSkills.includes(skill)}
+                  onChange={() => handleSkillToggle(skill)}
+                  className="rounded border-gray-500 text-purple-500 focus:ring-purple-500 mr-2 bg-white/10"
+                />
+                <span className="text-sm">{skill}</span>
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center text-sm text-gray-600">
-        <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      {/* Selected Skills Counter */}
+      <div className="flex items-center text-sm text-gray-300">
+        <svg className="w-4 h-4 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <span>
           Selected: {selectedSkills.length} skill{selectedSkills.length !== 1 ? 's' : ''}

@@ -1,11 +1,9 @@
-import { Types } from 'mongoose';
-import { ICommunityPost, ICommunityReply, ICommunityPostLean } from '@/models/CommunityPost';
-
-// Use string IDs for client components
+// types/community.ts
 export interface CommunityPost {
   _id: string;
   userId: string;
   userName: string;
+  userRole: 'student' | 'mentor';
   title: string;
   content: string;
   category: 'query' | 'discussion' | 'announcement';
@@ -19,6 +17,7 @@ export interface CommunityReply {
   _id: string;
   userId: string;
   userName: string;
+  userRole: 'student' | 'mentor';
   message: string;
   createdAt: string;
 }
@@ -29,11 +28,12 @@ export interface CreatePostData {
   category: 'query' | 'discussion' | 'announcement';
   userId: string;
   userName: string;
+  userRole: 'student' | 'mentor';
 }
 
 export interface CreateReplyData {
-  postId: string;
   userId: string;
   userName: string;
+  userRole: 'student' | 'mentor';
   message: string;
 }

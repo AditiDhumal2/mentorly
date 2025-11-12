@@ -1,3 +1,4 @@
+// app/students/communityforum/StudentCommunityForum.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,6 +6,7 @@ import { CommunityPost } from '@/types/community';
 import { addCommunityPostAction, replyToPostAction, upvotePostAction } from '@/actions/communityforum-students-actions';
 import CommunityForum from './components/CommunityForum';
 import { getCurrentStudentSession } from '@/actions/userActions';
+import Snackbar from '@/components/Snackbar';
 
 interface StudentCommunityForumProps {
   initialPosts: CommunityPost[];
@@ -28,6 +30,25 @@ export default function StudentCommunityForum({ initialPosts }: StudentCommunity
   const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error'
+  });
+
+  const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  const closeSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
 
   // Fetch current user on component mount
   useEffect(() => {
@@ -67,6 +88,7 @@ export default function StudentCommunityForum({ initialPosts }: StudentCommunity
       window.location.reload();
     } catch (error) {
       console.error('Error loading posts:', error);
+      showSnackbar('Failed to load posts', 'error');
     } finally {
       setLoading(false);
     }
@@ -74,7 +96,7 @@ export default function StudentCommunityForum({ initialPosts }: StudentCommunity
 
   const handleCreatePost = async (data: { title: string; content: string; category: string }) => {
     if (!currentUser) {
-      alert('Please log in to create a post');
+      showSnackbar('Please log in to create a post', 'error');
       return;
     }
 
@@ -83,21 +105,24 @@ export default function StudentCommunityForum({ initialPosts }: StudentCommunity
     const result = await addCommunityPostAction({
       ...data,
       userId: currentUser.id,
-      userName: currentUser.name, // This will use the actual student name
+      userName: currentUser.name,
+      userRole: 'student' as const,
       category: data.category as 'query' | 'discussion' | 'announcement'
     });
 
     if (result.success) {
       console.log('✅ Post created successfully');
-      loadPosts();
+      showSnackbar('Post created successfully!');
+      await loadPosts();
+      setIsNewPostModalOpen(false);
     } else {
-      alert(result.error);
+      showSnackbar(result.error || 'Failed to create post', 'error');
     }
   };
 
   const handleAddReply = async (message: string) => {
     if (!selectedPost?._id || !currentUser) {
-      alert('Please log in to reply to posts');
+      showSnackbar('Please log in to reply to posts', 'error');
       return;
     }
 
@@ -105,21 +130,23 @@ export default function StudentCommunityForum({ initialPosts }: StudentCommunity
 
     const result = await replyToPostAction(selectedPost._id, {
       userId: currentUser.id,
-      userName: currentUser.name, // This will use the actual student name
+      userName: currentUser.name,
+      userRole: 'student' as const,
       message
     });
 
     if (result.success) {
       console.log('✅ Reply added successfully');
-      loadPosts();
+      showSnackbar('Reply added successfully!');
+      await loadPosts();
     } else {
-      alert(result.error);
+      showSnackbar(result.error || 'Failed to add reply', 'error');
     }
   };
 
   const handleUpvote = async (postId: string) => {
     if (!currentUser) {
-      alert('Please log in to upvote posts');
+      showSnackbar('Please log in to upvote posts', 'error');
       return;
     }
 
@@ -128,9 +155,9 @@ export default function StudentCommunityForum({ initialPosts }: StudentCommunity
     const result = await upvotePostAction(postId, currentUser.id);
     if (result.success) {
       console.log('✅ Post upvoted successfully');
-      loadPosts();
+      await loadPosts();
     } else {
-      alert(result.error);
+      showSnackbar(result.error || 'Failed to upvote post', 'error');
     }
   };
 
@@ -140,23 +167,34 @@ export default function StudentCommunityForum({ initialPosts }: StudentCommunity
   };
 
   return (
-    <CommunityForum
-      posts={posts}
-      loading={loading}
-      onCreatePost={handleCreatePost}
-      onAddReply={handleAddReply}
-      onUpvote={handleUpvote}
-      onViewPost={handleViewPost}
-      selectedPost={selectedPost}
-      isNewPostModalOpen={isNewPostModalOpen}
-      isPostModalOpen={isPostModalOpen}
-      onCloseNewPostModal={() => setIsNewPostModalOpen(false)}
-      onOpenNewPostModal={() => setIsNewPostModalOpen(true)}
-      onClosePostModal={() => {
-        setIsPostModalOpen(false);
-        setSelectedPost(null);
-      }}
-      currentUserId={currentUser?.id}
-    />
+    <>
+      <CommunityForum
+        posts={posts}
+        loading={loading}
+        onCreatePost={handleCreatePost}
+        onAddReply={handleAddReply}
+        onUpvote={handleUpvote}
+        onViewPost={handleViewPost}
+        selectedPost={selectedPost}
+        isNewPostModalOpen={isNewPostModalOpen}
+        isPostModalOpen={isPostModalOpen}
+        onCloseNewPostModal={() => setIsNewPostModalOpen(false)}
+        onOpenNewPostModal={() => setIsNewPostModalOpen(true)}
+        onClosePostModal={() => {
+          setIsPostModalOpen(false);
+          setSelectedPost(null);
+        }}
+        currentUserId={currentUser?.id}
+        currentUserRole="student"
+      />
+      
+      <Snackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        severity={snackbar.severity}
+        onClose={closeSnackbar}
+        autoHideDuration={4000}
+      />
+    </>
   );
 }
