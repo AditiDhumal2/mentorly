@@ -38,6 +38,8 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
     { name: 'Community Forum', icon: '💬', path: '/students/communityforum', description: 'Connect & discuss' },
     { name: 'Progress Tracking', icon: '📈', path: '/students/progress', description: 'Your achievements' },
     { name: 'Higher Education', icon: '🎓', path: '/students/highereducation', description: 'Study abroad guidance' },
+    { name: 'Find Mentors', icon: '👨‍🏫', path: '/students/mentor-selection', description: 'Connect with mentors' },
+    { name: 'My Sessions', icon: '💬', path: '/students/sessions', description: 'View mentor responses' }, // ← ADDED THIS LINE
   ];
 
   const isActive = (path: string) => pathname === path;

@@ -1,3 +1,5 @@
+'use client';
+
 import { CommunityPost } from '@/types/community';
 
 interface AdminPostCardProps {
@@ -22,6 +24,66 @@ export default function AdminPostCard({
     });
   };
 
+  const getCategoryBadge = (category: string) => {
+    const categoryStyles: { [key: string]: string } = {
+      general: 'bg-gray-100 text-gray-800',
+      academic: 'bg-blue-100 text-blue-800',
+      career: 'bg-green-100 text-green-800',
+      technical: 'bg-orange-100 text-orange-800',
+      announcement: 'bg-purple-100 text-purple-800'
+    };
+
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryStyles[category] || 'bg-gray-100 text-gray-800'}`}>
+        {category}
+      </span>
+    );
+  };
+
+  const getVisibilityBadge = (visibility: string) => {
+    const visibilityStyles: { [key: string]: string } = {
+      public: 'bg-gray-100 text-gray-800',
+      students: 'bg-blue-100 text-blue-800',
+      mentors: 'bg-green-100 text-green-800',
+      'admin-mentors': 'bg-purple-100 text-purple-800'
+    };
+
+    const visibilityLabels: { [key: string]: string } = {
+      public: '🌍 Public',
+      students: '👥 Students Only',
+      mentors: '👨‍🏫 Mentors Only',
+      'admin-mentors': '🔒 Admin-Mentors'
+    };
+
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${visibilityStyles[visibility] || 'bg-gray-100 text-gray-800'}`}>
+        {visibilityLabels[visibility] || visibility}
+      </span>
+    );
+  };
+
+  const getRoleBadge = (role: 'student' | 'mentor' | 'moderator' | 'admin') => {
+    const roleStyles = {
+      student: 'bg-blue-100 text-blue-800 border border-blue-200',
+      mentor: 'bg-green-100 text-green-800 border border-green-200',
+      moderator: 'bg-purple-100 text-purple-800 border border-purple-200',
+      admin: 'bg-red-100 text-red-800 border border-red-200'
+    };
+
+    const roleLabels = {
+      student: '👨‍🎓 Student',
+      mentor: '👨‍🏫 Mentor',
+      moderator: '🛡️ Moderator',
+      admin: '👑 Admin'
+    };
+
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${roleStyles[role]}`}>
+        {roleLabels[role]}
+      </span>
+    );
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-4 border-l-4 border-red-500">
       <div className="flex justify-between items-start mb-4">
@@ -29,15 +91,23 @@ export default function AdminPostCard({
           <h3 className="text-xl font-semibold text-gray-800">{post.title}</h3>
           <div className="flex items-center space-x-3 mt-2 text-sm text-gray-600">
             <span>By {post.userName}</span>
+            <span>{getRoleBadge(post.userRole)}</span>
             <span>{formatDate(post.createdAt)}</span>
-            <span className={`px-2 py-1 rounded-full ${
-              post.category === 'query' ? 'bg-blue-100 text-blue-800' :
-              post.category === 'discussion' ? 'bg-green-100 text-green-800' :
-              'bg-purple-100 text-purple-800'
-            }`}>
-              {post.category}
-            </span>
+            <div className="flex items-center space-x-2">
+              {getCategoryBadge(post.category)}
+              {getVisibilityBadge(post.visibility)}
+            </div>
           </div>
+          {post.reportCount > 0 && (
+            <div className="mt-2">
+              <span className="text-red-500 text-sm font-medium">⚠️ {post.reportCount} reports</span>
+            </div>
+          )}
+          {post.isDeleted && (
+            <div className="mt-2">
+              <span className="text-gray-500 text-sm font-medium">🗑️ Deleted</span>
+            </div>
+          )}
         </div>
         <button
           onClick={() => onDeletePost(post._id)}
@@ -66,18 +136,24 @@ export default function AdminPostCard({
           {post.replies.map((reply) => (
             <div key={reply._id} className="bg-gray-50 p-4 rounded-lg border">
               <div className="flex justify-between items-start mb-2">
-                <div>
+                <div className="flex items-center space-x-2">
                   <span className="font-medium text-gray-800">{reply.userName}</span>
-                  <span className="text-sm text-gray-500 ml-3">
+                  {getRoleBadge(reply.userRole)}
+                  {reply.isDeleted && (
+                    <span className="text-gray-500 text-sm">(deleted)</span>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">
                     {formatDate(reply.createdAt)}
                   </span>
+                  <button
+                    onClick={() => onDeleteReply(post._id, reply._id)}
+                    className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 border border-red-300 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Delete Reply
+                  </button>
                 </div>
-                <button
-                  onClick={() => onDeleteReply(post._id, reply._id)}
-                  className="text-red-600 hover:text-red-800 text-sm font-medium px-3 py-1 border border-red-300 rounded hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Delete Reply
-                </button>
               </div>
               <p className="text-gray-700 text-sm mt-2">{reply.message}</p>
             </div>

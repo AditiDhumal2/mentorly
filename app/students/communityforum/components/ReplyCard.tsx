@@ -1,4 +1,3 @@
-// components/ReplyCard.tsx
 import { CommunityReply } from '@/types/community';
 
 interface ReplyCardProps {
@@ -11,19 +10,30 @@ export default function ReplyCard({ reply }: ReplyCardProps) {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit'
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
-  const getRoleBadge = (role: 'student' | 'mentor') => {
+  const getRoleBadge = (role: 'student' | 'mentor' | 'moderator' | 'admin') => {
     const roleStyles = {
       student: 'bg-blue-100 text-blue-800 border border-blue-200',
-      mentor: 'bg-green-100 text-green-800 border border-green-200'
+      mentor: 'bg-green-100 text-green-800 border border-green-200',
+      moderator: 'bg-purple-100 text-purple-800 border border-purple-200',
+      admin: 'bg-red-100 text-red-800 border border-red-200'
+    };
+
+    const roleLabels = {
+      student: '👨‍🎓 Student',
+      mentor: '👨‍🏫 Mentor',
+      moderator: '🛡️ Moderator',
+      admin: '👑 Admin'
     };
 
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${roleStyles[role]}`}>
-        {role === 'mentor' ? '👨‍🏫 Mentor' : '👨‍🎓 Student'}
+        {roleLabels[role]}
       </span>
     );
   };

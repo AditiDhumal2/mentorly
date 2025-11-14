@@ -1,5 +1,4 @@
- // app/mentors/layout.tsx
-'use client';
+ 'use client';
 
 import { useEffect, useState } from 'react';
 import { checkMentorAuth } from '@/app/mentors-auth/login/actions/mentor-login.actions';
@@ -186,13 +185,22 @@ export default function MentorLayout({
   }
 
   // Only show the sidebar layout for approved mentors on allowed pages
-  const showSidebar = (pathname === '/mentors/dashboard' || pathname?.startsWith('/mentors/community')) && 
-                     mentor?.approvalStatus === 'approved';
+  const sidebarPaths = [
+    '/mentors/dashboard',
+    '/mentors/community',
+    '/mentors/sessions',
+    '/mentors/students',
+    '/mentors/profile'
+  ];
+
+  const showSidebar = sidebarPaths.some(path => 
+    pathname?.startsWith(path)
+  ) && mentor?.approvalStatus === 'approved';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="flex min-h-screen">
-        {/* Sidebar Menu - Only show for approved mentors on dashboard/community pages */}
+        {/* Sidebar Menu - Only show for approved mentors on specific pages */}
         {showSidebar && <MentorMenu />}
         
         {/* Main Content */}

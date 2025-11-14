@@ -3,7 +3,7 @@
 import { CommunityPost } from '@/types/community';
 import { useState } from 'react';
 
-interface MentorPostCardProps {
+interface StudentPostCardProps {
   post: CommunityPost;
   onViewPost: (post: CommunityPost) => void;
   userId?: string;
@@ -12,14 +12,14 @@ interface MentorPostCardProps {
   currentUser: any;
 }
 
-export default function MentorPostCard({ 
+export default function StudentPostCard({ 
   post, 
   onViewPost, 
   userId, 
   onUpvote, 
   onReportPost,
   currentUser 
-}: MentorPostCardProps) {
+}: StudentPostCardProps) {
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
 
@@ -75,8 +75,8 @@ export default function MentorPostCard({
     };
 
     return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${visibilityStyles[visibility]}`}>
-        {visibilityLabels[visibility]}
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${visibilityStyles[visibility] || 'bg-gray-100 text-gray-800'}`}>
+        {visibilityLabels[visibility] || visibility}
       </span>
     );
   };
@@ -91,7 +91,7 @@ export default function MentorPostCard({
     };
 
     return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryStyles[category]}`}>
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryStyles[category] || 'bg-gray-100 text-gray-800'}`}>
         {category}
       </span>
     );
@@ -118,9 +118,6 @@ export default function MentorPostCard({
         
         <div className="flex items-center space-x-2 mb-3">
           {getCategoryBadge(post.category)}
-          {post.visibility === 'students' && (
-            <span className="text-xs text-blue-600 font-medium">👥 Student Question - Your expertise needed!</span>
-          )}
         </div>
         
         <p className="text-gray-600 mb-4 line-clamp-3">{post.content}</p>
@@ -162,7 +159,7 @@ export default function MentorPostCard({
               onClick={() => onViewPost(post)}
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
             >
-              {post.visibility === 'students' ? '💬 Help Student' : 'View Discussion'}
+              View Discussion
             </button>
           </div>
         </div>

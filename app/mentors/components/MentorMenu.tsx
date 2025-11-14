@@ -1,4 +1,3 @@
-// app/mentors/components/MentorMenu.tsx
 'use client';
 
 import Link from 'next/link';
@@ -24,10 +23,10 @@ const menuItems = [
     requiresApproval: true
   },
   { 
-    name: 'Sessions', 
+    name: 'Session Requests', 
     href: '/mentors/sessions', 
     icon: Calendar,
-    description: 'Manage bookings',
+    description: 'Manage student sessions',
     requiresApproval: true
   },
   { 
@@ -53,7 +52,14 @@ const menuItems = [
   }
 ];
 
-export default function MentorMenu() {
+interface MentorMenuProps {
+  stats?: {
+    totalSessions: number;
+    rating: number;
+  };
+}
+
+export default function MentorMenu({ stats }: MentorMenuProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -94,11 +100,15 @@ export default function MentorMenu() {
         {/* Quick Stats */}
         <div className="mb-6 grid grid-cols-2 gap-2">
           <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-200">
-            <div className="text-blue-600 text-sm font-bold">0</div>
+            <div className="text-blue-600 text-sm font-bold">
+              {stats?.totalSessions || 0}
+            </div>
             <div className="text-blue-500 text-xs">Sessions</div>
           </div>
           <div className="bg-green-50 rounded-xl p-3 text-center border border-green-200">
-            <div className="text-green-600 text-sm font-bold">5.0</div>
+            <div className="text-green-600 text-sm font-bold">
+              {stats?.rating ? stats.rating.toFixed(1) : '5.0'}
+            </div>
             <div className="text-green-500 text-xs">Rating</div>
           </div>
         </div>

@@ -2,15 +2,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { checkMentorAuth, mentorLogout } from '@/app/mentors-auth/login/actions/mentor-login.actions';
+import { checkMentorAuth } from '@/actions/mentor-auth-actions';
+import { mentorLogout } from '@/app/mentors-auth/login/actions/mentor-login.actions';
 import Link from 'next/link';
 
 interface Mentor {
   id: string;
+  _id: string;
   name: string;
   email: string;
   profileCompleted: boolean;
   approvalStatus: string;
+  expertise: string[];
+  college: string;
+  experience: number;
+  rating: number;
+  totalSessions: number;
+  stats: {
+    studentsHelped: number;
+    responseTime: number;
+    satisfactionRate: number;
+  };
 }
 
 interface DashboardStats {
@@ -61,24 +73,31 @@ export default function MentorDashboard() {
   useEffect(() => {
     const checkAuthAndAccess = async () => {
       try {
+        console.log('🔍 Checking mentor authentication...');
         const authResult = await checkMentorAuth();
         
+        console.log('🔍 Auth result:', authResult);
+        
         if (!authResult.isAuthenticated || !authResult.mentor) {
+          console.log('❌ Not authenticated, redirecting to login');
           window.location.href = '/mentors-auth/login';
           return;
         }
 
         const mentorData = authResult.mentor as Mentor;
+        console.log('✅ Mentor authenticated:', mentorData.name);
         setMentor(mentorData);
 
         // 🎯 STRICT ACCESS CONTROL
         if (!mentorData.profileCompleted) {
+          console.log('❌ Profile not completed, denying access');
           setAccessDenied(true);
           setDeniedReason('profile');
           return;
         }
 
         if (mentorData.approvalStatus !== 'approved') {
+          console.log('❌ Mentor not approved, denying access');
           setAccessDenied(true);
           setDeniedReason('approval');
           return;
@@ -86,23 +105,23 @@ export default function MentorDashboard() {
 
         // ✅ Only approved mentors with completed profiles can access dashboard
         console.log('✅ Mentor has full dashboard access');
-        loadDashboardData();
+        loadDashboardData(mentorData);
 
       } catch (error) {
-        console.error('Error checking auth:', error);
+        console.error('❌ Error checking auth:', error);
         window.location.href = '/mentors-auth/login';
       } finally {
         setLoading(false);
       }
     };
 
-    const loadDashboardData = () => {
-      // Mock data - replace with actual API calls
+    const loadDashboardData = (mentorData: Mentor) => {
+      // Use actual mentor data where available
       setStats({
         upcomingSessions: 2,
-        completedSessions: 15,
-        studentsHelped: 8,
-        rating: 4.8,
+        completedSessions: mentorData.totalSessions || 15,
+        studentsHelped: mentorData.stats?.studentsHelped || 8,
+        rating: mentorData.rating || 4.8,
         pendingRequests: 3,
         totalEarnings: 1250
       });

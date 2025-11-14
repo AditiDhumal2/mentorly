@@ -1,24 +1,27 @@
-// app/students/communityforum/page.tsx
-import { getCommunityPosts } from '@/actions/communityforum-students-actions';
+import { getStudentCommunityPosts } from '@/actions/communityforum-students-actions';
 import { CommunityPost } from '@/types/community';
-import StudentCommunityForum from './StudentCommunityForum';
+import StudentCommunityForum from './components/StudentCommunityForum';
+
+// Helper function to transform and filter posts
+function transformPosts(posts: any[]): CommunityPost[] {
+  return posts
+    .filter(post => {
+      const validCategories: CommunityPost['category'][] = ['general', 'academic', 'career', 'technical', 'announcement', 'mentor-question'];
+      return validCategories.includes(post.category);
+    })
+    .map(post => ({
+      ...post,
+      category: post.category as CommunityPost['category']
+    }));
+}
 
 export default async function StudentCommunityForumPage() {
   let posts: CommunityPost[] = [];
   try {
-    const rawPosts = await getCommunityPosts();
+    const rawPosts = await getStudentCommunityPosts();
+    posts = transformPosts(rawPosts);
     
-    // Transform posts to ensure userRole is set
-    posts = rawPosts.map(post => ({
-      ...post,
-      userRole: post.userRole || 'student', // Ensure userRole exists
-      replies: (post.replies || []).map((reply: any) => ({
-        ...reply,
-        userRole: reply.userRole || 'student' // Ensure reply userRole exists
-      }))
-    }));
-    
-    console.log('✅ Loaded posts with roles:', posts.length);
+    console.log('✅ Loaded student posts:', posts.length);
     
   } catch (error) {
     console.error('Error loading posts:', error);

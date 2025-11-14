@@ -1,7 +1,7 @@
 'use server';
 
 import { connectDB } from '@/lib/db';
-import { CommunityPost, Report } from '@/models/CommunityPost';
+import { CommunityPost } from '@/models/CommunityPost';
 import { CreatePostData, CreateReplyData } from '@/types/community';
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
@@ -20,8 +20,8 @@ export async function getMentorCommunityPosts() {
       isDeleted: false,
       $or: [
         { visibility: 'public' },
-        { visibility: 'mentors' },
-        { visibility: 'admin-mentors' }
+        { visibility: 'students' },
+        { visibility: 'mentors' }
       ]
     })
       .sort({ createdAt: -1 })
@@ -251,39 +251,3 @@ export async function getPostById(postId: string) {
     return null;
   }
 }
-
-export async function reportPostAction(postId: string, replyId: string | undefined, reason: string, reportedBy: string, reportedByRole: 'student' | 'mentor' | 'moderator' | 'admin'): Promise<{ success: boolean; error?: string }> {
-  try {
-    await connectDB();
-    
-    // Create report
-    const report = new Report({
-      postId: toObjectId(postId),
-      replyId: replyId ? toObjectId(replyId) : undefined,
-      reportedBy: toObjectId(reportedBy),
-      reportedByRole,
-      reason,
-      status: 'pending',
-      createdAt: new Date()
-    });
-
-    await report.save();
-
-    // Increment report count on post
-    await CommunityPost.findByIdAndUpdate(
-      toObjectId(postId),
-      { 
-        $inc: { reportCount: 1 },
-        $set: { updatedAt: new Date() }
-      }
-    );
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error reporting post:', error);
-    return { success: false, error: 'Failed to report content' };
-  }
-}
-
-// Add alias for compatibility
-export const getCommunityPosts = getMentorCommunityPosts;
