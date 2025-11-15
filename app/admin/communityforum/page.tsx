@@ -1,23 +1,23 @@
-import { CommunityPost, CommunityReply } from '@/types/community';
+import { CommunityPost } from '@/types/community';
 import { getAdminCommunityPosts, deletePostAction, deleteReplyAction } from '@/actions/communityforum-admin-actions';
 import AdminCommunityForum from './components/AdminCommunityForum';
 
 // Helper function to safely transform the data
 function transformPostData(posts: any[]): CommunityPost[] {
   return posts.map(post => {
-    // Safely handle createdAt - it might already be a string
+    // Safely handle createdAt
     const createdAt = post.createdAt instanceof Date 
       ? post.createdAt.toISOString() 
       : typeof post.createdAt === 'string' 
         ? post.createdAt 
         : new Date().toISOString();
 
-    // Safely handle updatedAt
+    // Safely handle updatedAt - fallback to createdAt if undefined
     const updatedAt = (post as any).updatedAt instanceof Date 
       ? (post as any).updatedAt.toISOString() 
       : typeof (post as any).updatedAt === 'string' 
         ? (post as any).updatedAt 
-        : createdAt;
+        : createdAt; // Use createdAt as fallback
 
     // Safely handle deletedAt
     const deletedAt = (post as any).deletedAt instanceof Date 
@@ -27,7 +27,7 @@ function transformPostData(posts: any[]): CommunityPost[] {
         : undefined;
 
     // Transform replies to match CommunityReply type
-    const transformedReplies: CommunityReply[] = (post.replies || []).map((reply: any) => {
+    const transformedReplies: any[] = (post.replies || []).map((reply: any) => {
       const replyCreatedAt = reply.createdAt instanceof Date 
         ? reply.createdAt.toISOString() 
         : typeof reply.createdAt === 'string' 
@@ -54,10 +54,10 @@ function transformPostData(posts: any[]): CommunityPost[] {
     return {
       _id: post._id.toString(),
       userId: post.userId.toString(),
-      userName: post.userName,
+      userName: post.userName || 'Unknown User',
       userRole: post.userRole || 'student',
-      title: post.title,
-      content: post.content,
+      title: post.title || 'No Title',
+      content: post.content || 'No Content',
       category: post.category || 'general',
       visibility: (post as any).visibility || 'public',
       replies: transformedReplies,
@@ -77,10 +77,17 @@ export default async function AdminCommunityForumPage() {
   let loading = false;
 
   try {
+    console.log('Fetching admin community posts...');
     const fetchedPosts = await getAdminCommunityPosts();
-    console.log('Raw posts data:', fetchedPosts); // Debug log
-    posts = transformPostData(fetchedPosts);
-    console.log('Transformed posts:', posts); // Debug log
+    console.log('Raw posts data received:', fetchedPosts?.length || 0);
+    
+    if (fetchedPosts && Array.isArray(fetchedPosts)) {
+      posts = transformPostData(fetchedPosts);
+      console.log('Transformed posts:', posts.length);
+    } else {
+      console.error('Invalid posts data received:', fetchedPosts);
+      posts = [];
+    }
   } catch (error) {
     console.error('Error loading posts:', error);
     posts = [];

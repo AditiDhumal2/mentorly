@@ -9,7 +9,7 @@ interface MentorCommunityUIProps {
   posts: CommunityPost[];
   loading: boolean;
   currentUser: any;
-  onCreatePost: (data: { title: string; content: string; category: string; visibility: 'public' | 'students' | 'mentors' }) => void;
+  onCreatePost: (data: { title: string; content: string; category: string; visibility: 'public' | 'mentors' | 'students' | 'admin-mentors' }) => void;
   onAddReply: (message: string) => void;
   onUpvote: (postId: string) => void;
   onReportPost: (postId: string, replyId: string | undefined, reason: string) => void;
@@ -20,11 +20,15 @@ interface MentorCommunityUIProps {
   onCloseNewPostModal: () => void;
   onOpenNewPostModal: () => void;
   onClosePostModal: () => void;
-  activeTab: 'all' | 'student-questions' | 'mentor-chats';
-  onTabChange: (tab: 'all' | 'student-questions' | 'mentor-chats') => void;
+  activeTab: 'students' | 'mentor-chats' | 'announcements' | 'admin-mentors';
+  onTabChange: (tab: 'students' | 'mentor-chats' | 'announcements' | 'admin-mentors') => void;
+  studentsCount: number;
   studentQuestionsCount: number;
+  mentorStudentPostsCount: number;
+  adminStudentPostsCount: number;
   mentorChatsCount: number;
-  totalPostsCount: number;
+  announcementsCount: number;
+  adminMentorsCount: number;
 }
 
 export default function MentorCommunityUI({
@@ -44,9 +48,13 @@ export default function MentorCommunityUI({
   onClosePostModal,
   activeTab,
   onTabChange,
+  studentsCount,
   studentQuestionsCount,
+  mentorStudentPostsCount,
+  adminStudentPostsCount,
   mentorChatsCount,
-  totalPostsCount
+  announcementsCount,
+  adminMentorsCount
 }: MentorCommunityUIProps) {
   if (loading) {
     return (
@@ -58,23 +66,76 @@ export default function MentorCommunityUI({
     );
   }
 
+  const getPostTypeForModal = () => {
+    switch (activeTab) {
+      case 'announcements':
+        return 'announcement';
+      case 'mentor-chats':
+        return 'mentor-chat';
+      case 'students':
+        return 'student-post';
+      case 'admin-mentors':
+        return 'admin-mentor-chat';
+      default:
+        return 'student-post';
+    }
+  };
+
+  const getCreateButtonText = () => {
+    switch (activeTab) {
+      case 'announcements':
+        return '📢 Create Announcement';
+      case 'mentor-chats':
+        return '👨‍🏫 Create Mentor Chat';
+      case 'students':
+        return '👥 Create Student Post';
+      case 'admin-mentors':
+        return '🔒 Create Admin-Mentor Chat';
+      default:
+        return 'Create Post';
+    }
+  };
+
+  const getTabDescription = () => {
+    switch (activeTab) {
+      case 'students':
+        return 'All posts visible to students - student questions, mentor posts, and admin posts. Students can reply to posts.';
+      case 'announcements':
+        return 'Important announcements visible to all students (students can read but not reply)';
+      case 'mentor-chats':
+        return 'Private discussions between mentors only';
+      case 'admin-mentors':
+        return 'Private communication channel between mentors and administrators';
+      default:
+        return '';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">Mentor Community Forum</h1>
             <p className="text-gray-600 mt-2">
-              Help students, collaborate with fellow mentors, and access admin-mentor discussions.
+              {getTabDescription()}
             </p>
           </div>
           {currentUser && (
             <button
               onClick={onOpenNewPostModal}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+              className={`px-6 py-3 rounded-lg hover:opacity-90 transition-colors font-semibold ${
+                activeTab === 'announcements' 
+                  ? 'bg-green-600 text-white' 
+                  : activeTab === 'students'
+                  ? 'bg-blue-600 text-white'
+                  : activeTab === 'mentor-chats'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-red-600 text-white'
+              }`}
             >
-              Create Post
+              {getCreateButtonText()}
             </button>
           )}
         </div>
@@ -83,34 +144,34 @@ export default function MentorCommunityUI({
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
           <div className="flex border-b border-gray-200">
             <button
-              onClick={() => onTabChange('all')}
-              className={`flex-1 py-4 px-6 text-center font-medium ${
-                activeTab === 'all'
+              onClick={() => onTabChange('students')}
+              className={`flex-1 py-4 px-4 text-center font-medium ${
+                activeTab === 'students'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              🌍 All Posts
-              <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
-                {totalPostsCount}
+              👨‍🎓 Students
+              <span className="ml-2 bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs">
+                {studentsCount}
               </span>
             </button>
             <button
-              onClick={() => onTabChange('student-questions')}
-              className={`flex-1 py-4 px-6 text-center font-medium ${
-                activeTab === 'student-questions'
+              onClick={() => onTabChange('announcements')}
+              className={`flex-1 py-4 px-4 text-center font-medium ${
+                activeTab === 'announcements'
                   ? 'text-green-600 border-b-2 border-green-600'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              👨‍🎓 Student Questions
+              📢 Announcements
               <span className="ml-2 bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs">
-                {studentQuestionsCount}
+                {announcementsCount}
               </span>
             </button>
             <button
               onClick={() => onTabChange('mentor-chats')}
-              className={`flex-1 py-4 px-6 text-center font-medium ${
+              className={`flex-1 py-4 px-4 text-center font-medium ${
                 activeTab === 'mentor-chats'
                   ? 'text-purple-600 border-b-2 border-purple-600'
                   : 'text-gray-500 hover:text-gray-700'
@@ -121,20 +182,65 @@ export default function MentorCommunityUI({
                 {mentorChatsCount}
               </span>
             </button>
+            <button
+              onClick={() => onTabChange('admin-mentors')}
+              className={`flex-1 py-4 px-4 text-center font-medium ${
+                activeTab === 'admin-mentors'
+                  ? 'text-red-600 border-b-2 border-red-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              🔒 Admin-Mentor
+              <span className="ml-2 bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs">
+                {adminMentorsCount}
+              </span>
+            </button>
           </div>
         </div>
+
+        {/* Students Tab Stats */}
+        {activeTab === 'students' && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold text-blue-800">Students Section</h3>
+                <p className="text-blue-600 text-sm">
+                  {studentQuestionsCount} student questions • {mentorStudentPostsCount} mentor posts • {adminStudentPostsCount} admin posts
+                </p>
+              </div>
+              {currentUser && (
+                <button
+                  onClick={onOpenNewPostModal}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                >
+                  👥 Create Student Post
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Posts List */}
         <div className="space-y-6">
           {posts.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
               <p className="text-gray-500 text-lg">
-                {activeTab === 'student-questions' 
-                  ? 'No student questions at the moment.' 
+                {activeTab === 'students' 
+                  ? 'No student content yet.' 
+                  : activeTab === 'announcements'
+                  ? 'No announcements yet. Create the first one!'
                   : activeTab === 'mentor-chats'
                   ? 'No mentor chats yet. Start a discussion!'
-                  : 'No posts found.'}
+                  : 'No admin-mentor chats yet. Start a discussion!'}
               </p>
+              {activeTab === 'students' && currentUser && (
+                <button
+                  onClick={onOpenNewPostModal}
+                  className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold"
+                >
+                  Create First Student Post
+                </button>
+              )}
             </div>
           ) : (
             posts.map((post) => (
@@ -163,24 +269,13 @@ export default function MentorCommunityUI({
           </div>
         )}
 
-        {/* Admin-Mentor Chat Link */}
-        {currentUser && (
-          <div className="mt-8 text-center">
-            <a
-              href="/mentors/community/admin-chats"
-              className="inline-flex items-center px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
-            >
-              🔒 Access Admin-Mentor Private Chats
-            </a>
-          </div>
-        )}
-
         {/* Modals */}
         <NewPostModal
           isOpen={isNewPostModalOpen}
           onClose={onCloseNewPostModal}
           onSubmit={onCreatePost}
           currentUser={currentUser}
+          postType={getPostTypeForModal()}
         />
 
         <PostDetailsModal

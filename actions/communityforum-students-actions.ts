@@ -8,6 +8,9 @@ import { revalidatePath } from 'next/cache';
 
 const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
   if (typeof id === 'string') {
+    if (!Types.ObjectId.isValid(id)) {
+      return new Types.ObjectId();
+    }
     return new Types.ObjectId(id);
   }
   return id;
@@ -20,12 +23,18 @@ export async function getStudentCommunityPosts() {
       isDeleted: false,
       $or: [
         { visibility: 'public' },
-        { visibility: 'students' }
+        { visibility: 'students' },
+        { category: 'announcement' }
       ]
     })
       .sort({ createdAt: -1 })
       .lean()
       .exec();
+    
+    console.log('Student posts fetched:', posts.length);
+    console.log('Public posts:', posts.filter(post => post.visibility === 'public').length);
+    console.log('Student-only posts:', posts.filter(post => post.visibility === 'students').length);
+    console.log('Announcements:', posts.filter(post => post.category === 'announcement').length);
     
     return posts.map(post => ({
       _id: post._id.toString(),
@@ -63,13 +72,23 @@ export async function addCommunityPostAction(data: CreatePostData): Promise<{ su
   try {
     await connectDB();
     
-    // Validate student can only create public or student-only posts
+    console.log('Student creating post with visibility:', data.visibility);
+    
+    // Remove admin-mentors visibility option for students
     if (data.userRole === 'student' && !['public', 'students'].includes(data.visibility)) {
-      return { success: false, error: 'Invalid visibility setting for student' };
+      return { success: false, error: 'Students can only create public posts or student chats' };
+    }
+
+    let userId: Types.ObjectId;
+    try {
+      userId = toObjectId(data.userId);
+    } catch (error) {
+      console.warn('Invalid userId, generating new ObjectId');
+      userId = new Types.ObjectId();
     }
 
     const post = new CommunityPost({
-      userId: toObjectId(data.userId),
+      userId: userId,
       userName: data.userName,
       userRole: data.userRole,
       title: data.title,
@@ -86,10 +105,16 @@ export async function addCommunityPostAction(data: CreatePostData): Promise<{ su
     await post.save();
     
     revalidatePath('/students/communityforum');
+    revalidatePath('/mentors/community');
     return { success: true };
-  } catch (error) {
-    console.error('Error creating post:', error);
-    return { success: false, error: 'Failed to create post' };
+  } catch (error: any) {
+    console.error('Error creating student post:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      errors: error.errors
+    });
+    return { success: false, error: `Failed to create post: ${error.message}` };
   }
 }
 
@@ -97,9 +122,17 @@ export async function replyToPostAction(postId: string | Types.ObjectId, replyDa
   try {
     await connectDB();
     
+    let userId: Types.ObjectId;
+    try {
+      userId = toObjectId(replyData.userId);
+    } catch (error) {
+      console.warn('Invalid userId in reply, generating new ObjectId');
+      userId = new Types.ObjectId();
+    }
+
     const reply = {
       _id: new Types.ObjectId(),
-      userId: toObjectId(replyData.userId),
+      userId: userId,
       userName: replyData.userName,
       userRole: replyData.userRole,
       message: replyData.message,
@@ -117,6 +150,7 @@ export async function replyToPostAction(postId: string | Types.ObjectId, replyDa
     );
     
     revalidatePath('/students/communityforum');
+    revalidatePath('/mentors/community');
     return { success: true };
   } catch (error) {
     console.error('Error adding reply:', error);
@@ -133,7 +167,14 @@ export async function upvotePostAction(postId: string | Types.ObjectId, userId: 
       return { success: false, error: 'Post not found' };
     }
 
-    const userIdObj = toObjectId(userId);
+    let userIdObj: Types.ObjectId;
+    try {
+      userIdObj = toObjectId(userId);
+    } catch (error) {
+      console.warn('Invalid userId in upvote, generating new ObjectId');
+      userIdObj = new Types.ObjectId();
+    }
+
     const hasUpvoted = post.upvotes.some(upvoteId => 
       upvoteId.toString() === userIdObj.toString()
     );
@@ -157,6 +198,7 @@ export async function upvotePostAction(postId: string | Types.ObjectId, userId: 
     }
     
     revalidatePath('/students/communityforum');
+    revalidatePath('/mentors/community');
     return { success: true };
   } catch (error) {
     console.error('Error upvoting post:', error);
@@ -168,11 +210,19 @@ export async function reportPostAction(postId: string, replyId: string | undefin
   try {
     await connectDB();
     
+    let reportedById: Types.ObjectId;
+    try {
+      reportedById = toObjectId(reportedBy);
+    } catch (error) {
+      console.warn('Invalid reportedBy ID, generating new ObjectId');
+      reportedById = new Types.ObjectId();
+    }
+
     // Create report
     const report = new Report({
       postId: toObjectId(postId),
       replyId: replyId ? toObjectId(replyId) : undefined,
-      reportedBy: toObjectId(reportedBy),
+      reportedBy: reportedById,
       reportedByRole,
       reason,
       status: 'pending',
@@ -190,9 +240,6 @@ export async function reportPostAction(postId: string, replyId: string | undefin
       }
     );
 
-    // Here you would typically send notifications to moderators
-    console.log(`Post ${postId} reported by ${reportedBy}. Reason: ${reason}`);
-    
     return { success: true };
   } catch (error) {
     console.error('Error reporting post:', error);

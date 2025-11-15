@@ -75,8 +75,8 @@ export default function MentorPostCard({
     };
 
     return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${visibilityStyles[visibility]}`}>
-        {visibilityLabels[visibility]}
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${visibilityStyles[visibility] || 'bg-gray-100 text-gray-800'}`}>
+        {visibilityLabels[visibility] || visibility}
       </span>
     );
   };
@@ -91,10 +91,28 @@ export default function MentorPostCard({
     };
 
     return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryStyles[category]}`}>
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryStyles[category] || 'bg-gray-100 text-gray-800'}`}>
         {category}
       </span>
     );
+  };
+
+  const getPostTypeBadge = (post: CommunityPost) => {
+    if (post.visibility === 'students' && post.userRole === 'mentor') {
+      return (
+        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+          📝 Mentor Post
+        </span>
+      );
+    }
+    if (post.visibility === 'public' && post.userRole === 'student') {
+      return (
+        <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
+          ❓ Student Question
+        </span>
+      );
+    }
+    return null;
   };
 
   const handleReport = () => {
@@ -103,6 +121,16 @@ export default function MentorPostCard({
       setShowReportModal(false);
       setReportReason('');
     }
+  };
+
+  const getActionButtonText = () => {
+    if (post.visibility === 'students' && post.userRole === 'mentor') {
+      return '💬 View Discussion';
+    }
+    if (post.visibility === 'public' && post.userRole === 'student') {
+      return '💬 Help Student';
+    }
+    return 'View Discussion';
   };
 
   return (
@@ -118,8 +146,9 @@ export default function MentorPostCard({
         
         <div className="flex items-center space-x-2 mb-3">
           {getCategoryBadge(post.category)}
-          {post.visibility === 'students' && (
-            <span className="text-xs text-blue-600 font-medium">👥 Student Question - Your expertise needed!</span>
+          {getPostTypeBadge(post)}
+          {post.visibility === 'students' && post.userRole === 'mentor' && (
+            <span className="text-xs text-blue-600 font-medium">👥 Students can reply</span>
           )}
         </div>
         
@@ -162,7 +191,7 @@ export default function MentorPostCard({
               onClick={() => onViewPost(post)}
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
             >
-              {post.visibility === 'students' ? '💬 Help Student' : 'View Discussion'}
+              {getActionButtonText()}
             </button>
           </div>
         </div>

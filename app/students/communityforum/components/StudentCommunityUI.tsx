@@ -5,7 +5,6 @@ import { CommunityPost } from '@/types/community';
 import StudentPostCard from './StudentPostCard';
 import NewPostModal from './NewPostModal';
 import PostDetailsModal from './PostDetailsModal';
-import AskMentorModal from './AskMentorModal';
 
 interface StudentCommunityUIProps {
   posts: CommunityPost[];
@@ -22,6 +21,11 @@ interface StudentCommunityUIProps {
   onCloseNewPostModal: () => void;
   onOpenNewPostModal: () => void;
   onClosePostModal: () => void;
+  activeTab: 'student-chats' | 'mentor-qa' | 'announcements';
+  onTabChange: (tab: 'student-chats' | 'mentor-qa' | 'announcements') => void;
+  studentChatsCount: number;
+  mentorQACount: number;
+  announcementsCount: number;
 }
 
 export default function StudentCommunityUI({
@@ -38,162 +42,179 @@ export default function StudentCommunityUI({
   isPostModalOpen,
   onCloseNewPostModal,
   onOpenNewPostModal,
-  onClosePostModal
+  onClosePostModal,
+  activeTab,
+  onTabChange,
+  studentChatsCount,
+  mentorQACount,
+  announcementsCount
 }: StudentCommunityUIProps) {
-  const [isAskMentorModalOpen, setIsAskMentorModalOpen] = useState(false); // ADD THIS STATE
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-6xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4">
           <div className="text-center">Loading community posts...</div>
         </div>
       </div>
     );
   }
 
-  const publicPosts = posts.filter(post => post.visibility === 'public');
-  const studentPosts = posts.filter(post => post.visibility === 'students');
+  const getTabDescription = () => {
+    switch (activeTab) {
+      case 'student-chats':
+        return 'Private discussions between students only (mentors cannot see these)';
+      case 'mentor-qa':
+        return 'Ask questions to mentors and see posts created by mentors for students';
+      case 'announcements':
+        return 'Important announcements from mentors and administrators (read-only)';
+      default:
+        return '';
+    }
+  };
 
-  const handleAskMentorSubmit = (data: {
-    title: string;
-    content: string;
+  const getCreateButtonText = () => {
+    switch (activeTab) {
+      case 'student-chats':
+        return '👥 Create Student Chat';
+      case 'mentor-qa':
+        return '💬 Ask Mentor Question';
+      default:
+        return 'Create Post';
+    }
+  };
+
+  const getPostVisibility = () => {
+    switch (activeTab) {
+      case 'student-chats':
+        return 'students';
+      case 'mentor-qa':
+        return 'public';
+      default:
+        return 'public';
+    }
+  };
+
+  const handleCreatePost = (data: { 
+    title: string; 
+    content: string; 
     category: string;
-    selectedMentorId?: string;
+    visibility: 'public' | 'students';
   }) => {
-    // Convert mentor-specific post to regular post with student visibility
-    onCreatePost({
-      title: data.title,
-      content: data.content,
-      category: data.category,
-      visibility: 'students' // FIXED: Use 'students' instead of 'mentors'
-    });
+    onCreatePost(data);
   };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">Student Community Forum</h1>
             <p className="text-gray-600 mt-2">
-              Connect with fellow students and mentors. Ask questions, share experiences, and grow together.
+              {getTabDescription()}
             </p>
           </div>
-          {currentUser && (
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setIsAskMentorModalOpen(true)}
-                className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-semibold"
-              >
-                🎯 Ask a Mentor
-              </button>
-              <button
-                onClick={onOpenNewPostModal}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-              >
-                Create Post
-              </button>
-            </div>
+          {currentUser && activeTab !== 'announcements' && (
+            <button
+              onClick={onOpenNewPostModal}
+              className={`px-6 py-3 rounded-lg hover:opacity-90 transition-colors font-semibold ${
+                activeTab === 'student-chats' 
+                  ? 'bg-orange-600 text-white' 
+                  : 'bg-blue-600 text-white'
+              }`}
+            >
+              {getCreateButtonText()}
+            </button>
           )}
         </div>
 
-        {/* Ask Mentor Section */}
-        <section className="mb-12">
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl p-8 text-white">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold mb-4">🎯 Need Expert Help?</h2>
-                <p className="text-purple-100 text-lg mb-6">
-                  Get personalized guidance from experienced mentors. Ask specific questions and get expert answers tailored to your needs.
-                </p>
-                <ul className="space-y-2 text-purple-100">
-                  <li>✅ Get help from industry professionals</li>
-                  <li>✅ One-on-one mentorship opportunities</li>
-                  <li>✅ Career guidance and technical advice</li>
-                  <li>✅ Fast responses from verified mentors</li>
-                </ul>
-              </div>
-              {currentUser && (
-                <div className="mt-6 lg:mt-0 lg:ml-8">
-                  <button
-                    onClick={() => setIsAskMentorModalOpen(true)}
-                    className="bg-white text-purple-600 px-8 py-4 rounded-xl hover:bg-purple-50 transition-colors font-bold text-lg shadow-lg"
-                  >
-                    Ask a Mentor Now
-                  </button>
-                </div>
+        {/* Tabs - REMOVE ADMIN POSTS TAB */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => onTabChange('student-chats')}
+              className={`flex-1 py-4 px-4 text-center font-medium ${
+                activeTab === 'student-chats'
+                  ? 'text-orange-600 border-b-2 border-orange-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              👥 Student Chats
+              <span className="ml-2 bg-orange-100 text-orange-600 px-2 py-1 rounded-full text-xs">
+                {studentChatsCount}
+              </span>
+            </button>
+            <button
+              onClick={() => onTabChange('mentor-qa')}
+              className={`flex-1 py-4 px-4 text-center font-medium ${
+                activeTab === 'mentor-qa'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              👨‍🏫 Mentor Q&A
+              <span className="ml-2 bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs">
+                {mentorQACount}
+              </span>
+            </button>
+            <button
+              onClick={() => onTabChange('announcements')}
+              className={`flex-1 py-4 px-4 text-center font-medium ${
+                activeTab === 'announcements'
+                  ? 'text-green-600 border-b-2 border-green-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              📢 Announcements
+              <span className="ml-2 bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs">
+                {announcementsCount}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Posts List */}
+        <div className="space-y-6">
+          {posts.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
+              <p className="text-gray-500 text-lg">
+                {activeTab === 'student-chats'
+                  ? 'No student chats yet. Start a private discussion!'
+                  : activeTab === 'mentor-qa'
+                  ? 'No mentor questions yet. Ask your first question!'
+                  : 'No announcements at the moment.'}
+              </p>
+              {currentUser && activeTab !== 'announcements' && (
+                <button
+                  onClick={onOpenNewPostModal}
+                  className={`mt-4 px-6 py-2 rounded-lg text-white font-semibold ${
+                    activeTab === 'student-chats' ? 'bg-orange-600' : 'bg-blue-600'
+                  }`}
+                >
+                  {getCreateButtonText()}
+                </button>
               )}
             </div>
-          </div>
-        </section>
-
-        {/* Public Posts Section */}
-        <section className="mb-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">📢 Public Discussions</h2>
-            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-              {publicPosts.length} posts
-            </span>
-          </div>
-          
-          <div className="space-y-6">
-            {publicPosts.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
-                <p className="text-gray-500 text-lg">No public posts yet. Be the first to start a discussion!</p>
-              </div>
-            ) : (
-              publicPosts.map((post) => (
-                <StudentPostCard
-                  key={post._id}
-                  post={post}
-                  onViewPost={onViewPost}
-                  userId={currentUser?.id}
-                  onUpvote={onUpvote}
-                  onReportPost={onReportPost}
-                  currentUser={currentUser}
-                />
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Student-Only Posts Section */}
-        <section className="mb-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">👥 Student-Only Chats</h2>
-            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-              {studentPosts.length} posts
-            </span>
-          </div>
-          
-          <div className="space-y-6">
-            {studentPosts.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
-                <p className="text-gray-500 text-lg">No student-only posts yet. Start a private discussion with other students!</p>
-              </div>
-            ) : (
-              studentPosts.map((post) => (
-                <StudentPostCard
-                  key={post._id}
-                  post={post}
-                  onViewPost={onViewPost}
-                  userId={currentUser?.id}
-                  onUpvote={onUpvote}
-                  onReportPost={onReportPost}
-                  currentUser={currentUser}
-                />
-              ))
-            )}
-          </div>
-        </section>
+          ) : (
+            posts.map((post) => (
+              <StudentPostCard
+                key={post._id}
+                post={post}
+                onViewPost={onViewPost}
+                userId={currentUser?.id}
+                onUpvote={onUpvote}
+                onReportPost={onReportPost}
+                currentUser={currentUser}
+              />
+            ))
+          )}
+        </div>
 
         {/* Login Prompt */}
         {!currentUser && (
           <div className="text-center py-12 bg-yellow-50 rounded-lg border border-yellow-200">
             <p className="text-yellow-800 text-lg mb-4">
-              Please log in to participate in discussions and ask mentors
+              Please log in to participate in discussions
             </p>
             <button className="bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition-colors">
               Log In
@@ -205,8 +226,9 @@ export default function StudentCommunityUI({
         <NewPostModal
           isOpen={isNewPostModalOpen}
           onClose={onCloseNewPostModal}
-          onSubmit={onCreatePost}
+          onSubmit={handleCreatePost}
           currentUser={currentUser}
+          defaultVisibility={getPostVisibility()}
         />
 
         <PostDetailsModal
@@ -215,13 +237,6 @@ export default function StudentCommunityUI({
           onClose={onClosePostModal}
           onAddReply={onAddReply}
           onReportPost={onReportPost}
-          currentUser={currentUser}
-        />
-
-        <AskMentorModal
-          isOpen={isAskMentorModalOpen}
-          onClose={() => setIsAskMentorModalOpen(false)}
-          onSubmit={handleAskMentorSubmit}
           currentUser={currentUser}
         />
       </div>

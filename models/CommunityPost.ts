@@ -19,7 +19,7 @@ export interface ICommunityPost extends Document {
   title: string;
   content: string;
   category: 'general' | 'academic' | 'career' | 'technical' | 'announcement' | 'mentor-question';
-  visibility: 'public' | 'students' | 'mentors' | 'admin-mentors' | 'specific-mentor';
+  visibility: 'public' | 'students' | 'mentors' | 'admin-mentors' | 'announcement';
   replies: ICommunityReply[];
   upvotes: Types.ObjectId[];
   isDeleted: boolean;
@@ -82,7 +82,7 @@ const CommunityPostSchema = new Schema({
   },
   visibility: {
     type: String,
-    enum: ['public', 'students', 'mentors', 'admin-mentors', 'specific-mentor'],
+    enum: ['public', 'students', 'mentors', 'admin-mentors', 'announcement'],
     default: 'public'
   },
   replies: [CommunityReplySchema],

@@ -6,7 +6,7 @@ export interface CommunityPost {
   title: string;
   content: string;
   category: 'general' | 'academic' | 'career' | 'technical' | 'announcement' | 'mentor-question';
-  visibility: 'public' | 'students' | 'mentors' | 'admin-mentors';
+  visibility: 'public' | 'students' | 'mentors' | 'admin-mentors' | 'announcement';
   replies: CommunityReply[];
   upvotes: string[];
   isDeleted: boolean;
@@ -33,7 +33,7 @@ export interface CreatePostData {
   title: string;
   content: string;
   category: 'general' | 'academic' | 'career' | 'technical' | 'announcement' | 'mentor-question';
-  visibility: 'public' | 'students' | 'mentors' | 'admin-mentors';
+  visibility: 'public' | 'students' | 'mentors' | 'admin-mentors' | 'announcement';
   userId: string;
   userName: string;
   userRole: 'student' | 'mentor' | 'moderator' | 'admin';

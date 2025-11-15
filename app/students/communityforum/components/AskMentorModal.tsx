@@ -16,7 +16,11 @@ interface Mentor {
   rating: number;
   totalSessions: number;
   skills: string[];
-  education: string;
+  education: Array<{
+    degree: string;
+    institution: string;
+    year: number;
+  }>;
   profiles: any;
   stats: any;
 }

@@ -5,34 +5,90 @@ import { useState } from 'react';
 interface NewPostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { title: string; content: string; category: string; visibility: 'public' | 'students' | 'mentors' }) => void;
+  onSubmit: (data: { title: string; content: string; category: string; visibility: 'public' | 'mentors' | 'students' | 'admin-mentors' }) => void;
   currentUser: any;
+  postType?: 'announcement' | 'mentor-chat' | 'student-post' | 'admin-mentor-chat';
 }
 
-export default function NewPostModal({ isOpen, onClose, onSubmit, currentUser }: NewPostModalProps) {
+export default function NewPostModal({ isOpen, onClose, onSubmit, currentUser, postType = 'announcement' }: NewPostModalProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<'general' | 'academic' | 'career' | 'technical' | 'announcement'>('general');
-  const [visibility, setVisibility] = useState<'public' | 'students' | 'mentors'>('public');
+  
+  // Set default visibility based on postType
+  const getDefaultVisibility = () => {
+    switch (postType) {
+      case 'announcement':
+        return 'public'; // Use public visibility for announcements
+      case 'mentor-chat':
+        return 'mentors';
+      case 'student-post':
+        return 'students';
+      case 'admin-mentor-chat':
+        return 'admin-mentors';
+      default:
+        return 'public';
+    }
+  };
+
+  const [visibility, setVisibility] = useState<'public' | 'mentors' | 'students' | 'admin-mentors'>(getDefaultVisibility());
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim() && content.trim()) {
-      onSubmit({ title, content, category, visibility });
+      // For announcements, use 'announcement' category with 'public' visibility
+      const finalCategory = postType === 'announcement' ? 'announcement' : category;
+      const finalVisibility = postType === 'announcement' ? 'public' : visibility;
+      
+      onSubmit({ title, content, category: finalCategory, visibility: finalVisibility });
       setTitle('');
       setContent('');
       setCategory('general');
-      setVisibility('public');
+      setVisibility(getDefaultVisibility());
     }
   };
 
   if (!isOpen) return null;
 
+  const getModalTitle = () => {
+    switch (postType) {
+      case 'announcement':
+        return '📢 Create Announcement';
+      case 'mentor-chat':
+        return '👨‍🏫 Create Mentor Chat';
+      case 'student-post':
+        return '👥 Create Student Post';
+      case 'admin-mentor-chat':
+        return '🔒 Create Admin-Mentor Chat';
+      default:
+        return 'Create Post';
+    }
+  };
+
+  const getVisibilityDescription = () => {
+    switch (visibility) {
+      case 'public':
+        return postType === 'announcement' 
+          ? '📢 This announcement will be visible to all students and mentors. Students can read but cannot reply.'
+          : '🌍 This post will be visible to everyone (students and mentors).';
+      case 'students':
+        return '👥 This post will be visible to students only. Students can read and reply to ask questions.';
+      case 'mentors':
+        return '👨‍🏫 This chat will only be visible to other mentors and admins.';
+      case 'admin-mentors':
+        return '🔒 This chat will only be visible to administrators and mentors.';
+      default:
+        return '';
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Create New Post as Mentor</h2>
+          <h2 className="text-2xl font-bold mb-6 text-gray-800">
+            {getModalTitle()}
+          </h2>
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -45,11 +101,12 @@ export default function NewPostModal({ isOpen, onClose, onSubmit, currentUser }:
                   onChange={(e) => setCategory(e.target.value as any)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
+                  disabled={postType === 'announcement'} // Lock category for announcements
                 >
-                  <option value="general">General Discussion</option>
-                  <option value="academic">Academic Help</option>
-                  <option value="career">Career Advice</option>
-                  <option value="technical">Technical Help</option>
+                  <option value="general">General</option>
+                  <option value="academic">Academic</option>
+                  <option value="career">Career</option>
+                  <option value="technical">Technical</option>
                   <option value="announcement">Announcement</option>
                 </select>
               </div>
@@ -63,10 +120,12 @@ export default function NewPostModal({ isOpen, onClose, onSubmit, currentUser }:
                   onChange={(e) => setVisibility(e.target.value as any)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
+                  disabled={postType === 'announcement'} // Lock visibility for announcements
                 >
                   <option value="public">🌍 Public (Everyone)</option>
-                  <option value="students">👥 Answer Student Question</option>
-                  <option value="mentors">👨‍🏫 Mentors Only</option>
+                  <option value="students">👥 Students Only</option>
+                  <option value="mentors">👨‍🏫 Mentor Chats</option>
+                  <option value="admin-mentors">🔒 Admin-Mentor</option>
                 </select>
               </div>
             </div>
@@ -99,21 +158,18 @@ export default function NewPostModal({ isOpen, onClose, onSubmit, currentUser }:
               />
             </div>
             
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">Posting as Mentor:</h4>
-              <p className="text-blue-700">
-                {currentUser?.name} (👨‍🏫 Mentor)
+            <div className={`p-4 rounded-lg ${
+              postType === 'announcement' ? 'bg-green-50 border border-green-200' :
+              visibility === 'students' ? 'bg-orange-50 border border-orange-200' :
+              visibility === 'mentors' ? 'bg-purple-50 border border-purple-200' :
+              'bg-red-50 border border-red-200'
+            }`}>
+              <h4 className="font-semibold text-gray-800 mb-2">
+                Posting as: {currentUser?.name} (👨‍🏫 Mentor)
+              </h4>
+              <p className="text-sm mt-2">
+                {getVisibilityDescription()}
               </p>
-              {visibility === 'students' && (
-                <p className="text-blue-600 text-sm mt-2">
-                  This will be posted as a response to student questions. Students will see your expert advice!
-                </p>
-              )}
-              {visibility === 'mentors' && (
-                <p className="text-purple-600 text-sm mt-2">
-                  This post will only be visible to other mentors and admins.
-                </p>
-              )}
             </div>
             
             <div className="flex justify-end space-x-3 pt-4">

@@ -20,7 +20,7 @@ function filterValidPosts(posts: any[]): CommunityPost[] {
 
 // Mock mentor data for development
 const MOCK_MENTOR = {
-  id: 'mock-mentor-id',
+  id: '67a2b1c3d4e5f67890123456', // Valid 24-character hex string
   name: 'Demo Mentor',
   role: 'mentor' as const
 };
@@ -32,7 +32,7 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
   const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'student-questions' | 'mentor-chats'>('all');
+  const [activeTab, setActiveTab] = useState<'students' | 'mentor-chats' | 'announcements' | 'admin-mentors'>('students');
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -54,13 +54,13 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
             role: 'mentor'
           });
         } else {
-          // For development, use mock data
+          // For development, use mock data with valid ObjectId
           console.log('No mentor session found, using mock data');
           setCurrentUser(MOCK_MENTOR);
         }
       } catch (error) {
         console.error('Error fetching current user:', error);
-        // Use mock data for development
+        // Use mock data for development with valid ObjectId
         setCurrentUser(MOCK_MENTOR);
       }
     };
@@ -93,7 +93,7 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
     title: string; 
     content: string; 
     category: string;
-    visibility: 'public' | 'students' | 'mentors';
+    visibility: 'public' | 'mentors' | 'students' | 'admin-mentors';
   }) => {
     if (!currentUser) {
       showSnackbar('Please log in to create a post', 'error');
@@ -107,11 +107,18 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
         userId: currentUser.id,
         userName: currentUser.name,
         userRole: 'mentor',
-        category: data.category as CommunityPost['category']
+        category: data.category as CommunityPost['category'],
+        visibility: data.visibility
       });
 
       if (result.success) {
-        showSnackbar('Post created successfully!');
+        let successMessage = 'Post created successfully!';
+        if (data.category === 'announcement') successMessage = 'Announcement created successfully!';
+        if (data.visibility === 'students') successMessage = 'Student post created successfully!';
+        if (data.visibility === 'mentors') successMessage = 'Mentor chat created successfully!';
+        if (data.visibility === 'admin-mentors') successMessage = 'Admin-mentor chat created successfully!';
+        
+        showSnackbar(successMessage);
         await loadPosts();
         setIsNewPostModalOpen(false);
       } else {
@@ -215,30 +222,55 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
     setTimeout(() => setSelectedPost(null), 300);
   };
 
-  // Filter posts based on active tab - FIXED VISIBILITY LOGIC
+  // Filter posts based on active tab - FIXED FOR STUDENTS SECTION
   const filteredPosts = posts.filter(post => {
     switch (activeTab) {
-      case 'student-questions':
-        // Only show public posts from students (mentors can help with these)
-        return post.visibility === 'public' && post.userRole === 'student';
+      case 'students':
+        // Show ALL posts that are visible to students (public, students visibility, and announcements)
+        return (
+          post.visibility === 'public' || 
+          post.visibility === 'students' || 
+          post.category === 'announcement'
+        ) && post.category !== 'announcement'; // Exclude announcements from students tab (they have their own tab)
+      case 'announcements':
+        return post.category === 'announcement';
       case 'mentor-chats':
-        return post.visibility === 'mentors' && post.userRole === 'mentor';
-      case 'all':
+        return post.visibility === 'mentors';
+      case 'admin-mentors':
+        return post.visibility === 'admin-mentors';
       default:
-        return true; // Show all posts that mentors are allowed to see
+        return false;
     }
   });
 
-  // FIXED: Calculate counts based on proper visibility
+  // Calculate counts based on proper filtering - FIXED FOR STUDENTS SECTION
   const studentQuestionsCount = posts.filter(post => 
-    post.visibility === 'public' && post.userRole === 'student'
+    post.visibility === 'public' && post.userRole === 'student' && post.category !== 'announcement'
+  ).length;
+
+  const mentorStudentPostsCount = posts.filter(post => 
+    post.visibility === 'students' && post.userRole === 'mentor'
+  ).length;
+
+  const adminStudentPostsCount = posts.filter(post => 
+    (post.visibility === 'public' || post.visibility === 'students') && post.userRole === 'admin'
+  ).length;
+
+  const studentsCount = posts.filter(post => 
+    (post.visibility === 'public' || post.visibility === 'students') && post.category !== 'announcement'
   ).length;
 
   const mentorChatsCount = posts.filter(post => 
-    post.visibility === 'mentors' && post.userRole === 'mentor'
+    post.visibility === 'mentors'
   ).length;
 
-  const totalPostsCount = posts.length;
+  const announcementsCount = posts.filter(post => 
+    post.category === 'announcement'
+  ).length;
+
+  const adminMentorsCount = posts.filter(post => 
+    post.visibility === 'admin-mentors'
+  ).length;
 
   return (
     <>
@@ -259,9 +291,13 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
         onClosePostModal={handleClosePostModal}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        studentsCount={studentsCount}
         studentQuestionsCount={studentQuestionsCount}
+        mentorStudentPostsCount={mentorStudentPostsCount}
+        adminStudentPostsCount={adminStudentPostsCount}
         mentorChatsCount={mentorChatsCount}
-        totalPostsCount={totalPostsCount}
+        announcementsCount={announcementsCount}
+        adminMentorsCount={adminMentorsCount}
       />
       
       {/* Snackbar Component */}

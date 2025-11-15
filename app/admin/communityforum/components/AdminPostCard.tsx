@@ -6,14 +6,18 @@ interface AdminPostCardProps {
   post: CommunityPost;
   onDeletePost: (postId: string) => void;
   onDeleteReply: (postId: string, replyId: string) => void;
+  onViewPost: (post: CommunityPost) => void;
   isDeleting?: boolean;
+  currentUser: any;
 }
 
 export default function AdminPostCard({ 
   post, 
   onDeletePost, 
   onDeleteReply, 
-  isDeleting = false 
+  onViewPost,
+  isDeleting = false,
+  currentUser
 }: AdminPostCardProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -88,7 +92,10 @@ export default function AdminPostCard({
     <div className="bg-white rounded-lg shadow-md p-6 mb-4 border-l-4 border-red-500">
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
-          <h3 className="text-xl font-semibold text-gray-800">{post.title}</h3>
+          <h3 className="text-xl font-semibold text-gray-800 cursor-pointer hover:text-blue-600"
+              onClick={() => onViewPost(post)}>
+            {post.title}
+          </h3>
           <div className="flex items-center space-x-3 mt-2 text-sm text-gray-600">
             <span>By {post.userName}</span>
             <span>{getRoleBadge(post.userRole)}</span>
@@ -109,23 +116,31 @@ export default function AdminPostCard({
             </div>
           )}
         </div>
-        <button
-          onClick={() => onDeletePost(post._id)}
-          disabled={isDeleting}
-          className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:bg-red-400 disabled:cursor-not-allowed min-w-24 flex items-center justify-center"
-        >
-          {isDeleting ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-              Deleting...
-            </>
-          ) : (
-            'Delete Post'
-          )}
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onViewPost(post)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            View
+          </button>
+          <button
+            onClick={() => onDeletePost(post._id)}
+            disabled={isDeleting}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:bg-red-400 disabled:cursor-not-allowed min-w-24 flex items-center justify-center"
+          >
+            {isDeleting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Deleting...
+              </>
+            ) : (
+              'Delete Post'
+            )}
+          </button>
+        </div>
       </div>
       
-      <p className="text-gray-700 mb-4 whitespace-pre-wrap">{post.content}</p>
+      <p className="text-gray-700 mb-4 whitespace-pre-wrap line-clamp-3">{post.content}</p>
       
       <div className="border-t pt-4">
         <h4 className="font-semibold mb-3 text-gray-800">

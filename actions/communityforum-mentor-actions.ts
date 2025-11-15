@@ -8,6 +8,9 @@ import { revalidatePath } from 'next/cache';
 
 const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
   if (typeof id === 'string') {
+    if (!Types.ObjectId.isValid(id)) {
+      return new Types.ObjectId();
+    }
     return new Types.ObjectId(id);
   }
   return id;
@@ -21,7 +24,8 @@ export async function getMentorCommunityPosts() {
       $or: [
         { visibility: 'public' },
         { visibility: 'mentors' },
-        { visibility: 'admin-mentors' }
+        { visibility: 'admin-mentors' },
+        { category: 'announcement' } // Include announcement category posts
       ]
     })
       .sort({ createdAt: -1 })
@@ -103,17 +107,83 @@ export async function getAdminMentorChats() {
   }
 }
 
+export async function getAnnouncements() {
+  try {
+    await connectDB();
+    const posts = await CommunityPost.find({
+      isDeleted: false,
+      category: 'announcement' // Filter by category instead of visibility
+    })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+    
+    return posts.map(post => ({
+      _id: post._id.toString(),
+      userId: post.userId.toString(),
+      userName: post.userName,
+      userRole: post.userRole,
+      title: post.title,
+      content: post.content,
+      category: post.category,
+      visibility: post.visibility,
+      replies: post.replies
+        .filter((reply: any) => !reply.isDeleted)
+        .map((reply: any) => ({
+          _id: reply._id.toString(),
+          userId: reply.userId.toString(),
+          userName: reply.userName,
+          userRole: reply.userRole,
+          message: reply.message,
+          createdAt: reply.createdAt.toISOString(),
+          isDeleted: reply.isDeleted
+        })),
+      upvotes: post.upvotes.map((upvote: any) => upvote.toString()),
+      isDeleted: post.isDeleted,
+      reportCount: post.reportCount,
+      createdAt: post.createdAt.toISOString(),
+      updatedAt: post.updatedAt.toISOString()
+    }));
+  } catch (error) {
+    console.error('Error fetching announcements:', error);
+    throw new Error('Failed to fetch announcements');
+  }
+}
+
 export async function addCommunityPostAction(data: CreatePostData): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
     
-    // Validate mentor can create all types of posts except admin-only
-    if (data.userRole === 'mentor' && data.visibility === 'admin-mentors') {
-      return { success: false, error: 'Mentors cannot create admin-only posts' };
+    console.log('Creating post with visibility:', data.visibility);
+    
+    // Validate mentor can create specific types of posts
+    if (data.userRole === 'mentor') {
+      // Mentors cannot create admin-mentor posts (only admins can)
+      if (data.visibility === 'admin-mentors') {
+        return { success: false, error: 'Mentors cannot create admin-only posts' };
+      }
+      // Mentors can create announcements, student posts, and mentor-only posts
+      const allowedVisibilities = ['public', 'students', 'mentors'];
+      if (!allowedVisibilities.includes(data.visibility)) {
+        return { success: false, error: 'Mentors can only create public posts, student posts, and mentor-only posts' };
+      }
+    }
+
+    // Validate student can only create public or student-only posts
+    if (data.userRole === 'student' && !['public', 'students'].includes(data.visibility)) {
+      return { success: false, error: 'Students can only create public or student-only posts' };
+    }
+
+    let userId: Types.ObjectId;
+    try {
+      userId = toObjectId(data.userId);
+    } catch (error) {
+      console.warn('Invalid userId, generating new ObjectId for demo');
+      userId = new Types.ObjectId();
     }
 
     const post = new CommunityPost({
-      userId: toObjectId(data.userId),
+      userId: userId,
       userName: data.userName,
       userRole: data.userRole,
       title: data.title,
@@ -127,14 +197,28 @@ export async function addCommunityPostAction(data: CreatePostData): Promise<{ su
       updatedAt: new Date(),
     });
 
+    console.log('Saving post with data:', {
+      title: post.title,
+      category: post.category,
+      visibility: post.visibility,
+      userRole: post.userRole
+    });
+
     await post.save();
     
     revalidatePath('/mentors/community');
     revalidatePath('/mentors/community/admin-chats');
+    revalidatePath('/mentors/community/announcements');
+    revalidatePath('/students/communityforum');
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating post:', error);
-    return { success: false, error: 'Failed to create post' };
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      errors: error.errors
+    });
+    return { success: false, error: `Failed to create post: ${error.message}` };
   }
 }
 
@@ -142,9 +226,17 @@ export async function replyToPostAction(postId: string | Types.ObjectId, replyDa
   try {
     await connectDB();
     
+    let userId: Types.ObjectId;
+    try {
+      userId = toObjectId(replyData.userId);
+    } catch (error) {
+      console.warn('Invalid userId in reply, generating new ObjectId');
+      userId = new Types.ObjectId();
+    }
+
     const reply = {
       _id: new Types.ObjectId(),
-      userId: toObjectId(replyData.userId),
+      userId: userId,
       userName: replyData.userName,
       userRole: replyData.userRole,
       message: replyData.message,
@@ -163,6 +255,8 @@ export async function replyToPostAction(postId: string | Types.ObjectId, replyDa
     
     revalidatePath('/mentors/community');
     revalidatePath('/mentors/community/admin-chats');
+    revalidatePath('/mentors/community/announcements');
+    revalidatePath('/students/communityforum');
     return { success: true };
   } catch (error) {
     console.error('Error adding reply:', error);
@@ -179,7 +273,14 @@ export async function upvotePostAction(postId: string | Types.ObjectId, userId: 
       return { success: false, error: 'Post not found' };
     }
 
-    const userIdObj = toObjectId(userId);
+    let userIdObj: Types.ObjectId;
+    try {
+      userIdObj = toObjectId(userId);
+    } catch (error) {
+      console.warn('Invalid userId in upvote, generating new ObjectId');
+      userIdObj = new Types.ObjectId();
+    }
+
     const hasUpvoted = post.upvotes.some(upvoteId => 
       upvoteId.toString() === userIdObj.toString()
     );
@@ -204,6 +305,8 @@ export async function upvotePostAction(postId: string | Types.ObjectId, userId: 
     
     revalidatePath('/mentors/community');
     revalidatePath('/mentors/community/admin-chats');
+    revalidatePath('/mentors/community/announcements');
+    revalidatePath('/students/communityforum');
     return { success: true };
   } catch (error) {
     console.error('Error upvoting post:', error);
@@ -256,11 +359,19 @@ export async function reportPostAction(postId: string, replyId: string | undefin
   try {
     await connectDB();
     
+    let reportedById: Types.ObjectId;
+    try {
+      reportedById = toObjectId(reportedBy);
+    } catch (error) {
+      console.warn('Invalid reportedBy ID, generating new ObjectId');
+      reportedById = new Types.ObjectId();
+    }
+
     // Create report
     const report = new Report({
       postId: toObjectId(postId),
       replyId: replyId ? toObjectId(replyId) : undefined,
-      reportedBy: toObjectId(reportedBy),
+      reportedBy: reportedById,
       reportedByRole,
       reason,
       status: 'pending',

@@ -25,6 +25,7 @@ export default function StudentCommunityForum({ initialPosts }: StudentCommunity
   const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'student-chats' | 'mentor-qa' | 'announcements'>('student-chats');
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -197,10 +198,41 @@ export default function StudentCommunityForum({ initialPosts }: StudentCommunity
     setTimeout(() => setSelectedPost(null), 300);
   };
 
+  // Filter posts based on active tab - REMOVE ADMIN POSTS FILTERING
+  const filteredPosts = posts.filter(post => {
+    switch (activeTab) {
+      case 'student-chats':
+        // Private student chats - only students can see these
+        return post.visibility === 'students' && post.userRole === 'student';
+      case 'mentor-qa':
+        // Mentor posts for students and student questions for mentors
+        return (post.visibility === 'public' && post.userRole === 'student') || 
+               (post.visibility === 'students' && post.userRole === 'mentor');
+      case 'announcements':
+        return post.category === 'announcement';
+      default:
+        return false;
+    }
+  });
+
+  // Calculate counts - REMOVE ADMIN POSTS COUNT
+  const studentChatsCount = posts.filter(post => 
+    post.visibility === 'students' && post.userRole === 'student'
+  ).length;
+
+  const mentorQACount = posts.filter(post => 
+    (post.visibility === 'public' && post.userRole === 'student') || 
+    (post.visibility === 'students' && post.userRole === 'mentor')
+  ).length;
+
+  const announcementsCount = posts.filter(post => 
+    post.category === 'announcement'
+  ).length;
+
   return (
     <>
       <StudentCommunityUI
-        posts={posts}
+        posts={filteredPosts}
         loading={loading}
         currentUser={currentUser}
         onCreatePost={handleCreatePost}
@@ -214,6 +246,11 @@ export default function StudentCommunityForum({ initialPosts }: StudentCommunity
         onCloseNewPostModal={() => setIsNewPostModalOpen(false)}
         onOpenNewPostModal={() => setIsNewPostModalOpen(true)}
         onClosePostModal={handleClosePostModal}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        studentChatsCount={studentChatsCount}
+        mentorQACount={mentorQACount}
+        announcementsCount={announcementsCount}
       />
       
       {/* Snackbar Component */}
