@@ -2,6 +2,7 @@
 
 import { CommunityPost } from '@/types/community';
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminPostCard from './AdminPostCard';
 import AdminStats from './AdminStats';
 import AdminHeader from './AdminHeader';
@@ -12,13 +13,14 @@ import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import NewPostModal from './NewPostModal';
 import PostDetailsModal from './PostDetailsModal';
 import AnalyticsView from './AnalyticsView';
-import { addAdminCommunityPostAction, replyToPostAction, getAdminMentorChats } from '@/actions/communityforum-admin-actions';
+import { addAdminCommunityPostAction, replyToPostAction, getAdminMentorChats, deletePostAction, deleteReplyAction } from '@/actions/communityforum-admin-actions';
 
 interface AdminCommunityForumProps {
   posts: CommunityPost[];
   loading: boolean;
-  onDeletePost: (postId: string) => Promise<{ success: boolean; error?: string }>;
-  onDeleteReply: (postId: string, replyId: string) => Promise<{ success: boolean; error?: string }>;
+  currentCategory?: string;
+  onDeletePost?: (postId: string) => Promise<{ success: boolean; error?: string }>;
+  onDeleteReply?: (postId: string, replyId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 // Mock admin data
@@ -31,9 +33,11 @@ const MOCK_ADMIN = {
 export default function AdminCommunityForum({
   posts: initialPosts,
   loading,
-  onDeletePost,
-  onDeleteReply
+  currentCategory,
+  onDeletePost = deletePostAction,
+  onDeleteReply = deleteReplyAction
 }: AdminCommunityForumProps) {
+  const router = useRouter();
   const [currentUser] = useState<any>(MOCK_ADMIN);
   const [posts, setPosts] = useState<CommunityPost[]>(initialPosts);
   const [snackbar, setSnackbar] = useState<{
@@ -225,7 +229,7 @@ export default function AdminCommunityForum({
       case 'reported':
         return posts.filter(post => post.reportCount > 0);
       case 'analytics':
-        return posts; // Analytics uses all posts
+        return posts;
       case 'all-posts':
       default:
         return posts;
@@ -250,109 +254,144 @@ export default function AdminCommunityForum({
       : 0
   };
 
-  // Helper function for tab descriptions
-  const getTabDescription = (tab: string) => {
-    switch (tab) {
-      case 'all-posts': return 'community posts';
-      case 'admin-mentors': return 'admin-mentor chats';
-      case 'reported': return 'reported content';
-      case 'analytics': return 'analytics data';
-      default: return 'content';
-    }
+  const getCategoryName = (categoryId: string) => {
+    const categoryMap: { [key: string]: string } = {
+      'higher-education': 'Higher Education',
+      'market-trends': 'Market Trends',
+      'domains': 'Domains & Specializations',
+      'placements': 'Placements & Careers',
+      'announcements': 'Announcements',
+      'general': 'General Discussion',
+      'mentor-chats': 'Mentor Discussions',
+      'admin-mentors': 'Admin-Mentor Chats'
+    };
+    return categoryMap[categoryId] || categoryId;
   };
 
-  if (loading) {
-    return <LoadingState />;
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Header */}
-        <AdminHeader 
-          filteredPostsCount={filteredPosts.length}
-          totalPostsCount={posts.length}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          allPostsCount={allPostsCount}
-          adminMentorsCount={adminMentorsCount}
-          reportedPostsCount={reportedPostsCount}
-          onNewPost={() => setIsNewPostModalOpen(true)}
-          currentUser={currentUser}
-          stats={stats}
-        />
-
-        {/* Statistics - Only show for non-analytics tabs */}
-        {activeTab !== 'analytics' && <AdminStats posts={posts} />}
-
-        {/* Content Area */}
-        <div className="space-y-6">
-          {activeTab === 'analytics' ? (
-            <AnalyticsView posts={posts} />
-          ) : filteredPosts.length === 0 ? (
-            <EmptyState
-              title={`No ${activeTab.replace('-', ' ')} content found`}
-              message={`There are no ${getTabDescription(activeTab)} to display.`}
-            />
-          ) : (
-            filteredPosts.map((post) => (
-              <AdminPostCard
-                key={post._id}
-                post={post}
-                onDeletePost={() => handleDeletePost(post._id, post.title)}
-                onDeleteReply={handleDeleteReply}
-                onViewPost={handleViewPost}
-                isDeleting={deleting === post._id}
-                currentUser={currentUser}
-              />
-            ))
-          )}
+  // If we have a current category, show category header
+  if (currentCategory) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Category Header */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => router.push('/admin/communityforum')}
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>All Categories</span>
+                </button>
+                <div className="h-6 w-px bg-gray-300"></div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-800">
+                    {getCategoryName(currentCategory)}
+                  </h1>
+                  <p className="text-gray-600">
+                    Posts in {getCategoryName(currentCategory)} category
+                  </p>
+                </div>
+              </div>
+              <div className="text-sm text-gray-500">
+                {posts.length} posts
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Footer Info */}
-        {activeTab !== 'analytics' && filteredPosts.length > 0 && (
-          <div className="mt-8 text-center">
-            <p className="text-gray-500 text-sm">
-              Showing {filteredPosts.length} {getTabDescription(activeTab)}
-            </p>
+        {/* Your existing admin content */}
+        <div className="py-8">
+          <div className="max-w-7xl mx-auto px-4">
+            <AdminHeader 
+              filteredPostsCount={filteredPosts.length}
+              totalPostsCount={posts.length}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              allPostsCount={allPostsCount}
+              adminMentorsCount={adminMentorsCount}
+              reportedPostsCount={reportedPostsCount}
+              onNewPost={() => setIsNewPostModalOpen(true)}
+              currentUser={currentUser}
+              stats={stats}
+            />
+
+            {activeTab !== 'analytics' && <AdminStats posts={posts} />}
+
+            <div className="space-y-6">
+              {activeTab === 'analytics' ? (
+                <AnalyticsView posts={posts} />
+              ) : filteredPosts.length === 0 ? (
+                <EmptyState
+                  title={`No ${activeTab.replace('-', ' ')} content found`}
+                  message={`There are no posts in this category to display.`}
+                />
+              ) : (
+                filteredPosts.map((post) => (
+                  <AdminPostCard
+                    key={post._id}
+                    post={post}
+                    onDeletePost={() => handleDeletePost(post._id, post.title)}
+                    onDeleteReply={handleDeleteReply}
+                    onViewPost={handleViewPost}
+                    isDeleting={deleting === post._id}
+                    currentUser={currentUser}
+                  />
+                ))
+              )}
+            </div>
+
+            {/* Footer Info */}
+            {activeTab !== 'analytics' && filteredPosts.length > 0 && (
+              <div className="mt-8 text-center">
+                <p className="text-gray-500 text-sm">
+                  Showing {filteredPosts.length} posts in {getCategoryName(currentCategory)}
+                </p>
+              </div>
+            )}
+
+            {/* Modals */}
+            <NewPostModal
+              isOpen={isNewPostModalOpen}
+              onClose={() => setIsNewPostModalOpen(false)}
+              onSubmit={handleCreatePost}
+              currentUser={currentUser}
+            />
+
+            <PostDetailsModal
+              post={selectedPost}
+              isOpen={isPostModalOpen}
+              onClose={handleClosePostModal}
+              onAddReply={handleAddReply}
+              currentUser={currentUser}
+            />
+
+            {/* Delete Confirmation Modal */}
+            <DeleteConfirmationModal
+              isOpen={deleteModal.isOpen}
+              onClose={handleCloseModal}
+              onConfirm={handleConfirmDelete}
+              title={deleteModal.title}
+              message={deleteModal.message}
+              isLoading={!!deleting}
+            />
+
+            {/* Snackbar for notifications */}
+            <Snackbar
+              open={snackbar.open}
+              message={snackbar.message}
+              severity={snackbar.severity}
+              onClose={handleCloseSnackbar}
+              autoHideDuration={6000}
+            />
           </div>
-        )}
-
-        {/* Modals */}
-        <NewPostModal
-          isOpen={isNewPostModalOpen}
-          onClose={() => setIsNewPostModalOpen(false)}
-          onSubmit={handleCreatePost}
-          currentUser={currentUser}
-        />
-
-        <PostDetailsModal
-          post={selectedPost}
-          isOpen={isPostModalOpen}
-          onClose={handleClosePostModal}
-          onAddReply={handleAddReply}
-          currentUser={currentUser}
-        />
-
-        {/* Delete Confirmation Modal */}
-        <DeleteConfirmationModal
-          isOpen={deleteModal.isOpen}
-          onClose={handleCloseModal}
-          onConfirm={handleConfirmDelete}
-          title={deleteModal.title}
-          message={deleteModal.message}
-          isLoading={!!deleting}
-        />
-
-        {/* Snackbar for notifications */}
-        <Snackbar
-          open={snackbar.open}
-          message={snackbar.message}
-          severity={snackbar.severity}
-          onClose={handleCloseSnackbar}
-          autoHideDuration={6000}
-        />
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 }

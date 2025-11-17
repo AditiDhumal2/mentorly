@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { adminLogout } from '@/actions/adminAuthActions';
+import { LogOut } from 'lucide-react'; // Add this import
 
 interface AdminLogoutProps {
   className?: string;
-  variant?: 'default' | 'minimal';
+  variant?: 'default' | 'minimal' | 'icon'; // Add 'icon' to the variant options
 }
 
 export default function AdminLogout({ className = '', variant = 'default' }: AdminLogoutProps) {
@@ -37,6 +38,20 @@ export default function AdminLogout({ className = '', variant = 'default' }: Adm
       window.location.href = '/admin-login?logout=success&fallback=true';
     }
   };
+
+  // Add the icon variant case
+  if (variant === 'icon') {
+    return (
+      <button
+        onClick={handleLogout}
+        disabled={isLoggingOut}
+        className={`w-10 h-10 rounded-xl bg-gradient-to-br from-red-100 to-pink-100 hover:from-red-200 hover:to-pink-200 text-red-600 flex items-center justify-center transition-all duration-200 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+        title="Sign out"
+      >
+        <LogOut className="w-4 h-4" />
+      </button>
+    );
+  }
 
   if (variant === 'minimal') {
     return (

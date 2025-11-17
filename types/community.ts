@@ -5,7 +5,7 @@ export interface CommunityPost {
   userRole: 'student' | 'mentor' | 'moderator' | 'admin';
   title: string;
   content: string;
-  category: 'general' | 'academic' | 'career' | 'technical' | 'announcement' | 'mentor-question';
+  category: 'higher-education' | 'market-trends' | 'domains' | 'placements' | 'general' | 'academic' | 'career' | 'technical' | 'announcement' | 'mentor-question';
   visibility: 'public' | 'students' | 'mentors' | 'admin-mentors' | 'announcement';
   replies: CommunityReply[];
   upvotes: string[];
@@ -32,7 +32,7 @@ export interface CommunityReply {
 export interface CreatePostData {
   title: string;
   content: string;
-  category: 'general' | 'academic' | 'career' | 'technical' | 'announcement' | 'mentor-question';
+  category: 'higher-education' | 'market-trends' | 'domains' | 'placements' | 'general' | 'academic' | 'career' | 'technical' | 'announcement' | 'mentor-question';
   visibility: 'public' | 'students' | 'mentors' | 'admin-mentors' | 'announcement';
   userId: string;
   userName: string;
@@ -60,4 +60,14 @@ export interface ModeratorStats {
   pendingReports: number;
   resolvedReports: number;
   activeUsers: number;
+}
+
+export interface CategoryInfo {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  postCount: number;
+  visibility: ('public' | 'students' | 'mentors' | 'admin-mentors')[];
 }

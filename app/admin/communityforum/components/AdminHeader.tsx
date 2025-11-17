@@ -1,3 +1,7 @@
+'use client';
+
+import { CategoryInfo } from '@/types/community';
+
 interface AdminHeaderProps {
   filteredPostsCount: number;
   totalPostsCount: number;

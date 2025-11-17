@@ -88,16 +88,32 @@ export default function PostDetailsModal({
 
   const getCategoryBadge = (category: string) => {
     const categoryStyles: Record<string, string> = {
-      general: 'bg-gray-100 text-gray-800',
-      academic: 'bg-blue-100 text-blue-800',
-      career: 'bg-green-100 text-green-800',
-      technical: 'bg-orange-100 text-orange-800',
-      announcement: 'bg-purple-100 text-purple-800'
+      'higher-education': 'bg-blue-100 text-blue-800',
+      'market-trends': 'bg-green-100 text-green-800',
+      'domains': 'bg-purple-100 text-purple-800',
+      'placements': 'bg-orange-100 text-orange-800',
+      'general': 'bg-gray-100 text-gray-800',
+      'academic': 'bg-blue-100 text-blue-800',
+      'career': 'bg-green-100 text-green-800',
+      'technical': 'bg-orange-100 text-orange-800',
+      'announcement': 'bg-purple-100 text-purple-800'
+    };
+
+    const categoryLabels: Record<string, string> = {
+      'higher-education': '🎓 Higher Education',
+      'market-trends': '📈 Market Trends',
+      'domains': '🔧 Domains & Specializations',
+      'placements': '💼 Placements & Careers',
+      'general': '💬 General Discussion',
+      'academic': '📚 Academic Help',
+      'career': '🚀 Career Advice',
+      'technical': '💻 Technical Help',
+      'announcement': '📢 Announcement'
     };
 
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryStyles[category] || 'bg-gray-100 text-gray-800'}`}>
-        {category}
+        {categoryLabels[category] || category}
       </span>
     );
   };
@@ -124,6 +140,10 @@ export default function PostDetailsModal({
     }
   };
 
+  // Check if this is an announcement (read-only for students)
+  const isAnnouncement = post.category === 'announcement';
+  const canReply = currentUser && !isAnnouncement;
+
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -142,6 +162,11 @@ export default function PostDetailsModal({
                 <div className="flex items-center space-x-2">
                   {getVisibilityBadge(post.visibility)}
                   {getCategoryBadge(post.category)}
+                  {isAnnouncement && (
+                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+                      📢 Read Only
+                    </span>
+                  )}
                 </div>
               </div>
               <button
@@ -200,13 +225,13 @@ export default function PostDetailsModal({
                 
                 {sortedReplies.length === 0 && (
                   <p className="text-gray-500 text-center py-8">
-                    No replies yet. Be the first to reply!
+                    No replies yet. {canReply ? 'Be the first to reply!' : 'This is a read-only announcement.'}
                   </p>
                 )}
               </div>
               
-              {/* Reply Form */}
-              {currentUser ? (
+              {/* Reply Form - Hide for announcements */}
+              {canReply ? (
                 <form onSubmit={handleSubmitReply} className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <h4 className="text-lg font-semibold text-blue-800 mb-3">Post Your Reply</h4>
                   <div className="mb-3">
@@ -231,6 +256,12 @@ export default function PostDetailsModal({
                     </button>
                   </div>
                 </form>
+              ) : isAnnouncement ? (
+                <div className="bg-yellow-50 p-4 rounded-lg text-center border border-yellow-200">
+                  <p className="text-yellow-800 font-medium">
+                    📢 This is an announcement. Students can read but cannot reply.
+                  </p>
+                </div>
               ) : (
                 <div className="bg-gray-100 p-4 rounded-lg text-center">
                   <p className="text-gray-600">

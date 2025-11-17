@@ -13,8 +13,20 @@ interface NewPostModalProps {
 export default function NewPostModal({ isOpen, onClose, onSubmit, currentUser, defaultVisibility = 'public' }: NewPostModalProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [category, setCategory] = useState<'general' | 'academic' | 'career' | 'technical'>('general');
+  const [category, setCategory] = useState<'higher-education' | 'market-trends' | 'domains' | 'placements' | 'general' | 'academic' | 'career' | 'technical'>('general');
   const [visibility, setVisibility] = useState<'public' | 'students'>(defaultVisibility);
+
+  // Updated category options with new categories
+  const categoryOptions = [
+    { value: 'higher-education', label: '🎓 Higher Education' },
+    { value: 'market-trends', label: '📈 Market Trends' },
+    { value: 'domains', label: '🔧 Domains & Specializations' },
+    { value: 'placements', label: '💼 Placements & Careers' },
+    { value: 'general', label: '💬 General Discussion' },
+    { value: 'academic', label: '📚 Academic Help' },
+    { value: 'career', label: '🚀 Career Advice' },
+    { value: 'technical', label: '💻 Technical Help' },
+  ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,10 +81,11 @@ export default function NewPostModal({ isOpen, onClose, onSubmit, currentUser, d
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 >
-                  <option value="general">General Discussion</option>
-                  <option value="academic">Academic Help</option>
-                  <option value="career">Career Advice</option>
-                  <option value="technical">Technical Help</option>
+                  {categoryOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               

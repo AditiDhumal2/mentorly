@@ -1,10 +1,9 @@
-// app/mentors/community/components/AddReplyForm.tsx
 'use client';
 
 import { useState } from 'react';
 
 interface AddReplyFormProps {
-  onAddReply: (message: string) => void | Promise<void>; // Allow both sync and async
+  onAddReply: (message: string) => void | Promise<void>;
 }
 
 export default function AddReplyForm({ onAddReply }: AddReplyFormProps) {
@@ -17,7 +16,7 @@ export default function AddReplyForm({ onAddReply }: AddReplyFormProps) {
       setSubmitting(true);
       try {
         console.log('📤 Submitting reply:', message);
-        await Promise.resolve(onAddReply(message)); // Handle both sync and async
+        await Promise.resolve(onAddReply(message));
         setMessage('');
       } catch (error) {
         console.error('Error submitting reply:', error);

@@ -128,12 +128,12 @@ export default function AnalyticsView({ posts }: AnalyticsViewProps) {
         <h3 className="text-lg font-semibold text-gray-800 mb-4">🏷️ Content Distribution</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {[
+            { name: 'Higher Ed', count: posts.filter(p => p.category === 'higher-education').length, color: 'blue' },
+            { name: 'Market Trends', count: posts.filter(p => p.category === 'market-trends').length, color: 'green' },
+            { name: 'Domains', count: posts.filter(p => p.category === 'domains').length, color: 'purple' },
+            { name: 'Placements', count: posts.filter(p => p.category === 'placements').length, color: 'orange' },
             { name: 'General', count: posts.filter(p => p.category === 'general').length, color: 'gray' },
-            { name: 'Academic', count: posts.filter(p => p.category === 'academic').length, color: 'blue' },
-            { name: 'Career', count: posts.filter(p => p.category === 'career').length, color: 'green' },
-            { name: 'Technical', count: posts.filter(p => p.category === 'technical').length, color: 'orange' },
-            { name: 'Announcements', count: posts.filter(p => p.category === 'announcement').length, color: 'purple' },
-            { name: 'Mentor Q&A', count: posts.filter(p => p.category === 'mentor-question').length, color: 'red' }
+            { name: 'Announcements', count: posts.filter(p => p.category === 'announcement').length, color: 'yellow' }
           ].map(({ name, count, color }) => (
             <div key={name} className="text-center p-4 bg-gray-50 rounded-lg">
               <div className={`text-2xl font-bold text-${color}-600 mb-1`}>{count}</div>

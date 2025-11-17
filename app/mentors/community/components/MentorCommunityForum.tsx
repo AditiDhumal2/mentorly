@@ -1,72 +1,56 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { CommunityPost } from '@/types/community';
-import { getMentorCommunityPosts, addCommunityPostAction, replyToPostAction, upvotePostAction, reportPostAction } from '@/actions/communityforum-mentor-actions';
 import MentorCommunityUI from './MentorCommunityUI';
-import { getCurrentMentorSession } from '@/actions/mentor-actions';
+import { addCommunityPostAction, replyToPostAction, upvotePostAction, reportPostAction } from '@/actions/communityforum-mentor-actions';
 
 interface MentorCommunityForumProps {
   initialPosts: CommunityPost[];
+  currentCategory?: string;
+  currentUser?: any; // Add currentUser prop
 }
 
-// Helper function to filter out posts with invalid categories
-function filterValidPosts(posts: any[]): CommunityPost[] {
-  return posts.filter(post => {
-    const validCategories: CommunityPost['category'][] = ['general', 'academic', 'career', 'technical', 'announcement', 'mentor-question'];
-    return validCategories.includes(post.category);
-  }) as CommunityPost[];
-}
-
-// Mock mentor data for development
-const MOCK_MENTOR = {
-  id: '67a2b1c3d4e5f67890123456', // Valid 24-character hex string
-  name: 'Demo Mentor',
-  role: 'mentor' as const
-};
-
-export default function MentorCommunityForum({ initialPosts }: MentorCommunityForumProps) {
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [posts, setPosts] = useState<CommunityPost[]>(filterValidPosts(initialPosts));
+export default function MentorCommunityForum({ 
+  initialPosts, 
+  currentCategory,
+  currentUser: propCurrentUser // Get user from props
+}: MentorCommunityForumProps) {
+  const [currentUser, setCurrentUser] = useState<any>(propCurrentUser); // Use prop as initial state
+  const [posts, setPosts] = useState<CommunityPost[]>(initialPosts);
   const [loading, setLoading] = useState(false);
   const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'students' | 'mentor-chats' | 'announcements' | 'admin-mentors'>('students');
+  
+  // For announcement category, only show announcements tab
+  const defaultTab = currentCategory === 'announcement' ? 'announcements' : 'students';
+  const [activeTab, setActiveTab] = useState<'students' | 'mentor-chats' | 'admin-mentors' | 'announcements'>(defaultTab);
+  
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success' as 'success' | 'error'
   });
+  const router = useRouter();
 
+  // Use the user from props, don't override with demo user
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const session = await getCurrentMentorSession();
-        console.log('Mentor session:', session); // Debug log
-        
-        if (session.isLoggedIn && session.mentor) {
-          // Handle different possible mentor object structures
-          const mentorData = session.mentor as any;
-          setCurrentUser({
-            id: mentorData.id || mentorData._id?.toString() || MOCK_MENTOR.id,
-            name: mentorData.name || mentorData.userName || MOCK_MENTOR.name,
-            role: 'mentor'
-          });
-        } else {
-          // For development, use mock data with valid ObjectId
-          console.log('No mentor session found, using mock data');
-          setCurrentUser(MOCK_MENTOR);
-        }
-      } catch (error) {
-        console.error('Error fetching current user:', error);
-        // Use mock data for development with valid ObjectId
-        setCurrentUser(MOCK_MENTOR);
-      }
-    };
+    if (propCurrentUser) {
+      setCurrentUser(propCurrentUser);
+      console.log('✅ MentorCommunityForum - Using actual user:', propCurrentUser.name);
+    } else {
+      console.log('❌ MentorCommunityForum - No user provided, user will be null');
+    }
+  }, [propCurrentUser]);
 
-    fetchCurrentUser();
-  }, []);
+  // Reset to announcements tab when category is announcement
+  useEffect(() => {
+    if (currentCategory === 'announcement') {
+      setActiveTab('announcements');
+    }
+  }, [currentCategory]);
 
   const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -79,8 +63,8 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
   const loadPosts = async () => {
     try {
       setLoading(true);
-      const updatedPosts = await getMentorCommunityPosts();
-      setPosts(filterValidPosts(updatedPosts));
+      // You might need to implement a function to reload posts
+      // For now, we'll keep using the initial posts
     } catch (error) {
       console.error('Error loading posts:', error);
       showSnackbar('Failed to load posts', 'error');
@@ -104,7 +88,7 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
       setLoading(true);
       const result = await addCommunityPostAction({
         ...data,
-        userId: currentUser.id,
+        userId: currentUser.id || currentUser._id, // Handle both id formats
         userName: currentUser.name,
         userRole: 'mentor',
         category: data.category as CommunityPost['category'],
@@ -113,14 +97,13 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
 
       if (result.success) {
         let successMessage = 'Post created successfully!';
-        if (data.category === 'announcement') successMessage = 'Announcement created successfully!';
         if (data.visibility === 'students') successMessage = 'Student post created successfully!';
         if (data.visibility === 'mentors') successMessage = 'Mentor chat created successfully!';
         if (data.visibility === 'admin-mentors') successMessage = 'Admin-mentor chat created successfully!';
         
         showSnackbar(successMessage);
-        await loadPosts();
-        setIsNewPostModalOpen(false);
+        // Refresh the page to see the new post
+        window.location.reload();
       } else {
         showSnackbar(result.error || 'Failed to create post', 'error');
       }
@@ -140,7 +123,7 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
 
     try {
       const result = await replyToPostAction(selectedPost._id, {
-        userId: currentUser.id,
+        userId: currentUser.id || currentUser._id, // Handle both id formats
         userName: currentUser.name,
         userRole: 'mentor',
         message
@@ -148,12 +131,22 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
 
       if (result.success) {
         showSnackbar('Reply added successfully!');
-        await loadPosts();
-        
-        // Refresh the selected post
-        const updatedPosts = await getMentorCommunityPosts();
-        const updatedPost = filterValidPosts(updatedPosts).find(p => p._id === selectedPost._id);
-        if (updatedPost) {
+        // Update local state
+        const updatedPosts = [...posts];
+        const postIndex = updatedPosts.findIndex(p => p._id === selectedPost._id);
+        if (postIndex !== -1) {
+          const updatedPost = { ...updatedPosts[postIndex] };
+          updatedPost.replies = [...updatedPost.replies, {
+            _id: Date.now().toString(), // Temporary ID
+            userId: currentUser.id || currentUser._id,
+            userName: currentUser.name,
+            userRole: 'mentor',
+            message,
+            createdAt: new Date().toISOString(),
+            isDeleted: false
+          }];
+          updatedPosts[postIndex] = updatedPost;
+          setPosts(updatedPosts);
           setSelectedPost(updatedPost);
         }
       } else {
@@ -172,14 +165,26 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
     }
 
     try {
-      const result = await upvotePostAction(postId, currentUser.id);
+      const result = await upvotePostAction(postId, currentUser.id || currentUser._id);
       if (result.success) {
-        await loadPosts();
+        // Update local state
+        const updatedPosts = posts.map(post => {
+          if (post._id === postId) {
+            const hasUpvoted = post.upvotes.includes(currentUser.id || currentUser._id);
+            return {
+              ...post,
+              upvotes: hasUpvoted 
+                ? post.upvotes.filter(id => id !== (currentUser.id || currentUser._id))
+                : [...post.upvotes, currentUser.id || currentUser._id]
+            };
+          }
+          return post;
+        });
+        setPosts(updatedPosts);
         
         // Update selected post if open
         if (selectedPost && selectedPost._id === postId) {
-          const updatedPosts = await getMentorCommunityPosts();
-          const updatedPost = filterValidPosts(updatedPosts).find(p => p._id === postId);
+          const updatedPost = updatedPosts.find(p => p._id === postId);
           if (updatedPost) {
             setSelectedPost(updatedPost);
           }
@@ -200,7 +205,7 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
     }
 
     try {
-      const result = await reportPostAction(postId, replyId, reason, currentUser.id, 'mentor');
+      const result = await reportPostAction(postId, replyId, reason, currentUser.id || currentUser._id, 'mentor');
       if (result.success) {
         showSnackbar('Content reported successfully. Moderators will review it.');
       } else {
@@ -222,30 +227,47 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
     setTimeout(() => setSelectedPost(null), 300);
   };
 
-  // Filter posts based on active tab - FIXED FOR STUDENTS SECTION
+  const getCategoryName = (categoryId: string) => {
+    const categoryMap: { [key: string]: string } = {
+      'higher-education': 'Higher Education',
+      'market-trends': 'Market Trends',
+      'domains': 'Domains & Specializations',
+      'placements': 'Placements & Careers',
+      'announcements': 'Announcements',
+      'general': 'General Discussion',
+      'mentor-chats': 'Mentor Discussions',
+      'admin-mentors': 'Admin-Mentor Chats'
+    };
+    return categoryMap[categoryId] || categoryId;
+  };
+
+  // Filter posts based on active tab
   const filteredPosts = posts.filter(post => {
     switch (activeTab) {
       case 'students':
-        // Show ALL posts that are visible to students (public, students visibility, and announcements)
+        // Show ALL posts that are visible to students (public, students visibility)
         return (
           post.visibility === 'public' || 
-          post.visibility === 'students' || 
-          post.category === 'announcement'
-        ) && post.category !== 'announcement'; // Exclude announcements from students tab (they have their own tab)
-      case 'announcements':
-        return post.category === 'announcement';
+          post.visibility === 'students'
+        );
       case 'mentor-chats':
         return post.visibility === 'mentors';
       case 'admin-mentors':
         return post.visibility === 'admin-mentors';
+      case 'announcements':
+        return post.category === 'announcement';
       default:
         return false;
     }
   });
 
-  // Calculate counts based on proper filtering - FIXED FOR STUDENTS SECTION
+  // Calculate counts
+  const studentsCount = posts.filter(post => 
+    (post.visibility === 'public' || post.visibility === 'students')
+  ).length;
+
   const studentQuestionsCount = posts.filter(post => 
-    post.visibility === 'public' && post.userRole === 'student' && post.category !== 'announcement'
+    post.visibility === 'public' && post.userRole === 'student'
   ).length;
 
   const mentorStudentPostsCount = posts.filter(post => 
@@ -256,64 +278,101 @@ export default function MentorCommunityForum({ initialPosts }: MentorCommunityFo
     (post.visibility === 'public' || post.visibility === 'students') && post.userRole === 'admin'
   ).length;
 
-  const studentsCount = posts.filter(post => 
-    (post.visibility === 'public' || post.visibility === 'students') && post.category !== 'announcement'
-  ).length;
-
   const mentorChatsCount = posts.filter(post => 
     post.visibility === 'mentors'
-  ).length;
-
-  const announcementsCount = posts.filter(post => 
-    post.category === 'announcement'
   ).length;
 
   const adminMentorsCount = posts.filter(post => 
     post.visibility === 'admin-mentors'
   ).length;
 
-  return (
-    <>
-      <MentorCommunityUI
-        posts={filteredPosts}
-        loading={loading}
-        currentUser={currentUser}
-        onCreatePost={handleCreatePost}
-        onAddReply={handleAddReply}
-        onUpvote={handleUpvote}
-        onReportPost={handleReportPost}
-        onViewPost={handleViewPost}
-        selectedPost={selectedPost}
-        isNewPostModalOpen={isNewPostModalOpen}
-        isPostModalOpen={isPostModalOpen}
-        onCloseNewPostModal={() => setIsNewPostModalOpen(false)}
-        onOpenNewPostModal={() => setIsNewPostModalOpen(true)}
-        onClosePostModal={handleClosePostModal}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        studentsCount={studentsCount}
-        studentQuestionsCount={studentQuestionsCount}
-        mentorStudentPostsCount={mentorStudentPostsCount}
-        adminStudentPostsCount={adminStudentPostsCount}
-        mentorChatsCount={mentorChatsCount}
-        announcementsCount={announcementsCount}
-        adminMentorsCount={adminMentorsCount}
-      />
-      
-      {/* Snackbar Component */}
-      {snackbar.open && (
-        <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${
-          snackbar.severity === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-        }`}>
-          {snackbar.message}
-          <button 
-            onClick={closeSnackbar}
-            className="ml-4 font-bold"
-          >
-            ×
-          </button>
+  const announcementsCount = posts.filter(post => 
+    post.category === 'announcement'
+  ).length;
+
+  console.log('📊 Mentor Forum - Current User:', currentUser?.name);
+  console.log('📊 Mentor Forum - Current Category:', currentCategory);
+  console.log('📊 Mentor Forum - Active Tab:', activeTab);
+
+  // If we have a current category, show category header
+  if (currentCategory) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Category Header */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => router.push('/mentors/community')}
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>All Categories</span>
+                </button>
+                <div className="h-6 w-px bg-gray-300"></div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-800">
+                    {getCategoryName(currentCategory)}
+                  </h1>
+                  <p className="text-gray-600">
+                    Posts in {getCategoryName(currentCategory)} category
+                  </p>
+                </div>
+              </div>
+              <div className="text-sm text-gray-500">
+                {posts.length} posts
+              </div>
+            </div>
+          </div>
         </div>
-      )}
-    </>
-  );
+
+        {/* Existing MentorCommunityUI */}
+        <MentorCommunityUI
+          posts={filteredPosts}
+          loading={loading}
+          currentUser={currentUser}
+          onCreatePost={handleCreatePost}
+          onAddReply={handleAddReply}
+          onUpvote={handleUpvote}
+          onReportPost={handleReportPost}
+          onViewPost={handleViewPost}
+          selectedPost={selectedPost}
+          isNewPostModalOpen={isNewPostModalOpen}
+          isPostModalOpen={isPostModalOpen}
+          onCloseNewPostModal={() => setIsNewPostModalOpen(false)}
+          onOpenNewPostModal={() => setIsNewPostModalOpen(true)}
+          onClosePostModal={handleClosePostModal}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          studentsCount={studentsCount}
+          studentQuestionsCount={studentQuestionsCount}
+          mentorStudentPostsCount={mentorStudentPostsCount}
+          adminStudentPostsCount={adminStudentPostsCount}
+          mentorChatsCount={mentorChatsCount}
+          adminMentorsCount={adminMentorsCount}
+          announcementsCount={announcementsCount}
+          currentCategory={currentCategory}
+        />
+        
+        {snackbar.open && (
+          <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${
+            snackbar.severity === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+          }`}>
+            {snackbar.message}
+            <button 
+              onClick={closeSnackbar}
+              className="ml-4 font-bold"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
 }

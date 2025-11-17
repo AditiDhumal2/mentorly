@@ -13,13 +13,27 @@ interface NewPostModalProps {
 export default function NewPostModal({ isOpen, onClose, onSubmit, currentUser, postType = 'announcement' }: NewPostModalProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [category, setCategory] = useState<'general' | 'academic' | 'career' | 'technical' | 'announcement'>('general');
+  
+  // Updated category options with new categories
+  const categoryOptions = [
+    { value: 'higher-education', label: '🎓 Higher Education' },
+    { value: 'market-trends', label: '📈 Market Trends' },
+    { value: 'domains', label: '🔧 Domains & Specializations' },
+    { value: 'placements', label: '💼 Placements & Careers' },
+    { value: 'general', label: '💬 General Discussion' },
+    { value: 'academic', label: '📚 Academic Help' },
+    { value: 'career', label: '🚀 Career Advice' },
+    { value: 'technical', label: '💻 Technical Help' },
+    { value: 'announcement', label: '📢 Announcement' },
+  ];
+  
+  const [category, setCategory] = useState<'higher-education' | 'market-trends' | 'domains' | 'placements' | 'general' | 'academic' | 'career' | 'technical' | 'announcement'>('general');
   
   // Set default visibility based on postType
   const getDefaultVisibility = () => {
     switch (postType) {
       case 'announcement':
-        return 'public'; // Use public visibility for announcements
+        return 'public';
       case 'mentor-chat':
         return 'mentors';
       case 'student-post':
@@ -101,13 +115,13 @@ export default function NewPostModal({ isOpen, onClose, onSubmit, currentUser, p
                   onChange={(e) => setCategory(e.target.value as any)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
-                  disabled={postType === 'announcement'} // Lock category for announcements
+                  disabled={postType === 'announcement'}
                 >
-                  <option value="general">General</option>
-                  <option value="academic">Academic</option>
-                  <option value="career">Career</option>
-                  <option value="technical">Technical</option>
-                  <option value="announcement">Announcement</option>
+                  {categoryOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               
@@ -120,7 +134,7 @@ export default function NewPostModal({ isOpen, onClose, onSubmit, currentUser, p
                   onChange={(e) => setVisibility(e.target.value as any)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
-                  disabled={postType === 'announcement'} // Lock visibility for announcements
+                  disabled={postType === 'announcement'}
                 >
                   <option value="public">🌍 Public (Everyone)</option>
                   <option value="students">👥 Students Only</option>

@@ -1,32 +1,70 @@
-import { CommunityPost } from '@/types/community';
-import { getAdminCommunityPosts, deletePostAction, deleteReplyAction } from '@/actions/communityforum-admin-actions';
+import { getAdminCommunityPosts } from '@/actions/communityforum-admin-actions';
+import { getPostsByCategory } from '@/actions/community-categories-actions';
 import AdminCommunityForum from './components/AdminCommunityForum';
+import CategoryHomepage from '@/components/CategoryHomepage';
+import { CommunityPost } from '@/types/community';
+
+interface AdminCommunityForumPageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function AdminCommunityForumPage({ 
+  searchParams 
+}: AdminCommunityForumPageProps) {
+  // Await the searchParams promise
+  const resolvedSearchParams = await searchParams;
+  const category = resolvedSearchParams.category as string;
+  
+  const userRole = 'admin' as const;
+  const userName = 'Admin User';
+
+  // If no category specified, show category homepage
+  if (!category) {
+    return <CategoryHomepage userRole={userRole} userName={userName} userType="admin" />;
+  }
+
+  let posts: CommunityPost[] = [];
+  
+  try {
+    if (category) {
+      // Get posts filtered by category
+      posts = await getPostsByCategory(category, userRole);
+    } else {
+      // Get all posts (existing behavior)
+      const rawPosts = await getAdminCommunityPosts();
+      posts = transformPostData(rawPosts);
+    }
+    
+    console.log('✅ Loaded admin posts:', posts.length, 'Category:', category);
+    
+  } catch (error) {
+    console.error('Error loading posts:', error);
+  }
+
+  return <AdminCommunityForum posts={posts} loading={false} currentCategory={category} />;
+}
 
 // Helper function to safely transform the data
 function transformPostData(posts: any[]): CommunityPost[] {
   return posts.map(post => {
-    // Safely handle createdAt
     const createdAt = post.createdAt instanceof Date 
       ? post.createdAt.toISOString() 
       : typeof post.createdAt === 'string' 
         ? post.createdAt 
         : new Date().toISOString();
 
-    // Safely handle updatedAt - fallback to createdAt if undefined
     const updatedAt = (post as any).updatedAt instanceof Date 
       ? (post as any).updatedAt.toISOString() 
       : typeof (post as any).updatedAt === 'string' 
         ? (post as any).updatedAt 
-        : createdAt; // Use createdAt as fallback
+        : createdAt;
 
-    // Safely handle deletedAt
     const deletedAt = (post as any).deletedAt instanceof Date 
       ? (post as any).deletedAt.toISOString() 
       : typeof (post as any).deletedAt === 'string' 
         ? (post as any).deletedAt 
         : undefined;
 
-    // Transform replies to match CommunityReply type
     const transformedReplies: any[] = (post.replies || []).map((reply: any) => {
       const replyCreatedAt = reply.createdAt instanceof Date 
         ? reply.createdAt.toISOString() 
@@ -70,35 +108,4 @@ function transformPostData(posts: any[]): CommunityPost[] {
       updatedAt: updatedAt
     };
   });
-}
-
-export default async function AdminCommunityForumPage() {
-  let posts: CommunityPost[] = [];
-  let loading = false;
-
-  try {
-    console.log('Fetching admin community posts...');
-    const fetchedPosts = await getAdminCommunityPosts();
-    console.log('Raw posts data received:', fetchedPosts?.length || 0);
-    
-    if (fetchedPosts && Array.isArray(fetchedPosts)) {
-      posts = transformPostData(fetchedPosts);
-      console.log('Transformed posts:', posts.length);
-    } else {
-      console.error('Invalid posts data received:', fetchedPosts);
-      posts = [];
-    }
-  } catch (error) {
-    console.error('Error loading posts:', error);
-    posts = [];
-  }
-
-  return (
-    <AdminCommunityForum
-      posts={posts}
-      loading={loading}
-      onDeletePost={deletePostAction}
-      onDeleteReply={deleteReplyAction}
-    />
-  );
 }

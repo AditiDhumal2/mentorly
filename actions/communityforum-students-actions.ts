@@ -16,25 +16,36 @@ const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
   return id;
 };
 
+// USE THE SAME QUERY LOGIC AS MENTORS BUT FOR STUDENT VISIBILITY
 export async function getStudentCommunityPosts() {
   try {
     await connectDB();
+    
+    console.log('🎯 Fetching ALL posts for students...');
+    
     const posts = await CommunityPost.find({
       isDeleted: false,
       $or: [
         { visibility: 'public' },
         { visibility: 'students' },
-        { category: 'announcement' }
+        { category: 'announcement' } // Include ALL announcements
       ]
     })
       .sort({ createdAt: -1 })
       .lean()
       .exec();
     
-    console.log('Student posts fetched:', posts.length);
-    console.log('Public posts:', posts.filter(post => post.visibility === 'public').length);
-    console.log('Student-only posts:', posts.filter(post => post.visibility === 'students').length);
-    console.log('Announcements:', posts.filter(post => post.category === 'announcement').length);
+    console.log('✅ Student posts fetched:', posts.length);
+    
+    // Log breakdown for debugging
+    const publicPosts = posts.filter(post => post.visibility === 'public');
+    const studentPosts = posts.filter(post => post.visibility === 'students');
+    const announcements = posts.filter(post => post.category === 'announcement');
+    
+    console.log('📊 Breakdown:');
+    console.log('🌍 Public posts:', publicPosts.length);
+    console.log('👥 Student-only posts:', studentPosts.length);
+    console.log('📢 ANNOUNCEMENTS:', announcements.length);
     
     return posts.map(post => ({
       _id: post._id.toString(),
@@ -63,18 +74,85 @@ export async function getStudentCommunityPosts() {
       updatedAt: post.updatedAt.toISOString()
     }));
   } catch (error) {
-    console.error('Error fetching student community posts:', error);
+    console.error('❌ Error fetching student community posts:', error);
     throw new Error('Failed to fetch community posts');
   }
 }
 
+// USE THE SAME CATEGORY QUERY AS MENTORS
+export async function getPostsByCategoryForStudents(category: string) {
+  try {
+    await connectDB();
+    
+    console.log(`🎯 Fetching posts for category: ${category} for students`);
+    
+    let query: any = { isDeleted: false };
+    
+    // Handle special categories - SAME LOGIC AS MENTORS
+    if (category === 'mentor-chats') {
+      query.visibility = 'mentors';
+    } else if (category === 'admin-mentors') {
+      query.visibility = 'admin-mentors';
+    } else if (category === 'announcements') {
+      query.category = 'announcement';
+    } else {
+      query.category = category;
+    }
+    
+    // Add visibility restrictions based on user role (student)
+    query.$or = [
+      { visibility: 'public' },
+      { visibility: 'students' },
+      { category: 'announcement' } // Always include announcements
+    ];
+    
+    const posts = await CommunityPost.find(query)
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+    
+    console.log(`✅ Posts for category ${category}:`, posts.length);
+    console.log(`📢 Announcements in ${category}:`, posts.filter(post => post.category === 'announcement').length);
+    
+    return posts.map(post => ({
+      _id: post._id.toString(),
+      userId: post.userId.toString(),
+      userName: post.userName,
+      userRole: post.userRole,
+      title: post.title,
+      content: post.content,
+      category: post.category,
+      visibility: post.visibility,
+      replies: post.replies
+        .filter((reply: any) => !reply.isDeleted)
+        .map((reply: any) => ({
+          _id: reply._id.toString(),
+          userId: reply.userId.toString(),
+          userName: reply.userName,
+          userRole: reply.userRole,
+          message: reply.message,
+          createdAt: reply.createdAt.toISOString(),
+          isDeleted: reply.isDeleted
+        })),
+      upvotes: post.upvotes.map((upvote: any) => upvote.toString()),
+      isDeleted: post.isDeleted,
+      reportCount: post.reportCount,
+      createdAt: post.createdAt.toISOString(),
+      updatedAt: post.updatedAt.toISOString()
+    }));
+  } catch (error) {
+    console.error('Error fetching posts by category for students:', error);
+    throw new Error('Failed to fetch posts by category');
+  }
+}
+
+// Keep the other functions the same...
 export async function addCommunityPostAction(data: CreatePostData): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
     
     console.log('Student creating post with visibility:', data.visibility);
     
-    // Remove admin-mentors visibility option for students
     if (data.userRole === 'student' && !['public', 'students'].includes(data.visibility)) {
       return { success: false, error: 'Students can only create public posts or student chats' };
     }
@@ -109,11 +187,6 @@ export async function addCommunityPostAction(data: CreatePostData): Promise<{ su
     return { success: true };
   } catch (error: any) {
     console.error('Error creating student post:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      errors: error.errors
-    });
     return { success: false, error: `Failed to create post: ${error.message}` };
   }
 }
@@ -218,7 +291,6 @@ export async function reportPostAction(postId: string, replyId: string | undefin
       reportedById = new Types.ObjectId();
     }
 
-    // Create report
     const report = new Report({
       postId: toObjectId(postId),
       replyId: replyId ? toObjectId(replyId) : undefined,
@@ -231,7 +303,6 @@ export async function reportPostAction(postId: string, replyId: string | undefin
 
     await report.save();
 
-    // Increment report count on post
     await CommunityPost.findByIdAndUpdate(
       toObjectId(postId),
       { 

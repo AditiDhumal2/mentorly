@@ -20,12 +20,15 @@ export default function AdminStats({ posts }: AdminStatsProps) {
 
   // Count by category
   const categoryStats = {
-    general: posts.filter(post => post.category === 'general').length,
-    academic: posts.filter(post => post.category === 'academic').length,
-    career: posts.filter(post => post.category === 'career').length,
-    technical: posts.filter(post => post.category === 'technical').length,
-    announcement: posts.filter(post => post.category === 'announcement').length,
-    'mentor-question': posts.filter(post => post.category === 'mentor-question').length
+    'higher-education': posts.filter(post => post.category === 'higher-education').length,
+    'market-trends': posts.filter(post => post.category === 'market-trends').length,
+    'domains': posts.filter(post => post.category === 'domains').length,
+    'placements': posts.filter(post => post.category === 'placements').length,
+    'general': posts.filter(post => post.category === 'general').length,
+    'academic': posts.filter(post => post.category === 'academic').length,
+    'career': posts.filter(post => post.category === 'career').length,
+    'technical': posts.filter(post => post.category === 'technical').length,
+    'announcement': posts.filter(post => post.category === 'announcement').length,
   };
 
   // Count by visibility
@@ -34,7 +37,6 @@ export default function AdminStats({ posts }: AdminStatsProps) {
     students: posts.filter(post => post.visibility === 'students').length,
     mentors: posts.filter(post => post.visibility === 'mentors').length,
     'admin-mentors': posts.filter(post => post.visibility === 'admin-mentors').length,
-    announcement: posts.filter(post => post.visibility === 'announcement').length
   };
 
   // Count by user role
@@ -169,7 +171,7 @@ export default function AdminStats({ posts }: AdminStatsProps) {
 
       {/* Visibility View */}
       {activeView === 'visibility' && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {Object.entries(visibilityStats).map(([visibility, count]) => {
             const getVisibilityConfig = (vis: string) => {
               switch (vis) {
@@ -181,8 +183,6 @@ export default function AdminStats({ posts }: AdminStatsProps) {
                   return { color: 'purple', label: '👨‍🏫 Mentors', description: 'Mentors only' };
                 case 'admin-mentors':
                   return { color: 'red', label: '🔒 Admin-Mentor', description: 'Private chat' };
-                case 'announcement':
-                  return { color: 'orange', label: '📢 Announcement', description: 'Read-only' };
                 default:
                   return { color: 'gray', label: vis, description: '' };
               }

@@ -88,16 +88,32 @@ export default function PostDetailsModal({
 
   const getCategoryBadge = (category: string) => {
     const categoryStyles: { [key: string]: string } = {
-      general: 'bg-gray-100 text-gray-800',
-      academic: 'bg-blue-100 text-blue-800',
-      career: 'bg-green-100 text-green-800',
-      technical: 'bg-orange-100 text-orange-800',
-      announcement: 'bg-purple-100 text-purple-800'
+      'higher-education': 'bg-blue-100 text-blue-800',
+      'market-trends': 'bg-green-100 text-green-800',
+      'domains': 'bg-purple-100 text-purple-800',
+      'placements': 'bg-orange-100 text-orange-800',
+      'general': 'bg-gray-100 text-gray-800',
+      'academic': 'bg-blue-100 text-blue-800',
+      'career': 'bg-green-100 text-green-800',
+      'technical': 'bg-orange-100 text-orange-800',
+      'announcement': 'bg-purple-100 text-purple-800'
+    };
+
+    const categoryLabels: { [key: string]: string } = {
+      'higher-education': '🎓 Higher Education',
+      'market-trends': '📈 Market Trends',
+      'domains': '🔧 Domains & Specializations',
+      'placements': '💼 Placements & Careers',
+      'general': '💬 General Discussion',
+      'academic': '📚 Academic Help',
+      'career': '🚀 Career Advice',
+      'technical': '💻 Technical Help',
+      'announcement': '📢 Announcement'
     };
 
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryStyles[category]}`}>
-        {category}
+        {categoryLabels[category] || category}
       </span>
     );
   };

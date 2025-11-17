@@ -18,7 +18,7 @@ export interface ICommunityPost extends Document {
   userRole: 'student' | 'mentor' | 'moderator' | 'admin';
   title: string;
   content: string;
-  category: 'general' | 'academic' | 'career' | 'technical' | 'announcement' | 'mentor-question';
+  category: 'higher-education' | 'market-trends' | 'domains' | 'placements' | 'general' | 'academic' | 'career' | 'technical' | 'announcement' | 'mentor-question';
   visibility: 'public' | 'students' | 'mentors' | 'admin-mentors' | 'announcement';
   replies: ICommunityReply[];
   upvotes: Types.ObjectId[];
@@ -27,7 +27,6 @@ export interface ICommunityPost extends Document {
   deletedAt?: Date;
   reportCount: number;
   
-  // New fields for mentor-specific questions
   targetedMentorId?: Types.ObjectId;
   targetedMentorName?: string;
   questionStatus: 'pending' | 'answered' | 'resolved';
@@ -77,7 +76,7 @@ const CommunityPostSchema = new Schema({
   content: { type: String, required: true },
   category: { 
     type: String, 
-    enum: ['general', 'academic', 'career', 'technical', 'announcement', 'mentor-question'], 
+    enum: ['higher-education', 'market-trends', 'domains', 'placements', 'general', 'academic', 'career', 'technical', 'announcement', 'mentor-question'], 
     default: 'general' 
   },
   visibility: {
@@ -92,7 +91,6 @@ const CommunityPostSchema = new Schema({
   deletedAt: { type: Date },
   reportCount: { type: Number, default: 0 },
   
-  // New fields for mentor-specific questions
   targetedMentorId: { type: Schema.Types.ObjectId, ref: 'Mentor' },
   targetedMentorName: { type: String },
   questionStatus: {

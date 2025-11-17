@@ -25,7 +25,7 @@ export async function getMentorCommunityPosts() {
         { visibility: 'public' },
         { visibility: 'mentors' },
         { visibility: 'admin-mentors' },
-        { category: 'announcement' } // Include announcement category posts
+        { category: 'announcement' }
       ]
     })
       .sort({ createdAt: -1 })
@@ -112,7 +112,7 @@ export async function getAnnouncements() {
     await connectDB();
     const posts = await CommunityPost.find({
       isDeleted: false,
-      category: 'announcement' // Filter by category instead of visibility
+      category: 'announcement'
     })
       .sort({ createdAt: -1 })
       .lean()

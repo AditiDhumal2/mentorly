@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react'; 
 import { CommunityPost } from '@/types/community';
 import StudentPostCard from './StudentPostCard';
 import NewPostModal from './NewPostModal';
@@ -26,6 +25,7 @@ interface StudentCommunityUIProps {
   studentChatsCount: number;
   mentorQACount: number;
   announcementsCount: number;
+  currentCategory?: string;
 }
 
 export default function StudentCommunityUI({
@@ -47,7 +47,8 @@ export default function StudentCommunityUI({
   onTabChange,
   studentChatsCount,
   mentorQACount,
-  announcementsCount
+  announcementsCount,
+  currentCategory
 }: StudentCommunityUIProps) {
   if (loading) {
     return (
@@ -59,49 +60,51 @@ export default function StudentCommunityUI({
     );
   }
 
-  const getTabDescription = () => {
+  // Hide tabs if we're in announcement category
+  const isAnnouncementCategory = currentCategory === 'announcement' || currentCategory === 'announcements';
+  
+  const getHeaderTitle = () => {
+    if (isAnnouncementCategory) {
+      return 'Announcements';
+    }
+    return 'Student Community Forum';
+  };
+
+  const getHeaderDescription = () => {
+    if (isAnnouncementCategory) {
+      return 'Important updates and announcements from mentors and administrators (Read Only)';
+    }
+    
     switch (activeTab) {
       case 'student-chats':
         return 'Private discussions between students only (mentors cannot see these)';
       case 'mentor-qa':
         return 'Ask questions to mentors and see posts created by mentors for students';
       case 'announcements':
-        return 'Important announcements from mentors and administrators (read-only)';
+        return 'Important updates and announcements from mentors and administrators (Read Only)';
       default:
         return '';
     }
   };
 
   const getCreateButtonText = () => {
+    if (isAnnouncementCategory) {
+      return null; // No create button for announcements (read-only)
+    }
+    
     switch (activeTab) {
       case 'student-chats':
         return '👥 Create Student Chat';
       case 'mentor-qa':
         return '💬 Ask Mentor Question';
+      case 'announcements':
+        return null;
       default:
         return 'Create Post';
     }
   };
 
-  const getPostVisibility = () => {
-    switch (activeTab) {
-      case 'student-chats':
-        return 'students';
-      case 'mentor-qa':
-        return 'public';
-      default:
-        return 'public';
-    }
-  };
-
-  const handleCreatePost = (data: { 
-    title: string; 
-    content: string; 
-    category: string;
-    visibility: 'public' | 'students';
-  }) => {
-    onCreatePost(data);
-  };
+  const canCreatePost = !isAnnouncementCategory && activeTab !== 'announcements';
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -109,12 +112,14 @@ export default function StudentCommunityUI({
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Student Community Forum</h1>
+            <h1 className="text-3xl font-bold text-gray-800">
+              {getHeaderTitle()}
+            </h1>
             <p className="text-gray-600 mt-2">
-              {getTabDescription()}
+              {getHeaderDescription()}
             </p>
           </div>
-          {currentUser && activeTab !== 'announcements' && (
+          {currentUser && canCreatePost && (
             <button
               onClick={onOpenNewPostModal}
               className={`px-6 py-3 rounded-lg hover:opacity-90 transition-colors font-semibold ${
@@ -128,63 +133,83 @@ export default function StudentCommunityUI({
           )}
         </div>
 
-        {/* Tabs - REMOVE ADMIN POSTS TAB */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => onTabChange('student-chats')}
-              className={`flex-1 py-4 px-4 text-center font-medium ${
-                activeTab === 'student-chats'
-                  ? 'text-orange-600 border-b-2 border-orange-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              👥 Student Chats
-              <span className="ml-2 bg-orange-100 text-orange-600 px-2 py-1 rounded-full text-xs">
-                {studentChatsCount}
-              </span>
-            </button>
-            <button
-              onClick={() => onTabChange('mentor-qa')}
-              className={`flex-1 py-4 px-4 text-center font-medium ${
-                activeTab === 'mentor-qa'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              👨‍🏫 Mentor Q&A
-              <span className="ml-2 bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs">
-                {mentorQACount}
-              </span>
-            </button>
-            <button
-              onClick={() => onTabChange('announcements')}
-              className={`flex-1 py-4 px-4 text-center font-medium ${
-                activeTab === 'announcements'
-                  ? 'text-green-600 border-b-2 border-green-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              📢 Announcements
-              <span className="ml-2 bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs">
-                {announcementsCount}
-              </span>
-            </button>
+        {/* Tabs - Only show if NOT in announcement category */}
+        {!isAnnouncementCategory && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
+            <div className="flex border-b border-gray-200">
+              <button
+                onClick={() => onTabChange('student-chats')}
+                className={`flex-1 py-4 px-4 text-center font-medium ${
+                  activeTab === 'student-chats'
+                    ? 'text-orange-600 border-b-2 border-orange-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                👥 Student Chats
+                <span className="ml-2 bg-orange-100 text-orange-600 px-2 py-1 rounded-full text-xs">
+                  {studentChatsCount}
+                </span>
+              </button>
+              <button
+                onClick={() => onTabChange('mentor-qa')}
+                className={`flex-1 py-4 px-4 text-center font-medium ${
+                  activeTab === 'mentor-qa'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                👨‍🏫 Mentor Q&A
+                <span className="ml-2 bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs">
+                  {mentorQACount}
+                </span>
+              </button>
+              <button
+                onClick={() => onTabChange('announcements')}
+                className={`flex-1 py-4 px-4 text-center font-medium ${
+                  activeTab === 'announcements'
+                    ? 'text-purple-600 border-b-2 border-purple-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                📢 Announcements
+                <span className="ml-2 bg-purple-100 text-purple-600 px-2 py-1 rounded-full text-xs">
+                  {announcementsCount}
+                </span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Announcements Info Banner */}
+        {(activeTab === 'announcements' || isAnnouncementCategory) && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <div className="text-purple-600 text-lg mr-3">📢</div>
+              <div>
+                <h3 className="text-purple-800 font-semibold">Announcements Section</h3>
+                <p className="text-purple-600 text-sm">
+                  This section contains important updates from mentors and administrators. 
+                  Students can read announcements but cannot reply to them.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Posts List */}
         <div className="space-y-6">
           {posts.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
               <p className="text-gray-500 text-lg">
-                {activeTab === 'student-chats'
+                {isAnnouncementCategory
+                  ? 'No announcements yet.'
+                  : activeTab === 'student-chats'
                   ? 'No student chats yet. Start a private discussion!'
                   : activeTab === 'mentor-qa'
                   ? 'No mentor questions yet. Ask your first question!'
-                  : 'No announcements at the moment.'}
+                  : 'No announcements yet.'}
               </p>
-              {currentUser && activeTab !== 'announcements' && (
+              {currentUser && canCreatePost && !isAnnouncementCategory && (
                 <button
                   onClick={onOpenNewPostModal}
                   className={`mt-4 px-6 py-2 rounded-lg text-white font-semibold ${
@@ -205,6 +230,7 @@ export default function StudentCommunityUI({
                 onUpvote={onUpvote}
                 onReportPost={onReportPost}
                 currentUser={currentUser}
+                isAnnouncementTab={activeTab === 'announcements' || isAnnouncementCategory}
               />
             ))
           )}
@@ -222,14 +248,16 @@ export default function StudentCommunityUI({
           </div>
         )}
 
-        {/* Modals */}
-        <NewPostModal
-          isOpen={isNewPostModalOpen}
-          onClose={onCloseNewPostModal}
-          onSubmit={handleCreatePost}
-          currentUser={currentUser}
-          defaultVisibility={getPostVisibility()}
-        />
+        {/* Modals - Only show new post modal if not in announcement category */}
+        {!isAnnouncementCategory && (
+          <NewPostModal
+            isOpen={isNewPostModalOpen}
+            onClose={onCloseNewPostModal}
+            onSubmit={onCreatePost}
+            currentUser={currentUser}
+            defaultVisibility={activeTab === 'student-chats' ? 'students' : 'public'}
+          />
+        )}
 
         <PostDetailsModal
           post={selectedPost}

@@ -10,6 +10,7 @@ interface StudentPostCardProps {
   onUpvote: (postId: string) => void;
   onReportPost: (postId: string, replyId: string | undefined, reason: string) => void;
   currentUser: any;
+  isAnnouncementTab?: boolean;
 }
 
 export default function StudentPostCard({ 
@@ -18,7 +19,8 @@ export default function StudentPostCard({
   userId, 
   onUpvote, 
   onReportPost,
-  currentUser 
+  currentUser,
+  isAnnouncementTab = false
 }: StudentPostCardProps) {
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
@@ -83,16 +85,32 @@ export default function StudentPostCard({
 
   const getCategoryBadge = (category: string) => {
     const categoryStyles: { [key: string]: string } = {
-      general: 'bg-gray-100 text-gray-800',
-      academic: 'bg-blue-100 text-blue-800',
-      career: 'bg-green-100 text-green-800',
-      technical: 'bg-orange-100 text-orange-800',
-      announcement: 'bg-purple-100 text-purple-800'
+      'higher-education': 'bg-blue-100 text-blue-800',
+      'market-trends': 'bg-green-100 text-green-800',
+      'domains': 'bg-purple-100 text-purple-800',
+      'placements': 'bg-orange-100 text-orange-800',
+      'general': 'bg-gray-100 text-gray-800',
+      'academic': 'bg-blue-100 text-blue-800',
+      'career': 'bg-green-100 text-green-800',
+      'technical': 'bg-orange-100 text-orange-800',
+      'announcement': 'bg-purple-100 text-purple-800'
+    };
+
+    const categoryLabels: { [key: string]: string } = {
+      'higher-education': '🎓 Higher Ed',
+      'market-trends': '📈 Market Trends',
+      'domains': '🔧 Domains',
+      'placements': '💼 Placements',
+      'general': '💬 General',
+      'academic': '📚 Academic',
+      'career': '🚀 Career',
+      'technical': '💻 Technical',
+      'announcement': '📢 Announcement'
     };
 
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryStyles[category] || 'bg-gray-100 text-gray-800'}`}>
-        {category}
+        {categoryLabels[category] || category}
       </span>
     );
   };
@@ -103,6 +121,13 @@ export default function StudentPostCard({
       setShowReportModal(false);
       setReportReason('');
     }
+  };
+
+  const getViewButtonText = () => {
+    if (post.category === 'announcement') {
+      return '📢 View Announcement';
+    }
+    return 'View Discussion';
   };
 
   return (
@@ -118,6 +143,11 @@ export default function StudentPostCard({
         
         <div className="flex items-center space-x-2 mb-3">
           {getCategoryBadge(post.category)}
+          {post.category === 'announcement' && (
+            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+              📢 Read Only
+            </span>
+          )}
         </div>
         
         <p className="text-gray-600 mb-4 line-clamp-3">{post.content}</p>
@@ -159,7 +189,7 @@ export default function StudentPostCard({
               onClick={() => onViewPost(post)}
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
             >
-              View Discussion
+              {getViewButtonText()}
             </button>
           </div>
         </div>

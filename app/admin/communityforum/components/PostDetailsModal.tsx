@@ -59,44 +59,6 @@ export default function PostDetailsModal({
     );
   };
 
-  const getVisibilityBadge = (visibility: string) => {
-    const visibilityStyles: Record<string, string> = {
-      public: 'bg-gray-100 text-gray-800',
-      students: 'bg-blue-100 text-blue-800',
-      mentors: 'bg-green-100 text-green-800',
-      'admin-mentors': 'bg-purple-100 text-purple-800'
-    };
-
-    const visibilityLabels: Record<string, string> = {
-      public: '🌍 Public',
-      students: '👥 Students Only',
-      mentors: '👨‍🏫 Mentors Only',
-      'admin-mentors': '🔒 Admin-Mentors'
-    };
-
-    return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${visibilityStyles[visibility] || 'bg-gray-100 text-gray-800'}`}>
-        {visibilityLabels[visibility] || visibility}
-      </span>
-    );
-  };
-
-  const getCategoryBadge = (category: string) => {
-    const categoryStyles: Record<string, string> = {
-      general: 'bg-gray-100 text-gray-800',
-      academic: 'bg-blue-100 text-blue-800',
-      career: 'bg-green-100 text-green-800',
-      technical: 'bg-orange-100 text-orange-800',
-      announcement: 'bg-purple-100 text-purple-800'
-    };
-
-    return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${categoryStyles[category] || 'bg-gray-100 text-gray-800'}`}>
-        {category}
-      </span>
-    );
-  };
-
   const handleSubmitReply = (e: React.FormEvent) => {
     e.preventDefault();
     if (replyMessage.trim()) {
@@ -118,10 +80,6 @@ export default function PostDetailsModal({
                   {getRoleBadge(post.userRole)}
                 </div>
                 <span>{formatDate(post.createdAt)}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                {getVisibilityBadge(post.visibility)}
-                {getCategoryBadge(post.category)}
               </div>
             </div>
             <button
