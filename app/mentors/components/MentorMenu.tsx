@@ -10,11 +10,12 @@ import {
   UserCircle,
   LogOut,
   ChevronRight,
-  CheckCircle
+  CheckCircle,
+  Shield
 } from 'lucide-react';
 import { mentorLogout } from '@/app/mentors-auth/login/actions/mentor-login.actions';
 
-const menuItems = [
+const baseMenuItems = [
   { 
     name: 'Dashboard', 
     href: '/mentors/dashboard', 
@@ -48,19 +49,34 @@ const menuItems = [
     href: '/mentors/profile', 
     icon: UserCircle,
     description: 'Edit your profile',
-    requiresApproval: false // Allow profile editing anytime
+    requiresApproval: false
   }
 ];
+
+const moderatorMenuItem = {
+  name: 'Moderator', 
+  href: '/mentors/moderator', 
+  icon: Shield,
+  description: 'Manage community content',
+  requiresApproval: true
+};
 
 interface MentorMenuProps {
   stats?: {
     totalSessions: number;
     rating: number;
   };
+  isModerator?: boolean; // Simple boolean from server
 }
 
-export default function MentorMenu({ stats }: MentorMenuProps) {
+export default function MentorMenu({ stats, isModerator = false }: MentorMenuProps) {
   const pathname = usePathname();
+
+  // Build menu items dynamically based on moderator status from server
+  const menuItems = [
+    ...baseMenuItems,
+    ...(isModerator ? [moderatorMenuItem] : [])
+  ];
 
   const isActive = (href: string) => {
     if (href === '/mentors/dashboard') {
@@ -95,6 +111,15 @@ export default function MentorMenu({ stats }: MentorMenuProps) {
               </div>
             </div>
           </div>
+          {/* Moderator Badge */}
+          {isModerator && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 mb-3">
+              <div className="flex items-center space-x-2">
+                <Shield className="w-4 h-4 text-orange-600" />
+                <span className="text-xs font-medium text-orange-700">Community Moderator</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Quick Stats */}

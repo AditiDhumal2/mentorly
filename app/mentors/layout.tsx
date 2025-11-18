@@ -19,6 +19,7 @@ export default function MentorLayout({
   children: React.ReactNode;
 }) {
   const [mentor, setMentor] = useState<Mentor | null>(null);
+  const [isModerator, setIsModerator] = useState(false);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [deniedReason, setDeniedReason] = useState('');
@@ -39,11 +40,7 @@ export default function MentorLayout({
         }
 
         const mentorData = authResult.mentor;
-        console.log('👤 Mentor data:', {
-          profileCompleted: mentorData.profileCompleted,
-          approvalStatus: mentorData.approvalStatus,
-          pathname: pathname
-        });
+        console.log('👤 Mentor data:', mentorData);
 
         setMentor(mentorData);
 
@@ -96,7 +93,22 @@ export default function MentorLayout({
 
         // ✅ Only approved mentors with completed profiles can access other pages
         console.log('✅ Mentor fully approved, allowing access');
+        
+        // Set loading to false first to render the page
         setLoading(false);
+        
+        // Then check moderator status separately to avoid blocking the render
+        if (mentorData.id) {
+          try {
+            const { isUserModerator } = await import('@/actions/moderator-actions');
+            const moderatorStatus = await isUserModerator(mentorData.id);
+            setIsModerator(moderatorStatus);
+            console.log('🛡️ Moderator status:', moderatorStatus);
+          } catch (error) {
+            console.error('Error checking moderator status:', error);
+            setIsModerator(false);
+          }
+        }
 
       } catch (error) {
         console.error('❌ Error verifying access:', error);
@@ -184,13 +196,14 @@ export default function MentorLayout({
     );
   }
 
-  // Only show the sidebar layout for approved mentors on allowed pages
+  // Define which paths should show the sidebar
   const sidebarPaths = [
     '/mentors/dashboard',
     '/mentors/community',
     '/mentors/sessions',
     '/mentors/students',
-    '/mentors/profile'
+    '/mentors/profile',
+    '/mentors/moderator'
   ];
 
   const showSidebar = sidebarPaths.some(path => 
@@ -201,7 +214,7 @@ export default function MentorLayout({
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="flex min-h-screen">
         {/* Sidebar Menu - Only show for approved mentors on specific pages */}
-        {showSidebar && <MentorMenu />}
+        {showSidebar && <MentorMenu isModerator={isModerator} />}
         
         {/* Main Content */}
         <main className={`${showSidebar ? 'flex-1' : 'w-full'} p-6 overflow-auto`}>

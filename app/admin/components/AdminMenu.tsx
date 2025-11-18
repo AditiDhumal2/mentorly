@@ -1,4 +1,3 @@
-// app/admin/components/AdminMenu.tsx
 'use client';
 
 import Link from 'next/link';
@@ -20,7 +19,8 @@ import {
   UserCheck,
   ShieldCheck,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react';
 import AdminLogout from './AdminLogout';
 import { useState } from 'react';
@@ -36,20 +36,13 @@ const menuItems = [
     name: 'Verify Mentors', 
     href: '/admin/verifymentor', 
     icon: ShieldCheck,
-    description: 'Approve mentor applications',
-    badge: 'new'
+    description: 'Approve mentors'
   },
   { 
-    name: 'Students', 
-    href: '/admin/students', 
-    icon: Users,
-    description: 'Manage student accounts'
-  },
-  { 
-    name: 'Mentors', 
-    href: '/admin/mentors', 
-    icon: UserCheck,
-    description: 'Manage approved mentors'
+    name: 'Moderators', 
+    href: '/admin/moderators', 
+    icon: Shield,
+    description: 'Community moderators'
   },
   { 
     name: 'Roadmaps', 
@@ -157,11 +150,6 @@ export default function AdminMenu() {
                       <div className="absolute -top-1 -right-1 w-2 h-2 bg-purple-500 rounded-full"></div>
                     )}
                     
-                    {/* Badge for new features */}
-                    {item.badge && (
-                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-                    )}
-                    
                     {/* Tooltip */}
                     <div className="absolute left-full ml-3 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-50">
                       {item.name}
@@ -233,11 +221,6 @@ export default function AdminMenu() {
                         }`}>
                           {item.name}
                         </div>
-                        {item.badge && (
-                          <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full flex-shrink-0">
-                            New
-                          </span>
-                        )}
                       </div>
                       <div className={`text-xs transition-colors duration-200 truncate ${
                         active ? 'text-purple-600' : 'text-gray-500 group-hover:text-purple-500'

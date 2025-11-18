@@ -1,8 +1,9 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { studentLogout } from '@/actions/userActions';
+import { isUserModerator } from '@/actions/moderator-actions';
 
 interface User {
   _id: string;
@@ -26,6 +27,27 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
   const router = useRouter();
   const pathname = usePathname();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isModerator, setIsModerator] = useState(false);
+  const [loadingModeratorStatus, setLoadingModeratorStatus] = useState(true);
+
+  useEffect(() => {
+    const checkModeratorStatus = async () => {
+      if (user?._id) {
+        try {
+          const moderatorStatus = await isUserModerator(user._id);
+          setIsModerator(moderatorStatus);
+        } catch (error) {
+          console.error('Error checking moderator status:', error);
+        } finally {
+          setLoadingModeratorStatus(false);
+        }
+      } else {
+        setLoadingModeratorStatus(false);
+      }
+    };
+
+    checkModeratorStatus();
+  }, [user]);
 
   const menuItems = [
     { name: 'Dashboard', icon: '🏠', path: '/students', description: 'Overview and analytics' },
@@ -39,8 +61,18 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
     { name: 'Progress Tracking', icon: '📈', path: '/students/progress', description: 'Your achievements' },
     { name: 'Higher Education', icon: '🎓', path: '/students/highereducation', description: 'Study abroad guidance' },
     { name: 'Find Mentors', icon: '👨‍🏫', path: '/students/mentor-selection', description: 'Connect with mentors' },
-    { name: 'My Sessions', icon: '💬', path: '/students/sessions', description: 'View mentor responses' }, // ← ADDED THIS LINE
+    { name: 'My Sessions', icon: '💬', path: '/students/sessions', description: 'View mentor responses' },
   ];
+
+  // Add moderator menu item if user is a moderator
+  if (isModerator && !loadingModeratorStatus) {
+    menuItems.push({
+      name: 'Moderator',
+      icon: '🛡️',
+      path: '/students/moderator',
+      description: 'Manage community content'
+    });
+  }
 
   const isActive = (path: string) => pathname === path;
 
@@ -158,6 +190,11 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                 <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30">
                   Student
                 </span>
+                {isModerator && !loadingModeratorStatus && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                    Moderator
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -175,17 +212,29 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                 onClick={() => handleNavigation(item.path)}
                 className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 group ${
                   isActive(item.path)
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 border border-cyan-400/50'
+                    ? item.name === 'Moderator' 
+                      ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25 border border-orange-400/50'
+                      : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 border border-cyan-400/50'
                     : 'text-blue-100 hover:bg-blue-700/50 hover:text-white border border-transparent hover:border-cyan-400/30'
+                } ${
+                  item.name === 'Moderator' && !isActive(item.path)
+                    ? 'hover:bg-orange-500/20 hover:border-orange-400/30'
+                    : ''
                 }`}
               >
-                <span className="text-lg group-hover:scale-110 transition-transform">{item.icon}</span>
+                <span className={`text-lg group-hover:scale-110 transition-transform ${
+                  item.name === 'Moderator' ? 'text-orange-300' : ''
+                }`}>
+                  {item.icon}
+                </span>
                 <div className="flex-1 text-left min-w-0">
                   <p className="text-sm font-medium truncate">{item.name}</p>
                   <p className="text-xs text-blue-200 truncate">{item.description}</p>
                 </div>
                 {isActive(item.path) && (
-                  <div className="ml-auto w-2 h-2 bg-cyan-300 rounded-full animate-pulse"></div>
+                  <div className={`ml-auto w-2 h-2 rounded-full animate-pulse ${
+                    item.name === 'Moderator' ? 'bg-orange-300' : 'bg-cyan-300'
+                  }`}></div>
                 )}
               </button>
             ))}

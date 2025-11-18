@@ -49,6 +49,22 @@ export interface IReport extends Document {
   createdAt: Date;
 }
 
+export interface IModerator extends Document {
+  userId: Types.ObjectId;
+  userName: string;
+  userRole: 'student' | 'mentor';
+  assignedCategories: string[];
+  permissions: {
+    canDeletePosts: boolean;
+    canDeleteReplies: boolean;
+    canManageReports: boolean;
+    canViewAllContent: boolean;
+  };
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 const CommunityReplySchema = new Schema({
   userId: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
   userName: { type: String, required: true },
@@ -129,8 +145,39 @@ const ReportSchema = new Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+const ModeratorSchema = new Schema({
+  userId: { type: Schema.Types.ObjectId, required: true, refPath: 'userModel' },
+  userModel: {
+    type: String,
+    required: true,
+    enum: ['Student', 'Mentor']
+  },
+  userName: { type: String, required: true },
+  userRole: { 
+    type: String, 
+    enum: ['student', 'mentor'], 
+    required: true 
+  },
+  assignedCategories: [{
+    type: String,
+    enum: ['higher-education', 'market-trends', 'domains', 'placements', 'general', 'academic', 'career', 'technical', 'announcement']
+  }],
+  permissions: {
+    canDeletePosts: { type: Boolean, default: true },
+    canDeleteReplies: { type: Boolean, default: true },
+    canManageReports: { type: Boolean, default: true },
+    canViewAllContent: { type: Boolean, default: true }
+  },
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
 export const CommunityPost: Model<ICommunityPost> = 
   mongoose.models.CommunityPost || mongoose.model<ICommunityPost>('CommunityPost', CommunityPostSchema);
 
 export const Report: Model<IReport> = 
   mongoose.models.Report || mongoose.model<IReport>('Report', ReportSchema);
+
+export const Moderator: Model<IModerator> = 
+  mongoose.models.Moderator || mongoose.model<IModerator>('Moderator', ModeratorSchema);

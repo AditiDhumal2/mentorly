@@ -1,12 +1,11 @@
 'use server';
 
 import { connectDB } from '@/lib/db';
-import { CommunityPost } from '@/models/CommunityPost';
+import { CommunityPost, Report } from '@/models/CommunityPost';
 import { CreatePostData, CreateReplyData } from '@/types/community';
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 
-// Helper function to convert string to ObjectId
 const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
   if (typeof id === 'string') {
     return new Types.ObjectId(id);
@@ -14,22 +13,25 @@ const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
   return id;
 };
 
-// Helper function to safely convert dates to ISO strings
-const safeToISOString = (date: any): string => {
-  if (!date) return new Date().toISOString();
-  if (date instanceof Date) return date.toISOString();
-  if (typeof date === 'string') return date;
-  return new Date().toISOString();
-};
-
-export async function deletePostAction(postId: string | Types.ObjectId): Promise<{ success: boolean; error?: string }> {
+export async function deletePostAction(postId: string | Types.ObjectId, deletedBy?: string): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
-    await CommunityPost.findByIdAndDelete(toObjectId(postId));
+    
+    const updateData: any = {
+      isDeleted: true,
+      deletedAt: new Date()
+    };
+    
+    if (deletedBy) {
+      updateData.deletedBy = toObjectId(deletedBy);
+    }
+    
+    await CommunityPost.findByIdAndUpdate(toObjectId(postId), updateData);
     
     revalidatePath('/admin/communityforum');
     revalidatePath('/students/communityforum');
     revalidatePath('/mentors/community');
+    revalidatePath('/moderator/community');
     return { success: true };
   } catch (error) {
     console.error('Error deleting post:', error);
@@ -37,17 +39,32 @@ export async function deletePostAction(postId: string | Types.ObjectId): Promise
   }
 }
 
-export async function deleteReplyAction(postId: string | Types.ObjectId, replyId: string | Types.ObjectId): Promise<{ success: boolean; error?: string }> {
+export async function deleteReplyAction(postId: string | Types.ObjectId, replyId: string | Types.ObjectId, deletedBy?: string): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
+    
+    // FIX: Use proper MongoDB update with arrayFilters
     await CommunityPost.findByIdAndUpdate(
       toObjectId(postId),
-      { $pull: { replies: { _id: toObjectId(replyId) } } }
+      {
+        $set: {
+          'replies.$[reply].isDeleted': true,
+          'replies.$[reply].deletedAt': new Date(),
+          ...(deletedBy && { 'replies.$[reply].deletedBy': toObjectId(deletedBy) })
+        }
+      },
+      {
+        arrayFilters: [
+          { 'reply._id': toObjectId(replyId) }
+        ],
+        new: true
+      }
     );
     
     revalidatePath('/admin/communityforum');
     revalidatePath('/students/communityforum');
     revalidatePath('/mentors/community');
+    revalidatePath('/moderator/community');
     return { success: true };
   } catch (error) {
     console.error('Error deleting reply:', error);
@@ -55,6 +72,7 @@ export async function deleteReplyAction(postId: string | Types.ObjectId, replyId
   }
 }
 
+// Keep existing functions...
 export async function getAdminCommunityPosts() {
   try {
     await connectDB();
@@ -68,9 +86,23 @@ export async function getAdminCommunityPosts() {
     // Convert all Mongoose objects to plain objects with safe date handling
     const plainPosts = posts.map(post => {
       // Safely handle all date fields
-      const createdAt = safeToISOString(post.createdAt);
-      const updatedAt = safeToISOString((post as any).updatedAt || post.createdAt);
-      const deletedAt = (post as any).deletedAt ? safeToISOString((post as any).deletedAt) : undefined;
+      const createdAt = post.createdAt instanceof Date 
+        ? post.createdAt.toISOString() 
+        : typeof post.createdAt === 'string' 
+          ? post.createdAt 
+          : new Date().toISOString();
+
+      const updatedAt = (post as any).updatedAt instanceof Date 
+        ? (post as any).updatedAt.toISOString() 
+        : typeof (post as any).updatedAt === 'string' 
+          ? (post as any).updatedAt 
+          : createdAt;
+
+      const deletedAt = (post as any).deletedAt instanceof Date 
+        ? (post as any).deletedAt.toISOString() 
+        : typeof (post as any).deletedAt === 'string' 
+          ? (post as any).deletedAt 
+          : undefined;
 
       // Safely handle replies
       const safeReplies = (post.replies || []).map((reply: any) => ({
@@ -79,10 +111,18 @@ export async function getAdminCommunityPosts() {
         userName: reply.userName || 'Unknown User',
         userRole: reply.userRole || 'student',
         message: reply.message || '',
-        createdAt: safeToISOString(reply.createdAt),
+        createdAt: reply.createdAt instanceof Date 
+          ? reply.createdAt.toISOString() 
+          : typeof reply.createdAt === 'string' 
+            ? reply.createdAt 
+            : new Date().toISOString(),
         isDeleted: reply.isDeleted || false,
         deletedBy: reply.deletedBy?.toString(),
-        deletedAt: reply.deletedAt ? safeToISOString(reply.deletedAt) : undefined
+        deletedAt: reply.deletedAt instanceof Date 
+          ? reply.deletedAt.toISOString() 
+          : typeof reply.deletedAt === 'string' 
+            ? reply.deletedAt 
+            : undefined
       }));
 
       return {
@@ -126,9 +166,23 @@ export async function getAdminMentorChats() {
     
     // Use the same safe transformation as getAdminCommunityPosts
     const plainPosts = posts.map(post => {
-      const createdAt = safeToISOString(post.createdAt);
-      const updatedAt = safeToISOString((post as any).updatedAt || post.createdAt);
-      const deletedAt = (post as any).deletedAt ? safeToISOString((post as any).deletedAt) : undefined;
+      const createdAt = post.createdAt instanceof Date 
+        ? post.createdAt.toISOString() 
+        : typeof post.createdAt === 'string' 
+          ? post.createdAt 
+          : new Date().toISOString();
+
+      const updatedAt = (post as any).updatedAt instanceof Date 
+        ? (post as any).updatedAt.toISOString() 
+        : typeof (post as any).updatedAt === 'string' 
+          ? (post as any).updatedAt 
+          : createdAt;
+
+      const deletedAt = (post as any).deletedAt instanceof Date 
+        ? (post as any).deletedAt.toISOString() 
+        : typeof (post as any).deletedAt === 'string' 
+          ? (post as any).deletedAt 
+          : undefined;
 
       const safeReplies = (post.replies || []).map((reply: any) => ({
         _id: reply._id?.toString() || new Types.ObjectId().toString(),
@@ -136,10 +190,18 @@ export async function getAdminMentorChats() {
         userName: reply.userName || 'Unknown User',
         userRole: reply.userRole || 'student',
         message: reply.message || '',
-        createdAt: safeToISOString(reply.createdAt),
+        createdAt: reply.createdAt instanceof Date 
+          ? reply.createdAt.toISOString() 
+          : typeof reply.createdAt === 'string' 
+            ? reply.createdAt 
+            : new Date().toISOString(),
         isDeleted: reply.isDeleted || false,
         deletedBy: reply.deletedBy?.toString(),
-        deletedAt: reply.deletedAt ? safeToISOString(reply.deletedAt) : undefined
+        deletedAt: reply.deletedAt instanceof Date 
+          ? reply.deletedAt.toISOString() 
+          : typeof reply.deletedAt === 'string' 
+            ? reply.deletedAt 
+            : undefined
       }));
 
       return {
@@ -259,6 +321,7 @@ export async function replyToPostAction(postId: string | Types.ObjectId, replyDa
     
     revalidatePath('/admin/communityforum');
     revalidatePath('/mentors/community');
+    revalidatePath('/moderator/community');
     return { success: true };
   } catch (error) {
     console.error('Error adding reply:', error);

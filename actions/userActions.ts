@@ -1,4 +1,3 @@
-// mentorly/actions/userActions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
@@ -17,7 +16,7 @@ export async function getCurrentUser() {
     const allCookies = cookieStore.getAll();
     console.log('🍪 getCurrentUser - All available cookies:', allCookies.map(c => c.name));
     
-    // Check for student session first
+    // Check for all session types
     const studentCookie = cookieStore.get('student-session-v2');
     const mentorCookie = cookieStore.get('mentor-session');
     const adminCookie = cookieStore.get('admin-data');
@@ -28,14 +27,20 @@ export async function getCurrentUser() {
       admin: !!adminCookie
     });
 
-    // Priority: Student > Mentor > Admin
+    // ✅ FIX: Context-aware priority - check both but be explicit about which one to use
     if (studentCookie?.value) {
       console.log('🔍 getCurrentUser - Using student session');
-      return await getStudentFromCookie(studentCookie.value);
-    } else if (mentorCookie?.value) {
+      const student = await getStudentFromCookie(studentCookie.value);
+      if (student) return student;
+    }
+    
+    if (mentorCookie?.value) {
       console.log('🔍 getCurrentUser - Using mentor session');
-      return await getMentorFromCookie(mentorCookie.value);
-    } else if (adminCookie?.value) {
+      const mentor = await getMentorFromCookie(mentorCookie.value);
+      if (mentor) return mentor;
+    }
+    
+    if (adminCookie?.value) {
       console.log('🔍 getCurrentUser - Using admin session');
       // Add admin session handling if needed
     }
@@ -44,6 +49,74 @@ export async function getCurrentUser() {
     return null;
   } catch (error) {
     console.error('❌ getCurrentUser - Unexpected error:', error);
+    return null;
+  }
+}
+
+// Add this function to your userActions.ts file
+export async function getCurrentUserForMentorRoute() {
+  try {
+    console.log('🔍 getCurrentUserForMentorRoute - Starting to fetch current user for mentor route...');
+    
+    const cookieStore = await cookies();
+    
+    // Get ALL cookies for debugging
+    const allCookies = cookieStore.getAll();
+    console.log('🍪 getCurrentUserForMentorRoute - All available cookies:', allCookies.map(c => c.name));
+    
+    // For mentor routes, ONLY check mentor session
+    const mentorCookie = cookieStore.get('mentor-session');
+    const studentCookie = cookieStore.get('student-session-v2');
+    const adminCookie = cookieStore.get('admin-data');
+
+    console.log('🔍 getCurrentUserForMentorRoute - Session cookies found:', {
+      student: !!studentCookie,
+      mentor: !!mentorCookie,
+      admin: !!adminCookie
+    });
+
+    // ✅ FIX: For mentor routes, prioritize MENTOR session only
+    if (mentorCookie?.value) {
+      console.log('🔍 getCurrentUserForMentorRoute - Using mentor session for mentor route');
+      return await getMentorFromCookie(mentorCookie.value);
+    }
+
+    console.log('❌ getCurrentUserForMentorRoute - No mentor session found for mentor route');
+    return null;
+  } catch (error) {
+    console.error('❌ getCurrentUserForMentorRoute - Unexpected error:', error);
+    return null;
+  }
+}
+
+// Add this function too for student routes
+export async function getCurrentUserForStudentRoute() {
+  try {
+    console.log('🔍 getCurrentUserForStudentRoute - Starting to fetch current user for student route...');
+    
+    const cookieStore = await cookies();
+    
+    // For student routes, ONLY check student session
+    const studentCookie = cookieStore.get('student-session-v2');
+    const mentorCookie = cookieStore.get('mentor-session');
+    const adminCookie = cookieStore.get('admin-data');
+
+    console.log('🔍 getCurrentUserForStudentRoute - Session cookies found:', {
+      student: !!studentCookie,
+      mentor: !!mentorCookie,
+      admin: !!adminCookie
+    });
+
+    // ✅ FIX: For student routes, prioritize STUDENT session only
+    if (studentCookie?.value) {
+      console.log('🔍 getCurrentUserForStudentRoute - Using student session for student route');
+      return await getStudentFromCookie(studentCookie.value);
+    }
+
+    console.log('❌ getCurrentUserForStudentRoute - No student session found for student route');
+    return null;
+  } catch (error) {
+    console.error('❌ getCurrentUserForStudentRoute - Unexpected error:', error);
     return null;
   }
 }
