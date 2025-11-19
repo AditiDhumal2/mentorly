@@ -3,6 +3,7 @@
 import { CommunityPost } from '@/types/community';
 import { useState } from 'react';
 import { deletePostAction, deleteReplyAction } from '@/actions/communityforum-admin-actions';
+import Snackbar from './Snackbar';
 
 interface ModeratorPostCardProps {
   post: CommunityPost;
@@ -19,6 +20,15 @@ export default function ModeratorPostCard({
 }: ModeratorPostCardProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingItem, setDeletingItem] = useState<{ type: 'post' | 'reply', id: string } | null>(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+  const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const closeSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -91,12 +101,13 @@ export default function ModeratorPostCard({
       const result = await deletePostAction(post._id, currentUser._id);
       if (result.success) {
         onPostDeleted(post._id);
+        showSnackbar('Post deleted successfully!', 'success');
       } else {
-        alert(result.error || 'Failed to delete post');
+        showSnackbar(result.error || 'Failed to delete post', 'error');
       }
     } catch (error) {
       console.error('Error deleting post:', error);
-      alert('Failed to delete post');
+      showSnackbar('Failed to delete post', 'error');
     } finally {
       setDeletingItem(null);
       setShowDeleteModal(false);
@@ -109,12 +120,13 @@ export default function ModeratorPostCard({
       const result = await deleteReplyAction(post._id, replyId, currentUser._id);
       if (result.success) {
         onReplyDelete(post._id, replyId);
+        showSnackbar('Reply deleted successfully!', 'success');
       } else {
-        alert(result.error || 'Failed to delete reply');
+        showSnackbar(result.error || 'Failed to delete reply', 'error');
       }
     } catch (error) {
       console.error('Error deleting reply:', error);
-      alert('Failed to delete reply');
+      showSnackbar('Failed to delete reply', 'error');
     } finally {
       setDeletingItem(null);
     }
@@ -225,6 +237,14 @@ export default function ModeratorPostCard({
           </div>
         </div>
       )}
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        message={snackbar.message}
+        severity={snackbar.severity}
+        onClose={closeSnackbar}
+      />
     </>
   );
 }

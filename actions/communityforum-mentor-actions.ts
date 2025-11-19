@@ -5,6 +5,13 @@ import { CommunityPost, Report } from '@/models/CommunityPost';
 import { CreatePostData, CreateReplyData } from '@/types/community';
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
+import { 
+  canUserManagePost, 
+  updatePostAction, 
+  deletePostWithPermissionCheck,
+  canUserManageReply,
+  deleteReplyWithPermissionCheck 
+} from './post-management-actions';
 
 const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
   if (typeof id === 'string') {
@@ -55,6 +62,9 @@ export async function getMentorCommunityPosts() {
       upvotes: post.upvotes.map((upvote: any) => upvote.toString()),
       isDeleted: post.isDeleted,
       reportCount: post.reportCount,
+      edited: (post as any).edited || false,
+      editedAt: (post as any).editedAt?.toISOString(),
+      editCount: (post as any).editCount || 0,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString()
     }));
@@ -98,6 +108,9 @@ export async function getAdminMentorChats() {
       upvotes: post.upvotes.map((upvote: any) => upvote.toString()),
       isDeleted: post.isDeleted,
       reportCount: post.reportCount,
+      edited: (post as any).edited || false,
+      editedAt: (post as any).editedAt?.toISOString(),
+      editCount: (post as any).editCount || 0,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString()
     }));
@@ -141,6 +154,9 @@ export async function getAnnouncements() {
       upvotes: post.upvotes.map((upvote: any) => upvote.toString()),
       isDeleted: post.isDeleted,
       reportCount: post.reportCount,
+      edited: (post as any).edited || false,
+      editedAt: (post as any).editedAt?.toISOString(),
+      editCount: (post as any).editCount || 0,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString()
     }));
@@ -193,6 +209,8 @@ export async function addCommunityPostAction(data: CreatePostData): Promise<{ su
       replies: [],
       upvotes: [],
       reportCount: 0,
+      edited: false,
+      editCount: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -346,6 +364,9 @@ export async function getPostById(postId: string) {
       upvotes: (postObj.upvotes || []).map((id: any) => id.toString()),
       isDeleted: postObj.isDeleted,
       reportCount: postObj.reportCount,
+      edited: postObj.edited || false,
+      editedAt: postObj.editedAt?.toISOString(),
+      editCount: postObj.editCount || 0,
       createdAt: postObj.createdAt?.toISOString(),
       updatedAt: postObj.updatedAt?.toISOString() || postObj.createdAt?.toISOString()
     };
@@ -394,6 +415,41 @@ export async function reportPostAction(postId: string, replyId: string | undefin
     console.error('Error reporting post:', error);
     return { success: false, error: 'Failed to report content' };
   }
+}
+
+// New Post Management Functions
+export async function updateMentorPostAction(
+  postId: string,
+  updateData: { title?: string; content?: string; category?: string },
+  userId: string,
+  userRole: string
+): Promise<{ success: boolean; error?: string }> {
+  return updatePostAction(postId, updateData, userId, userRole);
+}
+
+export async function deleteMentorPostAction(
+  postId: string, 
+  userId: string, 
+  userRole: string
+): Promise<{ success: boolean; error?: string }> {
+  return deletePostWithPermissionCheck(postId, userId, userRole, userId);
+}
+
+export async function deleteMentorReplyAction(
+  postId: string, 
+  replyId: string, 
+  userId: string, 
+  userRole: string
+): Promise<{ success: boolean; error?: string }> {
+  return deleteReplyWithPermissionCheck(postId, replyId, userId, userRole, userId);
+}
+
+export async function checkMentorPostPermissions(
+  postId: string, 
+  userId: string, 
+  userRole: string
+) {
+  return canUserManagePost(postId, userId, userRole);
 }
 
 // Add alias for compatibility

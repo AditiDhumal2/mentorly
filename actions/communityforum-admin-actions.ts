@@ -8,6 +8,9 @@ import { revalidatePath } from 'next/cache';
 
 const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
   if (typeof id === 'string') {
+    if (!Types.ObjectId.isValid(id)) {
+      return new Types.ObjectId();
+    }
     return new Types.ObjectId(id);
   }
   return id;
@@ -17,6 +20,12 @@ export async function deletePostAction(postId: string | Types.ObjectId, deletedB
   try {
     await connectDB();
     
+    // For admin, we bypass permission checks but still validate post exists
+    const post = await CommunityPost.findById(toObjectId(postId));
+    if (!post) {
+      return { success: false, error: 'Post not found' };
+    }
+
     const updateData: any = {
       isDeleted: true,
       deletedAt: new Date()
@@ -43,7 +52,18 @@ export async function deleteReplyAction(postId: string | Types.ObjectId, replyId
   try {
     await connectDB();
     
-    // FIX: Use proper MongoDB update with arrayFilters
+    // For admin, we bypass permission checks but still validate reply exists
+    const post = await CommunityPost.findById(toObjectId(postId));
+    if (!post) {
+      return { success: false, error: 'Post not found' };
+    }
+
+    // Use the correct way to find a reply in the array
+    const reply = post.replies.find((r: any) => r._id.toString() === replyId.toString());
+    if (!reply) {
+      return { success: false, error: 'Reply not found' };
+    }
+
     await CommunityPost.findByIdAndUpdate(
       toObjectId(postId),
       {
@@ -104,6 +124,12 @@ export async function getAdminCommunityPosts() {
           ? (post as any).deletedAt 
           : undefined;
 
+      const editedAt = (post as any).editedAt instanceof Date 
+        ? (post as any).editedAt.toISOString() 
+        : typeof (post as any).editedAt === 'string' 
+          ? (post as any).editedAt 
+          : undefined;
+
       // Safely handle replies
       const safeReplies = (post.replies || []).map((reply: any) => ({
         _id: reply._id?.toString() || new Types.ObjectId().toString(),
@@ -140,6 +166,9 @@ export async function getAdminCommunityPosts() {
         reportCount: (post as any).reportCount || 0,
         deletedBy: (post as any).deletedBy?.toString(),
         deletedAt: deletedAt,
+        edited: (post as any).edited || false,
+        editedAt: editedAt,
+        editCount: (post as any).editCount || 0,
         createdAt: createdAt,
         updatedAt: updatedAt
       };
@@ -184,6 +213,12 @@ export async function getAdminMentorChats() {
           ? (post as any).deletedAt 
           : undefined;
 
+      const editedAt = (post as any).editedAt instanceof Date 
+        ? (post as any).editedAt.toISOString() 
+        : typeof (post as any).editedAt === 'string' 
+          ? (post as any).editedAt 
+          : undefined;
+
       const safeReplies = (post.replies || []).map((reply: any) => ({
         _id: reply._id?.toString() || new Types.ObjectId().toString(),
         userId: reply.userId?.toString() || '',
@@ -219,6 +254,9 @@ export async function getAdminMentorChats() {
         reportCount: (post as any).reportCount || 0,
         deletedBy: (post as any).deletedBy?.toString(),
         deletedAt: deletedAt,
+        edited: (post as any).edited || false,
+        editedAt: editedAt,
+        editCount: (post as any).editCount || 0,
         createdAt: createdAt,
         updatedAt: updatedAt
       };
@@ -261,6 +299,8 @@ export async function addAdminCommunityPostAction(data: CreatePostData): Promise
       replies: [],
       upvotes: [],
       reportCount: 0,
+      edited: false,
+      editCount: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     });

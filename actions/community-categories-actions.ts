@@ -69,6 +69,9 @@ export async function getPostsByCategory(
       upvotes: post.upvotes.map((upvote: any) => upvote.toString()),
       isDeleted: post.isDeleted,
       reportCount: post.reportCount,
+      edited: (post as any).edited || false,
+      editedAt: (post as any).editedAt?.toISOString(),
+      editCount: (post as any).editCount || 0,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString()
     }));

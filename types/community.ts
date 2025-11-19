@@ -13,6 +13,12 @@ export interface CommunityPost {
   deletedBy?: string;
   deletedAt?: string;
   reportCount: number;
+  
+  // New fields for edit tracking
+  edited: boolean;
+  editedAt?: string;
+  editCount: number;
+  
   createdAt: string;
   updatedAt: string;
 }
@@ -37,6 +43,12 @@ export interface CreatePostData {
   userId: string;
   userName: string;
   userRole: 'student' | 'mentor' | 'moderator' | 'admin';
+}
+
+export interface UpdatePostData {
+  title?: string;
+  content?: string;
+  category?: string;
 }
 
 export interface CreateReplyData {
@@ -160,4 +172,11 @@ export interface ModeratorDashboardData {
   pendingReports: number;
   recentActions: ModerationAction[];
   categoryStats: CategoryStats[];
+}
+
+export interface PostPermissions {
+  canEdit: boolean;
+  canDelete: boolean;
+  reason?: string;
+  post?: CommunityPost;
 }

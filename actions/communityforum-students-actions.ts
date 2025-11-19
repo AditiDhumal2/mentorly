@@ -5,6 +5,13 @@ import { CommunityPost, Report } from '@/models/CommunityPost';
 import { CreatePostData, CreateReplyData } from '@/types/community';
 import { Types } from 'mongoose';
 import { revalidatePath } from 'next/cache';
+import { 
+  canUserManagePost, 
+  updatePostAction, 
+  deletePostWithPermissionCheck,
+  canUserManageReply,
+  deleteReplyWithPermissionCheck 
+} from './post-management-actions';
 
 const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
   if (typeof id === 'string') {
@@ -70,6 +77,9 @@ export async function getStudentCommunityPosts() {
       upvotes: post.upvotes.map((upvote: any) => upvote.toString()),
       isDeleted: post.isDeleted,
       reportCount: post.reportCount,
+      edited: (post as any).edited || false,
+      editedAt: (post as any).editedAt?.toISOString(),
+      editCount: (post as any).editCount || 0,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString()
     }));
@@ -137,6 +147,9 @@ export async function getPostsByCategoryForStudents(category: string) {
       upvotes: post.upvotes.map((upvote: any) => upvote.toString()),
       isDeleted: post.isDeleted,
       reportCount: post.reportCount,
+      edited: (post as any).edited || false,
+      editedAt: (post as any).editedAt?.toISOString(),
+      editCount: (post as any).editCount || 0,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString()
     }));
@@ -146,7 +159,6 @@ export async function getPostsByCategoryForStudents(category: string) {
   }
 }
 
-// Keep the other functions the same...
 export async function addCommunityPostAction(data: CreatePostData): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
@@ -176,6 +188,8 @@ export async function addCommunityPostAction(data: CreatePostData): Promise<{ su
       replies: [],
       upvotes: [],
       reportCount: 0,
+      edited: false,
+      editCount: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -316,4 +330,39 @@ export async function reportPostAction(postId: string, replyId: string | undefin
     console.error('Error reporting post:', error);
     return { success: false, error: 'Failed to report content' };
   }
+}
+
+// New Post Management Functions
+export async function updateStudentPostAction(
+  postId: string,
+  updateData: { title?: string; content?: string; category?: string },
+  userId: string,
+  userRole: string
+): Promise<{ success: boolean; error?: string }> {
+  return updatePostAction(postId, updateData, userId, userRole);
+}
+
+export async function deleteStudentPostAction(
+  postId: string, 
+  userId: string, 
+  userRole: string
+): Promise<{ success: boolean; error?: string }> {
+  return deletePostWithPermissionCheck(postId, userId, userRole, userId);
+}
+
+export async function deleteStudentReplyAction(
+  postId: string, 
+  replyId: string, 
+  userId: string, 
+  userRole: string
+): Promise<{ success: boolean; error?: string }> {
+  return deleteReplyWithPermissionCheck(postId, replyId, userId, userRole, userId);
+}
+
+export async function checkStudentPostPermissions(
+  postId: string, 
+  userId: string, 
+  userRole: string
+) {
+  return canUserManagePost(postId, userId, userRole);
 }

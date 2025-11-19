@@ -27,6 +27,11 @@ export interface ICommunityPost extends Document {
   deletedAt?: Date;
   reportCount: number;
   
+  // New fields for edit tracking
+  edited: boolean;
+  editedAt?: Date;
+  editCount: number;
+  
   targetedMentorId?: Types.ObjectId;
   targetedMentorName?: string;
   questionStatus: 'pending' | 'answered' | 'resolved';
@@ -106,6 +111,11 @@ const CommunityPostSchema = new Schema({
   deletedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   deletedAt: { type: Date },
   reportCount: { type: Number, default: 0 },
+  
+  // New fields for edit tracking
+  edited: { type: Boolean, default: false },
+  editedAt: { type: Date },
+  editCount: { type: Number, default: 0 },
   
   targetedMentorId: { type: Schema.Types.ObjectId, ref: 'Mentor' },
   targetedMentorName: { type: String },

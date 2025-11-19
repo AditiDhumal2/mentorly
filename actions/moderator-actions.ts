@@ -203,7 +203,7 @@ export async function getModeratorPosts(userId: string) {
     
     console.log(`✅ Found ${posts.length} posts in moderator's categories`);
     
-    return posts.map((post: any) => ({ // Add type annotation
+    return posts.map((post: any) => ({
       _id: post._id.toString(),
       userId: post.userId.toString(),
       userName: post.userName,
@@ -226,6 +226,9 @@ export async function getModeratorPosts(userId: string) {
       upvotes: post.upvotes.map((upvote: any) => upvote.toString()),
       isDeleted: post.isDeleted,
       reportCount: post.reportCount,
+      edited: post.edited || false,
+      editedAt: post.editedAt?.toISOString(),
+      editCount: post.editCount || 0,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString()
     }));

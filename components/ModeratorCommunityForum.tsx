@@ -44,7 +44,13 @@ export default function ModeratorCommunityForum({
       if (modData) {
         setModerator(modData);
         const moderatorPosts = await getModeratorPosts(currentUser._id);
-        setPosts(moderatorPosts);
+        // Ensure posts have the new fields
+        const postsWithNewFields = moderatorPosts.map(post => ({
+          ...post,
+          edited: post.edited || false,
+          editCount: post.editCount || 0
+        }));
+        setPosts(postsWithNewFields);
         console.log('✅ Moderator data loaded successfully');
       }
     } catch (error) {
