@@ -1,21 +1,15 @@
-// middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Simple sync middleware without database checks
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const adminData = request.cookies.get('admin-data')?.value;
-  
-  // USE ONLY NEW COOKIE NAME - ignore all old cookies
   const studentDataCookie = request.cookies.get('student-session-v2')?.value;
-  const isStudentAuthenticated = !!studentDataCookie && studentDataCookie.length > 10;
-
-  const isAdminAuthenticated = !!adminData;
-
-  // Mentor authentication check
   const mentorSession = request.cookies.get('mentor-session')?.value;
+
+  const isStudentAuthenticated = !!studentDataCookie && studentDataCookie.length > 10;
+  const isAdminAuthenticated = !!adminData;
   const isMentorAuthenticated = !!mentorSession && mentorSession.length > 10;
 
   console.log('🔍 MIDDLEWARE DEBUG:');
@@ -23,6 +17,44 @@ export function middleware(request: NextRequest) {
   console.log('  Student Auth:', isStudentAuthenticated);
   console.log('  Admin Auth:', isAdminAuthenticated);
   console.log('  Mentor Auth:', isMentorAuthenticated);
+
+  // 🆕 CRITICAL FIX: Clear conflicting sessions FIRST
+  const response = NextResponse.next();
+  
+  if (pathname.startsWith('/students') && isMentorAuthenticated) {
+    console.log('🚫 SECURITY: Mentor trying to access student route - CLEARING MENTOR SESSION');
+    
+    // Clear mentor session and redirect to student route
+    response.cookies.delete('mentor-session');
+    response.cookies.delete('mentor-data');
+    
+    // If student is also authenticated, allow access to student route
+    if (isStudentAuthenticated) {
+      console.log('✅ Student authenticated, allowing access after clearing mentor session');
+      return response;
+    } else {
+      console.log('🔄 Redirecting to student login');
+      return NextResponse.redirect(new URL('/students-auth/login', request.url));
+    }
+  }
+
+  if (pathname.startsWith('/mentors') && isStudentAuthenticated) {
+    console.log('🚫 SECURITY: Student trying to access mentor route - CLEARING STUDENT SESSION');
+    
+    // Clear student session and redirect to mentor route
+    response.cookies.delete('student-session-v2');
+    response.cookies.delete('student-data');
+    response.cookies.delete('user-data');
+    
+    // If mentor is also authenticated, allow access to mentor route
+    if (isMentorAuthenticated) {
+      console.log('✅ Mentor authenticated, allowing access after clearing student session');
+      return response;
+    } else {
+      console.log('🔄 Redirecting to mentor login');
+      return NextResponse.redirect(new URL('/mentors-auth/login', request.url));
+    }
+  }
 
   // 🔄 Redirect authenticated students AWAY from login pages
   if (isStudentAuthenticated && pathname === '/students-auth/login') {
@@ -37,7 +69,6 @@ export function middleware(request: NextRequest) {
     try {
       const sessionData = JSON.parse(mentorSession);
       
-      // Use session data for redirect decision (no database check in middleware)
       if (!sessionData.profileCompleted) {
         return NextResponse.redirect(new URL('/mentors/complete-profile', request.url));
       } else if (sessionData.approvalStatus !== 'approved') {
@@ -88,7 +119,6 @@ export function middleware(request: NextRequest) {
       try {
         const sessionData = JSON.parse(mentorSession);
         
-        // Use session data for access control (no database check in middleware)
         console.log('🔍 SESSION STATUS:', { 
           profileCompleted: sessionData.profileCompleted, 
           approvalStatus: sessionData.approvalStatus,
@@ -140,7 +170,7 @@ export function middleware(request: NextRequest) {
   }
 
   console.log('➡️ Allowing request to continue');
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

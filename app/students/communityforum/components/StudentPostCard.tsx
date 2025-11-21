@@ -49,6 +49,16 @@ export default function StudentPostCard({
     }
   }, [currentUser, post]);
 
+  // SECURITY DEBUG: Log user and post info
+  useEffect(() => {
+    console.log('🔍 SECURITY DEBUG - StudentPostCard:', {
+      currentUser: currentUser,
+      post: post,
+      permissions: permissions,
+      windowLocation: typeof window !== 'undefined' ? window.location.pathname : '',
+    });
+  }, [currentUser, post, permissions]);
+
   const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
@@ -60,12 +70,36 @@ export default function StudentPostCard({
   const checkPermissions = async () => {
     if (!currentUser) return;
     
-    const result = await checkStudentPostPermissions(post._id, currentUser.id || currentUser._id, currentUser.role);
-    setPermissions({
-      canEdit: result.canEdit,
-      canDelete: result.canDelete,
-      reason: result.reason || ''
-    });
+    try {
+      // SECURITY FIX: Use consistent ID field
+      const studentId = currentUser.id || currentUser._id;
+      
+      console.log('🔐 Student Permission Check - STRICT OWNERSHIP:', {
+        postId: post._id,
+        currentUserId: studentId,
+        postUserId: post.userId,
+        result: await checkStudentPostPermissions(post._id, studentId, currentUser.role)
+      });
+
+      const result = await checkStudentPostPermissions(
+        post._id, 
+        studentId, 
+        currentUser.role
+      );
+
+      setPermissions({
+        canEdit: result.canEdit,
+        canDelete: result.canDelete,
+        reason: result.reason || ''
+      });
+    } catch (error) {
+      console.error('Error checking permissions:', error);
+      setPermissions({
+        canEdit: false,
+        canDelete: false,
+        reason: 'Error checking permissions'
+      });
+    }
   };
 
   const isUpvoted = userId && post.upvotes && 
@@ -137,14 +171,19 @@ export default function StudentPostCard({
   };
 
   const handleEdit = async () => {
-    if (!permissions.canEdit) return;
+    if (!permissions.canEdit) {
+      showSnackbar(permissions.reason || 'You cannot edit this post', 'error');
+      return;
+    }
     
     setLoading(true);
     try {
+      const studentId = currentUser.id || currentUser._id;
+      
       const result = await updateStudentPostAction(
         post._id,
         editData,
-        currentUser.id || currentUser._id,
+        studentId,
         currentUser.role
       );
 
@@ -154,6 +193,8 @@ export default function StudentPostCard({
           onPostUpdated({ ...post, ...editData, edited: true, editedAt: new Date().toISOString() });
         }
         showSnackbar('Post updated successfully!', 'success');
+        // Refresh permissions after update
+        await checkPermissions();
       } else {
         showSnackbar(result.error || 'Failed to update post', 'error');
       }
@@ -166,13 +207,18 @@ export default function StudentPostCard({
   };
 
   const handleDelete = async () => {
-    if (!permissions.canDelete) return;
+    if (!permissions.canDelete) {
+      showSnackbar(permissions.reason || 'You cannot delete this post', 'error');
+      return;
+    }
     
     setLoading(true);
     try {
+      const studentId = currentUser.id || currentUser._id;
+      
       const result = await deleteStudentPostAction(
         post._id,
-        currentUser.id || currentUser._id,
+        studentId,
         currentUser.role
       );
 
@@ -209,6 +255,15 @@ export default function StudentPostCard({
     return 'View Discussion';
   };
 
+  // 🆕 CRITICAL FIX: Only use server permissions, not client-side ownership check
+  const shouldShowManageButtons = permissions.canEdit && permissions.canDelete;
+
+  console.log('🎯 Student Post Card Render - STRICT PERMISSIONS:', {
+    postId: post._id,
+    permissions: permissions,
+    shouldShowManageButtons: shouldShowManageButtons
+  });
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
@@ -223,26 +278,22 @@ export default function StudentPostCard({
           </div>
           <div className="flex items-center space-x-2">
             {getRoleBadge(post.userRole)}
-            {(permissions.canEdit || permissions.canDelete) && (
+            {shouldShowManageButtons && (
               <div className="flex space-x-1 ml-2">
-                {permissions.canEdit && (
-                  <button
-                    onClick={() => setShowEditModal(true)}
-                    className="text-blue-600 hover:text-blue-800 text-sm px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
-                    title="Edit post"
-                  >
-                    ✏️
-                  </button>
-                )}
-                {permissions.canDelete && (
-                  <button
-                    onClick={() => setShowDeleteModal(true)}
-                    className="text-red-600 hover:text-red-800 text-sm px-2 py-1 border border-red-300 rounded hover:bg-red-50 transition-colors"
-                    title="Delete post"
-                  >
-                    🗑️
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="text-blue-600 hover:text-blue-800 text-sm px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
+                  title="Edit post"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="text-red-600 hover:text-red-800 text-sm px-2 py-1 border border-red-300 rounded hover:bg-red-50 transition-colors"
+                  title="Delete post"
+                >
+                  🗑️
+                </button>
               </div>
             )}
           </div>
@@ -253,11 +304,6 @@ export default function StudentPostCard({
           {post.category === 'announcement' && (
             <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
               📢 Read Only
-            </span>
-          )}
-          {!permissions.canEdit && permissions.reason && (
-            <span className="text-xs text-gray-500" title={permissions.reason}>
-              🔒 {post.replies.length > 0 ? 'Has replies' : 'Locked'}
             </span>
           )}
         </div>
@@ -377,14 +423,6 @@ export default function StudentPostCard({
                   />
                 </div>
                 
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-blue-800 mb-2">Editing Guidelines</h4>
-                  <p className="text-blue-700 text-sm">
-                    You can only edit posts that have no replies. Once someone replies to your post, 
-                    editing will be disabled to maintain conversation context.
-                  </p>
-                </div>
-                
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     onClick={() => setShowEditModal(false)}
@@ -414,14 +452,6 @@ export default function StudentPostCard({
             <p className="text-gray-600 mb-4">
               Are you sure you want to delete this post? This action cannot be undone.
             </p>
-            
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-              <h4 className="font-semibold text-yellow-800 mb-2">Important</h4>
-              <p className="text-yellow-700 text-sm">
-                You can only delete posts that have no replies. Once someone replies to your post, 
-                deletion will be disabled to maintain conversation integrity.
-              </p>
-            </div>
             
             <div className="flex justify-end space-x-3">
               <button

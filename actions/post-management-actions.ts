@@ -54,64 +54,87 @@ function convertToCommunityPost(post: any): CommunityPostType {
 }
 
 /**
- * Check if user can edit/delete a post
- * Users can only edit/delete their own posts if there are no replies
- * Admins can always delete but not edit
+ * 🆕 CRITICAL SECURITY: Enhanced permission check - ONLY OWNER can edit/delete
+ * Added detailed logging to track permission issues
  */
-export async function canUserManagePost(postId: string, userId: string, userRole: string): Promise<PostPermissions> {
+export async function canUserManagePost(postId: string, userId: string, userRole: string, routeType?: 'mentor' | 'student'): Promise<PostPermissions> {
   try {
     await connectDB();
     
     const post = await CommunityPost.findById(toObjectId(postId));
     if (!post) {
+      console.log('🔍 PERMISSION CHECK: Post not found', { postId, userId });
       return { canEdit: false, canDelete: false, reason: 'Post not found' };
     }
 
     if (post.isDeleted) {
+      console.log('🔍 PERMISSION CHECK: Post is deleted', { postId, userId });
       return { canEdit: false, canDelete: false, reason: 'Post is already deleted' };
     }
 
-    const isOwner = post.userId.toString() === userId;
-    const hasReplies = post.replies.length > 0;
-    const isAdmin = userRole === 'admin';
+    // 🆕 CRITICAL: Convert both IDs to string for proper comparison
+    const postUserId = post.userId.toString();
+    const currentUserId = userId.toString();
+    
+    const isOwner = postUserId === currentUserId;
 
-    // Admin can always delete but not edit
-    if (isAdmin) {
+    console.log('🔐 STRICT OWNERSHIP CHECK:', {
+      postId: postId,
+      postUserId: postUserId,
+      currentUserId: currentUserId,
+      isOwner: isOwner,
+      userRole: userRole,
+      routeType: routeType,
+      postTitle: post.title,
+      postRepliesCount: post.replies.length
+    });
+
+    // 🆕 CRITICAL: Route-based security validation
+    if (routeType === 'mentor' && userRole !== 'mentor') {
+      console.error('🚨 SECURITY VIOLATION: Student accessing mentor route permissions');
       return { 
         canEdit: false, 
-        canDelete: true, 
-        reason: 'Admins can delete any post but cannot edit',
-        post: convertToCommunityPost(post)
+        canDelete: false, 
+        reason: 'Access denied: Mentor routes require mentor authentication' 
       };
     }
 
-    // Regular users can only manage their own posts
+    if (routeType === 'student' && userRole !== 'student') {
+      console.error('🚨 SECURITY VIOLATION: Mentor accessing student route permissions');
+      return { 
+        canEdit: false, 
+        canDelete: false, 
+        reason: 'Access denied: Student routes require student authentication' 
+      };
+    }
+
+    // 🆕 CRITICAL FIX: ONLY POST OWNER can edit or delete
     if (!isOwner) {
+      console.log('🔐 PERMISSION DENIED: User is not post owner', {
+        postUserId,
+        currentUserId,
+        isOwner
+      });
       return { 
         canEdit: false, 
         canDelete: false, 
-        reason: 'You can only manage your own posts',
-        post: convertToCommunityPost(post)
+        reason: 'You can only manage your own posts'
       };
     }
 
-    // Owners cannot edit/delete if there are replies
-    if (hasReplies) {
-      return { 
-        canEdit: false, 
-        canDelete: false, 
-        reason: 'Cannot edit or delete posts that have replies',
-        post: convertToCommunityPost(post)
-      };
-    }
+    console.log('🔐 PERMISSION GRANTED: User is post owner', {
+      postUserId,
+      currentUserId,
+      isOwner
+    });
 
+    // 🆕 ONLY if user is the owner, allow edit/delete
     return { 
       canEdit: true, 
-      canDelete: true,
-      post: convertToCommunityPost(post)
+      canDelete: true
     };
   } catch (error) {
-    console.error('Error checking post permissions:', error);
+    console.error('❌ Error checking post permissions:', error);
     return { canEdit: false, canDelete: false, reason: 'Error checking permissions' };
   }
 }
@@ -123,22 +146,32 @@ export async function updatePostAction(
   postId: string, 
   updateData: { title?: string; content?: string; category?: string },
   userId: string,
-  userRole: string
+  userRole: string,
+  routeType?: 'mentor' | 'student'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
 
-    // Check permissions first
-    const permissionCheck = await canUserManagePost(postId, userId, userRole);
+    console.log('🔄 UPDATE ACTION: Starting post update', { postId, userId, userRole });
+
+    // 🆕 SECURITY: Enhanced permission check with route validation
+    const permissionCheck = await canUserManagePost(postId, userId, userRole, routeType);
     if (!permissionCheck.canEdit) {
+      console.error('🚨 SECURITY: Unauthorized edit attempt:', {
+        postId, userId, userRole, routeType
+      });
       return { success: false, error: permissionCheck.reason || 'Not authorized to edit this post' };
     }
+
+    // 🆕 FIX: Fetch current post to get editCount
+    const currentPost = await CommunityPost.findById(toObjectId(postId));
+    const currentEditCount = currentPost?.editCount || 0;
 
     const updateFields: any = {
       ...updateData,
       edited: true,
       editedAt: new Date(),
-      editCount: (permissionCheck.post?.editCount || 0) + 1,
+      editCount: currentEditCount + 1,
       updatedAt: new Date()
     };
 
@@ -148,10 +181,20 @@ export async function updatePostAction(
       { new: true }
     );
 
-    revalidatePath('/students/communityforum');
-    revalidatePath('/mentors/community');
-    revalidatePath('/admin/communityforum');
-    revalidatePath('/moderator/community');
+    console.log('✅ UPDATE ACTION: Post updated successfully', { postId });
+
+    // 🆕 Route-specific revalidation
+    if (routeType === 'mentor') {
+      revalidatePath('/mentors/community');
+    } else if (routeType === 'student') {
+      revalidatePath('/students/communityforum');
+    } else {
+      // Fallback: revalidate all paths
+      revalidatePath('/students/communityforum');
+      revalidatePath('/mentors/community');
+      revalidatePath('/admin/communityforum');
+      revalidatePath('/moderator/community');
+    }
 
     return { success: true };
   } catch (error) {
@@ -167,14 +210,21 @@ export async function deletePostWithPermissionCheck(
   postId: string, 
   userId: string, 
   userRole: string,
-  deletedBy?: string
+  deletedBy?: string,
+  routeType?: 'mentor' | 'student'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
 
-    // Check permissions first
-    const permissionCheck = await canUserManagePost(postId, userId, userRole);
+    console.log('🗑️ DELETE ACTION: Starting post deletion', { postId, userId, userRole });
+
+    // 🆕 SECURITY: Enhanced permission check with route validation
+    const permissionCheck = await canUserManagePost(postId, userId, userRole, routeType);
     if (!permissionCheck.canDelete) {
+      console.error('🚨 SECURITY: Unauthorized delete attempt:', {
+        postId, userId, userRole, routeType,
+        reason: permissionCheck.reason
+      });
       return { success: false, error: permissionCheck.reason || 'Not authorized to delete this post' };
     }
 
@@ -189,10 +239,20 @@ export async function deletePostWithPermissionCheck(
 
     await CommunityPost.findByIdAndUpdate(toObjectId(postId), updateData);
 
-    revalidatePath('/students/communityforum');
-    revalidatePath('/mentors/community');
-    revalidatePath('/admin/communityforum');
-    revalidatePath('/moderator/community');
+    console.log('✅ DELETE ACTION: Post deleted successfully', { postId });
+
+    // 🆕 Route-specific revalidation
+    if (routeType === 'mentor') {
+      revalidatePath('/mentors/community');
+    } else if (routeType === 'student') {
+      revalidatePath('/students/communityforum');
+    } else {
+      // Fallback: revalidate all paths
+      revalidatePath('/students/communityforum');
+      revalidatePath('/mentors/community');
+      revalidatePath('/admin/communityforum');
+      revalidatePath('/moderator/community');
+    }
 
     return { success: true };
   } catch (error) {
@@ -202,13 +262,14 @@ export async function deletePostWithPermissionCheck(
 }
 
 /**
- * Check if user can manage a reply
+ * 🆕 SECURE: Enhanced reply permission check - ONLY OWNER can delete
  */
 export async function canUserManageReply(
   postId: string, 
   replyId: string, 
   userId: string, 
-  userRole: string
+  userRole: string,
+  routeType?: 'mentor' | 'student'
 ): Promise<{ 
   canDelete: boolean; 
   reason?: string;
@@ -221,7 +282,6 @@ export async function canUserManageReply(
       return { canDelete: false, reason: 'Post not found' };
     }
 
-    // Use the correct way to find a reply in the array
     const reply = post.replies.find((r: any) => r._id.toString() === replyId);
     if (!reply) {
       return { canDelete: false, reason: 'Reply not found' };
@@ -231,15 +291,34 @@ export async function canUserManageReply(
       return { canDelete: false, reason: 'Reply is already deleted' };
     }
 
-    const isOwner = reply.userId.toString() === userId;
-    const isAdmin = userRole === 'admin';
+    // 🆕 CRITICAL: Convert both IDs to string for proper comparison
+    const replyUserId = reply.userId.toString();
+    const currentUserId = userId.toString();
+    
+    const isOwner = replyUserId === currentUserId;
 
-    // Admin can always delete replies
-    if (isAdmin) {
-      return { canDelete: true };
+    console.log('🔐 REPLY PERMISSION CHECK:', {
+      postId,
+      replyId,
+      replyUserId,
+      currentUserId,
+      isOwner,
+      userRole,
+      routeType
+    });
+
+    // 🆕 CRITICAL: Route-based security validation
+    if (routeType === 'mentor' && userRole !== 'mentor') {
+      console.error('🚨 SECURITY VIOLATION: Student accessing mentor route reply permissions');
+      return { canDelete: false, reason: 'Access denied: Mentor routes require mentor authentication' };
     }
 
-    // Regular users can only delete their own replies
+    if (routeType === 'student' && userRole !== 'student') {
+      console.error('🚨 SECURITY VIOLATION: Mentor accessing student route reply permissions');
+      return { canDelete: false, reason: 'Access denied: Student routes require student authentication' };
+    }
+
+    // 🆕 CRITICAL FIX: ONLY REPLY OWNER can delete
     if (!isOwner) {
       return { canDelete: false, reason: 'You can only delete your own replies' };
     }
@@ -259,14 +338,18 @@ export async function deleteReplyWithPermissionCheck(
   replyId: string, 
   userId: string, 
   userRole: string,
-  deletedBy?: string
+  deletedBy?: string,
+  routeType?: 'mentor' | 'student'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await connectDB();
 
-    // Check permissions first
-    const permissionCheck = await canUserManageReply(postId, replyId, userId, userRole);
+    // 🆕 SECURITY: Enhanced permission check with route validation
+    const permissionCheck = await canUserManageReply(postId, replyId, userId, userRole, routeType);
     if (!permissionCheck.canDelete) {
+      console.error('🚨 SECURITY: Unauthorized reply delete attempt:', {
+        postId, replyId, userId, userRole, routeType
+      });
       return { success: false, error: permissionCheck.reason || 'Not authorized to delete this reply' };
     }
 
@@ -291,10 +374,18 @@ export async function deleteReplyWithPermissionCheck(
       }
     );
 
-    revalidatePath('/students/communityforum');
-    revalidatePath('/mentors/community');
-    revalidatePath('/admin/communityforum');
-    revalidatePath('/moderator/community');
+    // 🆕 Route-specific revalidation
+    if (routeType === 'mentor') {
+      revalidatePath('/mentors/community');
+    } else if (routeType === 'student') {
+      revalidatePath('/students/communityforum');
+    } else {
+      // Fallback: revalidate all paths
+      revalidatePath('/students/communityforum');
+      revalidatePath('/mentors/community');
+      revalidatePath('/admin/communityforum');
+      revalidatePath('/moderator/community');
+    }
 
     return { success: true };
   } catch (error) {

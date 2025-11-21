@@ -6,7 +6,8 @@ import { Mentor } from '@/models/Mentor';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-export async function getCurrentUser() {
+// 🆕 CRITICAL FIX: Enhanced getCurrentUser with proper path detection
+export async function getCurrentUser(request?: any) {
   try {
     console.log('🔍 getCurrentUser - Starting to fetch current user...');
     
@@ -27,17 +28,76 @@ export async function getCurrentUser() {
       admin: !!adminCookie
     });
 
-    // ✅ FIX: Context-aware priority - check both but be explicit about which one to use
-    if (studentCookie?.value) {
-      console.log('🔍 getCurrentUser - Using student session');
-      const student = await getStudentFromCookie(studentCookie.value);
-      if (student) return student;
+    // 🆕 CRITICAL FIX: Get path from multiple sources
+    let path = '';
+    try {
+      // Method 1: Try to get from headers (for server components)
+      const headers = await import('next/headers');
+      const headerList = await headers.headers(); // 🆕 FIX: Add await here
+      const invokePath = headerList.get('x-invoke-path');
+      const nextUrl = headerList.get('next-url');
+      
+      if (invokePath) {
+        path = invokePath;
+      } else if (nextUrl) {
+        path = nextUrl;
+      }
+    } catch (e) {
+      console.log('🔍 getCurrentUser - No headers context available');
     }
-    
-    if (mentorCookie?.value) {
-      console.log('🔍 getCurrentUser - Using mentor session');
+
+    // Method 2: Use the request if provided (for middleware)
+    if (request?.nextUrl?.pathname) {
+      path = request.nextUrl.pathname;
+    }
+
+    console.log('🛣️ getCurrentUser - Detected path:', path || 'NOT_AVAILABLE');
+
+    // 🆕 CRITICAL: Route-based session selection
+    if (path && path.includes('/mentors') && mentorCookie?.value) {
+      console.log('🎯 getCurrentUser - Using MENTOR session for mentor route');
       const mentor = await getMentorFromCookie(mentorCookie.value);
       if (mentor) return mentor;
+      
+      // If mentor session is invalid, clear it
+      console.log('🧹 Clearing invalid mentor session');
+      cookieStore.delete('mentor-session');
+    }
+
+    if (path && path.includes('/students') && studentCookie?.value) {
+      console.log('🎯 getCurrentUser - Using STUDENT session for student route');
+      const student = await getStudentFromCookie(studentCookie.value);
+      if (student) return student;
+      
+      // If student session is invalid, clear it
+      console.log('🧹 Clearing invalid student session');
+      cookieStore.delete('student-session-v2');
+    }
+
+    // 🆕 SECURITY: If we're on mentor route but no valid mentor session, don't fall back to student
+    if (path && path.includes('/mentors') && !mentorCookie?.value) {
+      console.log('🚫 SECURITY: Mentor route accessed without mentor session - no fallback');
+      return null;
+    }
+
+    // 🆕 SECURITY: If we're on student route but no valid student session, don't fall back to mentor
+    if (path && path.includes('/students') && !studentCookie?.value) {
+      console.log('🚫 SECURITY: Student route accessed without student session - no fallback');
+      return null;
+    }
+
+    // 🆕 FALLBACK: When path is not available, use context-aware approach
+    // Prefer mentor session as it's more restrictive
+    if (mentorCookie?.value) {
+      console.log('🔍 getCurrentUser - Using mentor session (context fallback)');
+      const mentor = await getMentorFromCookie(mentorCookie.value);
+      if (mentor) return mentor;
+    }
+    
+    if (studentCookie?.value) {
+      console.log('🔍 getCurrentUser - Using student session (context fallback)');
+      const student = await getStudentFromCookie(studentCookie.value);
+      if (student) return student;
     }
     
     if (adminCookie?.value) {
@@ -53,29 +113,29 @@ export async function getCurrentUser() {
   }
 }
 
-// Add this function to your userActions.ts file
+// 🆕 NEW: Enhanced route-specific user functions with session clearing
 export async function getCurrentUserForMentorRoute() {
   try {
     console.log('🔍 getCurrentUserForMentorRoute - Starting to fetch current user for mentor route...');
     
     const cookieStore = await cookies();
     
-    // Get ALL cookies for debugging
-    const allCookies = cookieStore.getAll();
-    console.log('🍪 getCurrentUserForMentorRoute - All available cookies:', allCookies.map(c => c.name));
-    
     // For mentor routes, ONLY check mentor session
     const mentorCookie = cookieStore.get('mentor-session');
     const studentCookie = cookieStore.get('student-session-v2');
-    const adminCookie = cookieStore.get('admin-data');
 
     console.log('🔍 getCurrentUserForMentorRoute - Session cookies found:', {
       student: !!studentCookie,
-      mentor: !!mentorCookie,
-      admin: !!adminCookie
+      mentor: !!mentorCookie
     });
 
-    // ✅ FIX: For mentor routes, prioritize MENTOR session only
+    // 🆕 SECURITY: Clear student session if trying to access mentor route
+    if (studentCookie?.value) {
+      console.log('🧹 SECURITY: Clearing student session for mentor route access');
+      cookieStore.delete('student-session-v2');
+    }
+
+    // 🆕 SECURITY: For mentor routes, prioritize MENTOR session only
     if (mentorCookie?.value) {
       console.log('🔍 getCurrentUserForMentorRoute - Using mentor session for mentor route');
       return await getMentorFromCookie(mentorCookie.value);
@@ -89,7 +149,6 @@ export async function getCurrentUserForMentorRoute() {
   }
 }
 
-// Add this function too for student routes
 export async function getCurrentUserForStudentRoute() {
   try {
     console.log('🔍 getCurrentUserForStudentRoute - Starting to fetch current user for student route...');
@@ -99,15 +158,19 @@ export async function getCurrentUserForStudentRoute() {
     // For student routes, ONLY check student session
     const studentCookie = cookieStore.get('student-session-v2');
     const mentorCookie = cookieStore.get('mentor-session');
-    const adminCookie = cookieStore.get('admin-data');
 
     console.log('🔍 getCurrentUserForStudentRoute - Session cookies found:', {
       student: !!studentCookie,
-      mentor: !!mentorCookie,
-      admin: !!adminCookie
+      mentor: !!mentorCookie
     });
 
-    // ✅ FIX: For student routes, prioritize STUDENT session only
+    // 🆕 SECURITY: Clear mentor session if trying to access student route
+    if (mentorCookie?.value) {
+      console.log('🧹 SECURITY: Clearing mentor session for student route access');
+      cookieStore.delete('mentor-session');
+    }
+
+    // 🆕 SECURITY: For student routes, prioritize STUDENT session only
     if (studentCookie?.value) {
       console.log('🔍 getCurrentUserForStudentRoute - Using student session for student route');
       return await getStudentFromCookie(studentCookie.value);
@@ -118,6 +181,36 @@ export async function getCurrentUserForStudentRoute() {
   } catch (error) {
     console.error('❌ getCurrentUserForStudentRoute - Unexpected error:', error);
     return null;
+  }
+}
+
+// 🆕 NEW: Session cleanup utility
+export async function clearConflictingSessions(requiredRole: 'mentor' | 'student') {
+  try {
+    const cookieStore = await cookies();
+    
+    if (requiredRole === 'mentor') {
+      const studentCookie = cookieStore.get('student-session-v2');
+      if (studentCookie) {
+        console.log('🧹 clearConflictingSessions - Clearing student session for mentor access');
+        cookieStore.delete('student-session-v2');
+        return true;
+      }
+    }
+    
+    if (requiredRole === 'student') {
+      const mentorCookie = cookieStore.get('mentor-session');
+      if (mentorCookie) {
+        console.log('🧹 clearConflictingSessions - Clearing mentor session for student access');
+        cookieStore.delete('mentor-session');
+        return true;
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ clearConflictingSessions - Error:', error);
+    return false;
   }
 }
 
@@ -160,9 +253,10 @@ async function getStudentFromCookie(cookieValue: string) {
     
     const userDataFromDB = user as any;
     
-    // ✅ FIX: Create a plain object without Mongoose methods
+    // Create a plain object without Mongoose methods
     const formattedUser = {
       _id: userDataFromDB._id.toString(),
+      id: userDataFromDB._id.toString(), // 🆕 Add both _id and id for compatibility
       name: userDataFromDB.name,
       email: userDataFromDB.email,
       role: userDataFromDB.role,
@@ -195,7 +289,7 @@ async function getMentorFromCookie(cookieValue: string) {
       role: mentorData.role
     });
 
-    // ✅ FIX: Check for mentorId instead of id
+    // Check for mentorId instead of id
     if (!mentorData.mentorId) {
       console.log('❌ getMentorFromCookie - No mentorId found in cookie data');
       return null;
@@ -210,7 +304,7 @@ async function getMentorFromCookie(cookieValue: string) {
     console.log('🔍 getMentorFromCookie - Connecting to database...');
     await connectDB();
     
-    // ✅ FIX: Use mentorData.mentorId to find the mentor
+    // Use mentorData.mentorId to find the mentor
     console.log('🔍 getMentorFromCookie - Searching for mentor with ID:', mentorData.mentorId);
     const mentor = await Mentor.findById(mentorData.mentorId).select('-password').lean();
     
@@ -223,9 +317,11 @@ async function getMentorFromCookie(cookieValue: string) {
     
     const mentorDataFromDB = mentor as any;
     
-    // ✅ FIX: Create a plain object without Mongoose methods
+    // Create a plain object without Mongoose methods
     const formattedMentor = {
       _id: mentorDataFromDB._id.toString(),
+      id: mentorDataFromDB._id.toString(), // 🆕 Add both _id and id for compatibility
+      mentorId: mentorDataFromDB._id.toString(), // 🆕 Add mentorId for compatibility
       name: mentorDataFromDB.name,
       email: mentorDataFromDB.email,
       role: mentorDataFromDB.role,
@@ -252,7 +348,6 @@ export async function verifyStudentSession() {
   try {
     const cookieStore = await cookies();
     
-    // USE ONLY NEW COOKIE NAME
     const studentDataCookie = cookieStore.get('student-session-v2')?.value;
 
     if (!studentDataCookie) {
@@ -275,11 +370,11 @@ export async function verifyStudentSession() {
 
     const studentDataFromDB = student as any;
     
-    // ✅ FIX: Create plain object
     return { 
       isValid: true, 
       student: {
         id: studentDataFromDB._id.toString(),
+        _id: studentDataFromDB._id.toString(), // 🆕 Add _id for compatibility
         name: studentDataFromDB.name,
         email: studentDataFromDB.email,
         role: 'student',
@@ -295,7 +390,7 @@ export async function verifyStudentSession() {
   }
 }
 
-// Mentor-specific session verification (NO REDIRECTS) - FIXED VERSION
+// Mentor-specific session verification (NO REDIRECTS)
 export async function verifyMentorSession() {
   try {
     const cookieStore = await cookies();
@@ -322,7 +417,7 @@ export async function verifyMentorSession() {
       return { isValid: false, error: 'Not a mentor session' };
     }
 
-    // ✅ FIX: Check for mentorId instead of id
+    // Check for mentorId instead of id
     if (!mentorData.mentorId) {
       console.log('❌ verifyMentorSession - No mentorId found in mentor cookie data');
       return { isValid: false, error: 'No mentor ID found' };
@@ -330,7 +425,7 @@ export async function verifyMentorSession() {
 
     await connectDB();
     
-    // ✅ FIX: Use mentorData.mentorId to find the mentor
+    // Use mentorData.mentorId to find the mentor
     const mentor = await Mentor.findById(mentorData.mentorId).lean();
     
     if (!mentor) {
@@ -342,11 +437,12 @@ export async function verifyMentorSession() {
     
     const mentorDataFromDB = mentor as any;
     
-    // ✅ FIX: Create plain object without Mongoose methods
     return { 
       isValid: true, 
       mentor: {
-        id: mentorDataFromDB._id.toString(), // ✅ Return database ID, not cookie ID
+        id: mentorDataFromDB._id.toString(),
+        _id: mentorDataFromDB._id.toString(), // 🆕 Add _id for compatibility
+        mentorId: mentorDataFromDB._id.toString(), // 🆕 Add mentorId for compatibility
         name: mentorDataFromDB.name,
         email: mentorDataFromDB.email,
         role: 'mentor',
@@ -504,9 +600,10 @@ export async function getUserData(userId: string) {
 
     const userData = user as any;
     
-    // ✅ FIX: Create plain object
+    // Create plain object
     const formattedUser = {
       _id: userData._id.toString(),
+      id: userData._id.toString(), // 🆕 Add id for compatibility
       name: userData.name,
       email: userData.email,
       role: userData.role,
@@ -688,7 +785,8 @@ export async function checkAuth() {
 export async function requireStudentAuth() {
   console.log('🔐 requireStudentAuth - Starting strict authentication check');
   
-  const user = await getCurrentUser();
+  // 🆕 Use route-specific function
+  const user = await getCurrentUserForStudentRoute();
   
   if (!user) {
     console.log('❌ requireStudentAuth - No user found, redirecting to login');
@@ -708,7 +806,8 @@ export async function requireStudentAuth() {
 export async function requireMentorAuth() {
   console.log('🔐 requireMentorAuth - Starting strict authentication check');
   
-  const user = await getCurrentUser();
+  // 🆕 Use route-specific function
+  const user = await getCurrentUserForMentorRoute();
   
   if (!user) {
     console.log('❌ requireMentorAuth - No user found, redirecting to login');
@@ -776,7 +875,6 @@ export async function getCurrentStudentSession() {
   try {
     const cookieStore = await cookies();
     
-    // USE ONLY NEW COOKIE NAME
     const studentDataCookie = cookieStore.get('student-session-v2')?.value;
 
     if (!studentDataCookie) {
@@ -800,7 +898,7 @@ export async function getCurrentStudentSession() {
   }
 }
 
-// Get current mentor session data (for client-side use) - FIXED VERSION
+// Get current mentor session data (for client-side use)
 export async function getCurrentMentorSession() {
   try {
     const cookieStore = await cookies();
@@ -827,7 +925,7 @@ export async function getCurrentMentorSession() {
       return { isLoggedIn: false, mentor: null };
     }
 
-    // ✅ FIX: Check for mentorId instead of id
+    // Check for mentorId instead of id
     if (!mentorData.mentorId) {
       console.log('❌ getCurrentMentorSession - No mentorId found in mentor cookie data');
       return { isLoggedIn: false, mentor: null };
@@ -835,7 +933,7 @@ export async function getCurrentMentorSession() {
 
     await connectDB();
     
-    // ✅ FIX: Use mentorData.mentorId to find the mentor
+    // Use mentorData.mentorId to find the mentor
     const mentor = await Mentor.findById(mentorData.mentorId).lean();
     
     if (!mentor) {
@@ -847,11 +945,12 @@ export async function getCurrentMentorSession() {
     
     const mentorDataFromDB = mentor as any;
     
-    // ✅ FIXED: Return plain object without Mongoose methods
     return { 
       isLoggedIn: true, 
       mentor: {
-        id: mentorDataFromDB._id.toString(), // ✅ This is the correct database ID
+        id: mentorDataFromDB._id.toString(),
+        _id: mentorDataFromDB._id.toString(), // 🆕 Add _id for compatibility
+        mentorId: mentorDataFromDB._id.toString(), // 🆕 Add mentorId for compatibility
         name: mentorDataFromDB.name,
         email: mentorDataFromDB.email,
         role: 'mentor',
@@ -873,7 +972,6 @@ export async function hasStudentSession() {
   try {
     const cookieStore = await cookies();
     
-    // USE ONLY NEW COOKIE NAME
     const studentDataCookie = cookieStore.get('student-session-v2')?.value;
     
     if (!studentDataCookie) {

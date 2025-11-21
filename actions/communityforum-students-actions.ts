@@ -23,6 +23,20 @@ const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
   return id;
 };
 
+// 🆕 NEW: Route validation for student actions
+async function validateStudentRouteAccess(userId: string, userRole: string): Promise<{ valid: boolean; error?: string }> {
+  // 🆕 CRITICAL: Ensure this is actually a student accessing student routes
+  if (userRole !== 'student') {
+    console.error('🚨 CRITICAL SECURITY VIOLATION: Non-student accessing student route:', {
+      userId,
+      userRole
+    });
+    return { valid: false, error: 'Access denied: Student routes require student authentication' };
+  }
+  
+  return { valid: true };
+}
+
 // USE THE SAME QUERY LOGIC AS MENTORS BUT FOR STUDENT VISIBILITY
 export async function getStudentCommunityPosts() {
   try {
@@ -332,14 +346,43 @@ export async function reportPostAction(postId: string, replyId: string | undefin
   }
 }
 
-// New Post Management Functions
+// 🆕 ENHANCED: Post management with STRICT OWNERSHIP
 export async function updateStudentPostAction(
   postId: string,
   updateData: { title?: string; content?: string; category?: string },
   userId: string,
   userRole: string
 ): Promise<{ success: boolean; error?: string }> {
-  return updatePostAction(postId, updateData, userId, userRole);
+  try {
+    // 🆕 SECURITY: Route validation before proceeding
+    const routeCheck = await validateStudentRouteAccess(userId, userRole);
+    if (!routeCheck.valid) {
+      return { success: false, error: routeCheck.error };
+    }
+
+    // Additional validation before proceeding
+    await connectDB();
+    const post = await CommunityPost.findById(postId);
+    
+    if (!post) {
+      return { success: false, error: 'Post not found' };
+    }
+
+    // 🆕 CRITICAL: ONLY OWNER can edit - remove admin exception
+    const isOwner = post.userId.toString() === userId.toString();
+    if (!isOwner) {
+      console.error('🚨 SECURITY VIOLATION: Unauthorized edit attempt by student:', {
+        userId, userRole, postOwner: post.userId.toString()
+      });
+      return { success: false, error: 'You can only edit your own posts' };
+    }
+
+    // 🆕 Pass route type to the action
+    return updatePostAction(postId, updateData, userId, userRole, 'student');
+  } catch (error) {
+    console.error('Error in secure post update:', error);
+    return { success: false, error: 'Failed to update post' };
+  }
 }
 
 export async function deleteStudentPostAction(
@@ -347,7 +390,37 @@ export async function deleteStudentPostAction(
   userId: string, 
   userRole: string
 ): Promise<{ success: boolean; error?: string }> {
-  return deletePostWithPermissionCheck(postId, userId, userRole, userId);
+  try {
+    // 🆕 SECURITY: Route validation before proceeding
+    const routeCheck = await validateStudentRouteAccess(userId, userRole);
+    if (!routeCheck.valid) {
+      return { success: false, error: routeCheck.error };
+    }
+
+    // Additional validation before proceeding
+    await connectDB();
+    const post = await CommunityPost.findById(postId);
+    
+    if (!post) {
+      return { success: false, error: 'Post not found' };
+    }
+
+    // 🆕 CRITICAL: ONLY OWNER can delete - remove admin exception
+    const isOwner = post.userId.toString() === userId.toString();
+    
+    if (!isOwner) {
+      console.error('🚨 SECURITY VIOLATION: Unauthorized delete attempt by student:', {
+        userId, userRole, postOwner: post.userId.toString()
+      });
+      return { success: false, error: 'You can only delete your own posts' };
+    }
+
+    // 🆕 Pass route type to the action
+    return deletePostWithPermissionCheck(postId, userId, userRole, userId, 'student');
+  } catch (error) {
+    console.error('Error in secure post deletion:', error);
+    return { success: false, error: 'Failed to delete post' };
+  }
 }
 
 export async function deleteStudentReplyAction(
@@ -356,7 +429,42 @@ export async function deleteStudentReplyAction(
   userId: string, 
   userRole: string
 ): Promise<{ success: boolean; error?: string }> {
-  return deleteReplyWithPermissionCheck(postId, replyId, userId, userRole, userId);
+  try {
+    // 🆕 SECURITY: Route validation before proceeding
+    const routeCheck = await validateStudentRouteAccess(userId, userRole);
+    if (!routeCheck.valid) {
+      return { success: false, error: routeCheck.error };
+    }
+
+    // Additional validation before proceeding
+    await connectDB();
+    const post = await CommunityPost.findById(postId);
+    
+    if (!post) {
+      return { success: false, error: 'Post not found' };
+    }
+
+    const reply = post.replies.find((r: any) => r._id.toString() === replyId);
+    if (!reply) {
+      return { success: false, error: 'Reply not found' };
+    }
+
+    // 🆕 CRITICAL: ONLY OWNER can delete - remove admin exception
+    const isOwner = reply.userId.toString() === userId.toString();
+    
+    if (!isOwner) {
+      console.error('🚨 SECURITY VIOLATION: Unauthorized reply delete attempt by student:', {
+        userId, userRole, replyOwner: reply.userId.toString()
+      });
+      return { success: false, error: 'You can only delete your own replies' };
+    }
+
+    // 🆕 Pass route type to the action
+    return deleteReplyWithPermissionCheck(postId, replyId, userId, userRole, userId, 'student');
+  } catch (error) {
+    console.error('Error in secure reply deletion:', error);
+    return { success: false, error: 'Failed to delete reply' };
+  }
 }
 
 export async function checkStudentPostPermissions(
@@ -364,5 +472,6 @@ export async function checkStudentPostPermissions(
   userId: string, 
   userRole: string
 ) {
-  return canUserManagePost(postId, userId, userRole);
+  // 🆕 Pass route type to the permission check
+  return canUserManagePost(postId, userId, userRole, 'student');
 }

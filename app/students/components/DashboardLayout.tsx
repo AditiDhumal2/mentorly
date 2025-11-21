@@ -1,9 +1,11 @@
+// app/students/layout.tsx (or wherever your student dashboard layout is)
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { studentLogout } from '@/actions/userActions';
 import { isUserModerator } from '@/actions/moderator-actions';
+import MessageBadge from '@/components/messaging/MessageBadge';
 
 interface User {
   _id: string;
@@ -29,6 +31,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isModerator, setIsModerator] = useState(false);
   const [loadingModeratorStatus, setLoadingModeratorStatus] = useState(true);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
   useEffect(() => {
     const checkModeratorStatus = async () => {
@@ -49,6 +52,14 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
     checkModeratorStatus();
   }, [user]);
 
+  const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const closeSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
   const menuItems = [
     { name: 'Dashboard', icon: '🏠', path: '/students', description: 'Overview and analytics' },
     { name: 'Learning Roadmap', icon: '🗺️', path: '/students/roadmap', description: 'Your learning path' },
@@ -58,6 +69,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
     { name: 'Personal Branding', icon: '⭐', path: '/students/professionalbranding', description: 'Build your profile' },
     { name: 'Resources', icon: '📚', path: '/students/resources', description: 'Learning materials' },
     { name: 'Community Forum', icon: '💬', path: '/students/communityforum', description: 'Connect & discuss' },
+    { name: 'Messages', icon: '✉️', path: '/students/messages', description: 'Personal messaging', hasBadge: true },
     { name: 'Progress Tracking', icon: '📈', path: '/students/progress', description: 'Your achievements' },
     { name: 'Higher Education', icon: '🎓', path: '/students/highereducation', description: 'Study abroad guidance' },
     { name: 'Find Mentors', icon: '👨‍🏫', path: '/students/mentor-selection', description: 'Connect with mentors' },
@@ -210,20 +222,25 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
               <button
                 key={item.name}
                 onClick={() => handleNavigation(item.path)}
-                className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 group ${
+                className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 group relative ${
                   isActive(item.path)
                     ? item.name === 'Moderator' 
                       ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25 border border-orange-400/50'
+                      : item.name === 'Messages'
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25 border border-purple-400/50'
                       : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 border border-cyan-400/50'
                     : 'text-blue-100 hover:bg-blue-700/50 hover:text-white border border-transparent hover:border-cyan-400/30'
                 } ${
                   item.name === 'Moderator' && !isActive(item.path)
                     ? 'hover:bg-orange-500/20 hover:border-orange-400/30'
+                    : item.name === 'Messages' && !isActive(item.path)
+                    ? 'hover:bg-purple-500/20 hover:border-purple-400/30'
                     : ''
                 }`}
               >
                 <span className={`text-lg group-hover:scale-110 transition-transform ${
-                  item.name === 'Moderator' ? 'text-orange-300' : ''
+                  item.name === 'Moderator' ? 'text-orange-300' : 
+                  item.name === 'Messages' ? 'text-purple-300' : ''
                 }`}>
                   {item.icon}
                 </span>
@@ -231,9 +248,20 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                   <p className="text-sm font-medium truncate">{item.name}</p>
                   <p className="text-xs text-blue-200 truncate">{item.description}</p>
                 </div>
+                
+                {/* Message Badge */}
+                {item.hasBadge && user && (
+                  <MessageBadge 
+                    userId={user._id} 
+                    className="absolute -top-1 -right-1"
+                    showSnackbar={showSnackbar}
+                  />
+                )}
+                
                 {isActive(item.path) && (
                   <div className={`ml-auto w-2 h-2 rounded-full animate-pulse ${
-                    item.name === 'Moderator' ? 'bg-orange-300' : 'bg-cyan-300'
+                    item.name === 'Moderator' ? 'bg-orange-300' : 
+                    item.name === 'Messages' ? 'bg-purple-300' : 'bg-cyan-300'
                   }`}></div>
                 )}
               </button>
@@ -277,6 +305,21 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           {children}
         </div>
       </div>
+
+      {/* Snackbar */}
+      {snackbar.open && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+          snackbar.severity === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          {snackbar.message}
+          <button 
+            onClick={closeSnackbar}
+            className="ml-4 text-white hover:text-gray-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { CommunityPost } from '@/types/community';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { checkMentorPostPermissions, deleteMentorPostAction, updateMentorPostAction } from '@/actions/communityforum-mentor-actions';
 import Snackbar from '@/components/Snackbar';
 
@@ -14,6 +14,8 @@ interface MentorPostCardProps {
   currentUser: any;
   onPostUpdated?: (post: CommunityPost) => void;
   onPostDeleted?: (postId: string) => void;
+  // 🆕 NEW: Add refresh trigger prop
+  refreshTrigger?: number;
 }
 
 interface PermissionState {
@@ -30,7 +32,8 @@ export default function MentorPostCard({
   onReportPost,
   currentUser,
   onPostUpdated,
-  onPostDeleted
+  onPostDeleted,
+  refreshTrigger = 0 // 🆕 NEW: Refresh trigger
 }: MentorPostCardProps) {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -41,11 +44,74 @@ export default function MentorPostCard({
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
-  useEffect(() => {
-    if (currentUser && post) {
-      checkPermissions();
+  // 🆕 ENHANCED: Use useCallback for permission checking
+  const checkPermissions = useCallback(async () => {
+    if (!currentUser) {
+      console.log('🔐 No current user, skipping permission check');
+      return;
     }
-  }, [currentUser, post]);
+    
+    try {
+      // SECURITY FIX: Use consistent ID field - prioritize the correct one
+      const mentorId = currentUser.id || currentUser._id || currentUser.mentorId;
+      
+      console.log('🔐 Mentor Permission Check - REFRESHED:', {
+        postId: post._id,
+        postUserId: post.userId,
+        currentUserId: mentorId,
+        currentUserRole: currentUser.role,
+        refreshTrigger: refreshTrigger,
+        timestamp: new Date().toISOString()
+      });
+
+      const result = await checkMentorPostPermissions(
+        post._id, 
+        mentorId, 
+        currentUser.role
+      );
+
+      console.log('🔐 Permission Check Result:', {
+        postId: post._id,
+        canEdit: result.canEdit,
+        canDelete: result.canDelete,
+        reason: result.reason
+      });
+
+      setPermissions({
+        canEdit: result.canEdit,
+        canDelete: result.canDelete,
+        reason: result.reason || ''
+      });
+    } catch (error) {
+      console.error('Error checking permissions:', error);
+      setPermissions({
+        canEdit: false,
+        canDelete: false,
+        reason: 'Error checking permissions'
+      });
+    }
+  }, [currentUser, post._id, post.userId, refreshTrigger]);
+
+  // 🆕 ENHANCED: Refresh permissions when dependencies change
+  useEffect(() => {
+    console.log('🔄 MentorPostCard: Refreshing permissions', {
+      postId: post._id,
+      refreshTrigger,
+      hasCurrentUser: !!currentUser
+    });
+    checkPermissions();
+  }, [checkPermissions, refreshTrigger, currentUser, post._id]);
+
+  // SECURITY DEBUG: Log user and post info
+  useEffect(() => {
+    console.log('🔍 SECURITY DEBUG - MentorPostCard:', {
+      currentUserId: currentUser?.id || currentUser?._id || currentUser?.mentorId,
+      postUserId: post.userId,
+      permissions: permissions,
+      shouldShowManageButtons: permissions.canEdit && permissions.canDelete,
+      windowLocation: typeof window !== 'undefined' ? window.location.pathname : '',
+    });
+  }, [currentUser, post.userId, permissions]);
 
   const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
     setSnackbar({ open: true, message, severity });
@@ -53,17 +119,6 @@ export default function MentorPostCard({
 
   const closeSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
-  };
-
-  const checkPermissions = async () => {
-    if (!currentUser) return;
-    
-    const result = await checkMentorPostPermissions(post._id, currentUser.id || currentUser._id, currentUser.role);
-    setPermissions({
-      canEdit: result.canEdit,
-      canDelete: result.canDelete,
-      reason: result.reason || ''
-    });
   };
 
   const isUpvoted = userId && post.upvotes && 
@@ -157,14 +212,19 @@ export default function MentorPostCard({
   };
 
   const handleEdit = async () => {
-    if (!permissions.canEdit) return;
+    if (!permissions.canEdit) {
+      showSnackbar(permissions.reason || 'You cannot edit this post', 'error');
+      return;
+    }
     
     setLoading(true);
     try {
+      const mentorId = currentUser.id || currentUser._id || currentUser.mentorId;
+      
       const result = await updateMentorPostAction(
         post._id,
         editData,
-        currentUser.id || currentUser._id,
+        mentorId,
         currentUser.role
       );
 
@@ -174,6 +234,8 @@ export default function MentorPostCard({
           onPostUpdated({ ...post, ...editData, edited: true, editedAt: new Date().toISOString() });
         }
         showSnackbar('Post updated successfully!', 'success');
+        // 🆕 Refresh permissions after update
+        await checkPermissions();
       } else {
         showSnackbar(result.error || 'Failed to update post', 'error');
       }
@@ -186,13 +248,24 @@ export default function MentorPostCard({
   };
 
   const handleDelete = async () => {
-    if (!permissions.canDelete) return;
+    if (!permissions.canDelete) {
+      showSnackbar(permissions.reason || 'You cannot delete this post', 'error');
+      return;
+    }
     
     setLoading(true);
     try {
+      const mentorId = currentUser.id || currentUser._id || currentUser.mentorId;
+      
+      console.log('🗑️ Attempting to delete post:', {
+        postId: post._id,
+        userId: mentorId,
+        userRole: currentUser.role
+      });
+
       const result = await deleteMentorPostAction(
         post._id,
-        currentUser.id || currentUser._id,
+        mentorId,
         currentUser.role
       );
 
@@ -203,6 +276,7 @@ export default function MentorPostCard({
         }
         showSnackbar('Post deleted successfully!', 'success');
       } else {
+        console.error('Delete failed:', result.error);
         showSnackbar(result.error || 'Failed to delete post', 'error');
       }
     } catch (error) {
@@ -232,6 +306,17 @@ export default function MentorPostCard({
     return 'View Discussion';
   };
 
+  // 🆕 CRITICAL FIX: Only use server permissions
+  const shouldShowManageButtons = permissions.canEdit && permissions.canDelete;
+
+  console.log('🎯 Mentor Post Card Render - FINAL PERMISSIONS:', {
+    postId: post._id,
+    permissions: permissions,
+    shouldShowManageButtons: shouldShowManageButtons,
+    currentUserRole: currentUser?.role,
+    timestamp: new Date().toISOString()
+  });
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
@@ -240,26 +325,22 @@ export default function MentorPostCard({
           <div className="flex items-center space-x-2">
             {getVisibilityBadge(post.visibility)}
             {getRoleBadge(post.userRole)}
-            {(permissions.canEdit || permissions.canDelete) && (
+            {shouldShowManageButtons && (
               <div className="flex space-x-1 ml-2">
-                {permissions.canEdit && (
-                  <button
-                    onClick={() => setShowEditModal(true)}
-                    className="text-blue-600 hover:text-blue-800 text-sm px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
-                    title="Edit post"
-                  >
-                    ✏️
-                  </button>
-                )}
-                {permissions.canDelete && (
-                  <button
-                    onClick={() => setShowDeleteModal(true)}
-                    className="text-red-600 hover:text-red-800 text-sm px-2 py-1 border border-red-300 rounded hover:bg-red-50 transition-colors"
-                    title="Delete post"
-                  >
-                    🗑️
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="text-blue-600 hover:text-blue-800 text-sm px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
+                  title="Edit post"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="text-red-600 hover:text-red-800 text-sm px-2 py-1 border border-red-300 rounded hover:bg-red-50 transition-colors"
+                  title="Delete post"
+                >
+                  🗑️
+                </button>
               </div>
             )}
           </div>
@@ -270,11 +351,6 @@ export default function MentorPostCard({
           {post.edited && (
             <span className="text-xs text-gray-500 italic">
               (edited {post.editedAt ? formatDate(post.editedAt) : 'recently'})
-            </span>
-          )}
-          {!permissions.canEdit && permissions.reason && (
-            <span className="text-xs text-gray-500" title={permissions.reason}>
-              🔒 {post.replies.length > 0 ? 'Has replies' : 'Locked'}
             </span>
           )}
         </div>
@@ -394,14 +470,6 @@ export default function MentorPostCard({
                   />
                 </div>
                 
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-blue-800 mb-2">Editing Guidelines</h4>
-                  <p className="text-blue-700 text-sm">
-                    You can only edit posts that have no replies. Once someone replies to your post, 
-                    editing will be disabled to maintain conversation context.
-                  </p>
-                </div>
-                
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     onClick={() => setShowEditModal(false)}
@@ -431,14 +499,6 @@ export default function MentorPostCard({
             <p className="text-gray-600 mb-4">
               Are you sure you want to delete this post? This action cannot be undone.
             </p>
-            
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-              <h4 className="font-semibold text-yellow-800 mb-2">Important</h4>
-              <p className="text-yellow-700 text-sm">
-                You can only delete posts that have no replies. Once someone replies to your post, 
-                deletion will be disabled to maintain conversation integrity.
-              </p>
-            </div>
             
             <div className="flex justify-end space-x-3">
               <button

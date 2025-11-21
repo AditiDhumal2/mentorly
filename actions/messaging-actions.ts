@@ -1,67 +1,78 @@
+// actions/messaging-actions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
-import { Message } from '@/models/PersonalMessage';
+import { Message } from '@/models/Message';
 import { Student } from '@/models/Students';
 import { Mentor } from '@/models/Mentor';
+import { revalidatePath } from 'next/cache';
 import { Types } from 'mongoose';
+import { SendMessageData, UserSearchResult, Conversation } from '@/types/messaging';
 
-const toObjectId = (id: string | Types.ObjectId): Types.ObjectId => {
-  if (typeof id === 'string') {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new Error('Invalid ObjectId');
-    }
-    return new Types.ObjectId(id);
-  }
-  return id;
+const toObjectId = (id: string): Types.ObjectId => {
+  return new Types.ObjectId(id);
 };
 
-export interface SendMessageData {
-  senderId: string;
-  senderRole: 'student' | 'mentor';
-  senderName: string;
-  receiverId: string;
-  receiverRole: 'student' | 'mentor';
-  receiverName: string;
-  message: string;
-}
-
-export interface Conversation {
-  userId: string;
-  userName: string;
-  userRole: 'student' | 'mentor';
-  lastMessage: string;
-  lastMessageTime: Date;
-  unreadCount: number;
-}
-
-export async function sendMessage(data: SendMessageData): Promise<{ success: boolean; error?: string }> {
+// Send a new message
+export async function sendMessageAction(
+  senderId: string,
+  senderName: string,
+  senderRole: 'student' | 'mentor' | 'admin',
+  messageData: SendMessageData
+): Promise<{ success: boolean; error?: string; messageId?: string }> {
   try {
     await connectDB();
 
+    // Validate receiver exists
+    let receiver;
+    if (messageData.receiverRole === 'student') {
+      receiver = await Student.findById(messageData.receiverId).select('name email').lean();
+    } else if (messageData.receiverRole === 'mentor') {
+      receiver = await Mentor.findById(messageData.receiverId).select('name email').lean();
+    }
+
+    if (!receiver) {
+      return { success: false, error: 'Recipient not found' };
+    }
+
+    // Create message
     const message = new Message({
-      senderId: toObjectId(data.senderId),
-      senderRole: data.senderRole,
-      senderName: data.senderName,
-      receiverId: toObjectId(data.receiverId),
-      receiverRole: data.receiverRole,
-      receiverName: data.receiverName,
-      message: data.message
+      senderId: toObjectId(senderId),
+      senderName,
+      senderRole,
+      receiverId: toObjectId(messageData.receiverId),
+      receiverName: messageData.receiverName,
+      receiverRole: messageData.receiverRole,
+      content: messageData.content.trim(),
+      isRead: false
     });
 
     await message.save();
-    return { success: true };
+
+    // Revalidate relevant paths
+    revalidatePath('/messages');
+    revalidatePath(`/messages/${messageData.receiverId}`);
+
+    // FIX: Properly type the _id access
+    return { 
+      success: true, 
+      messageId: (message._id as Types.ObjectId).toString() 
+    };
   } catch (error) {
     console.error('Error sending message:', error);
     return { success: false, error: 'Failed to send message' };
   }
 }
 
-export async function getConversations(userId: string, userRole: 'student' | 'mentor'): Promise<Conversation[]> {
+// Get conversations list for a user
+export async function getConversationsAction(
+  userId: string,
+  userRole: 'student' | 'mentor' | 'admin'
+): Promise<{ success: boolean; conversations?: Conversation[]; error?: string }> {
   try {
     await connectDB();
 
-    // Get all unique conversations for the user
+    // Get unique conversations (people you've messaged or been messaged by)
     const conversations = await Message.aggregate([
       {
         $match: {
@@ -76,185 +87,225 @@ export async function getConversations(userId: string, userRole: 'student' | 'me
       },
       {
         $group: {
-          _id: '$conversationId',
-          lastMessage: { $first: '$message' },
+          _id: {
+            $cond: [
+              { $eq: ['$senderId', toObjectId(userId)] },
+              '$receiverId',
+              '$senderId'
+            ]
+          },
+          lastMessage: { $first: '$content' },
           lastMessageTime: { $first: '$createdAt' },
-          participants: { $first: {
-            senderId: '$senderId',
-            senderRole: '$senderRole',
-            senderName: '$senderName',
-            receiverId: '$receiverId',
-            receiverRole: '$receiverRole',
-            receiverName: '$receiverName'
-          }}
-        }
-      },
-      {
-        $project: {
-          otherUserId: {
-            $cond: {
-              if: { $eq: ['$participants.senderId', toObjectId(userId)] },
-              then: '$participants.receiverId',
-              else: '$participants.senderId'
+          otherUserName: {
+            $first: {
+              $cond: [
+                { $eq: ['$senderId', toObjectId(userId)] },
+                '$receiverName',
+                '$senderName'
+              ]
             }
           },
           otherUserRole: {
-            $cond: {
-              if: { $eq: ['$participants.senderId', toObjectId(userId)] },
-              then: '$participants.receiverRole',
-              else: '$participants.senderRole'
+            $first: {
+              $cond: [
+                { $eq: ['$senderId', toObjectId(userId)] },
+                '$receiverRole',
+                '$senderRole'
+              ]
             }
           },
-          otherUserName: {
-            $cond: {
-              if: { $eq: ['$participants.senderId', toObjectId(userId)] },
-              then: '$participants.receiverName',
-              else: '$participants.senderName'
+          unreadCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$receiverId', toObjectId(userId)] },
+                    { $eq: ['$isRead', false] }
+                  ]
+                },
+                1,
+                0
+              ]
             }
-          },
-          lastMessage: 1,
-          lastMessageTime: 1
+          }
         }
+      },
+      {
+        $sort: { lastMessageTime: -1 }
       }
     ]);
 
-    // Get unread counts for each conversation
-    const conversationsWithUnread = await Promise.all(
-      conversations.map(async (conv) => {
-        const unreadCount = await Message.countDocuments({
-          conversationId: conv._id,
-          receiverId: toObjectId(userId),
-          isRead: false
-        });
+    // Convert aggregation result to Conversation type
+    const formattedConversations: Conversation[] = conversations.map((conv: any) => ({
+      userId: (conv._id as Types.ObjectId).toString(),
+      userName: conv.otherUserName,
+      userRole: conv.otherUserRole,
+      lastMessage: conv.lastMessage,
+      lastMessageTime: conv.lastMessageTime?.toISOString(),
+      unreadCount: conv.unreadCount
+    }));
 
-        return {
-          userId: conv.otherUserId.toString(),
-          userName: conv.otherUserName,
-          userRole: conv.otherUserRole,
-          lastMessage: conv.lastMessage,
-          lastMessageTime: conv.lastMessageTime,
-          unreadCount
-        };
-      })
-    );
-
-    return conversationsWithUnread.sort((a, b) => 
-      new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
-    );
+    return { success: true, conversations: formattedConversations };
   } catch (error) {
-    console.error('Error getting conversations:', error);
-    return [];
+    console.error('Error fetching conversations:', error);
+    return { success: false, error: 'Failed to fetch conversations' };
   }
 }
 
-export async function getMessages(conversationId: string, currentUserId: string): Promise<any[]> {
+// Get messages between two users
+export async function getMessagesAction(
+  currentUserId: string,
+  otherUserId: string
+): Promise<{ success: boolean; messages?: any[]; error?: string }> {
   try {
     await connectDB();
 
-    const messages = await Message.find({ conversationId })
-      .sort({ createdAt: 1 })
-      .lean();
+    const messages = await Message.find({
+      $or: [
+        { senderId: toObjectId(currentUserId), receiverId: toObjectId(otherUserId) },
+        { senderId: toObjectId(otherUserId), receiverId: toObjectId(currentUserId) }
+      ]
+    })
+    .sort({ createdAt: 1 })
+    .lean();
 
     // Mark messages as read
     await Message.updateMany(
       {
-        conversationId,
         receiverId: toObjectId(currentUserId),
+        senderId: toObjectId(otherUserId),
         isRead: false
       },
       {
-        $set: { isRead: true, readAt: new Date() }
+        isRead: true,
+        readAt: new Date()
       }
     );
 
-    return messages.map((msg: any) => ({
-      _id: msg._id.toString(),
-      senderId: msg.senderId.toString(),
-      senderRole: msg.senderRole,
+    // Properly type the message document
+    const formattedMessages = messages.map((msg: any) => ({
+      _id: (msg._id as Types.ObjectId).toString(),
+      senderId: (msg.senderId as Types.ObjectId).toString(),
       senderName: msg.senderName,
-      receiverId: msg.receiverId.toString(),
-      receiverRole: msg.receiverRole,
+      senderRole: msg.senderRole,
+      receiverId: (msg.receiverId as Types.ObjectId).toString(),
       receiverName: msg.receiverName,
-      message: msg.message,
+      receiverRole: msg.receiverRole,
+      content: msg.content,
       isRead: msg.isRead,
-      readAt: msg.readAt,
+      readAt: msg.readAt?.toISOString(),
       createdAt: msg.createdAt.toISOString(),
-      isOwnMessage: msg.senderId.toString() === currentUserId
+      updatedAt: msg.updatedAt.toISOString()
     }));
+
+    return { success: true, messages: formattedMessages };
   } catch (error) {
-    console.error('Error getting messages:', error);
-    return [];
+    console.error('Error fetching messages:', error);
+    return { success: false, error: 'Failed to fetch messages' };
   }
 }
 
-export async function getUsersForMessaging(currentUserId: string, currentUserRole: 'student' | 'mentor', searchTerm?: string): Promise<any[]> {
+// Search users for messaging
+export async function searchUsersAction(
+  query: string,
+  currentUserId: string
+): Promise<{ success: boolean; users?: UserSearchResult[]; error?: string }> {
   try {
     await connectDB();
 
-    let users = [];
-
-    if (currentUserRole === 'student') {
-      // Students can message mentors and other students
-      const [mentors, students] = await Promise.all([
-        Mentor.find(
-          searchTerm 
-            ? { name: { $regex: searchTerm, $options: 'i' }, approvalStatus: 'approved' }
-            : { approvalStatus: 'approved' }
-        )
-          .select('_id name role')
-          .lean(),
-        Student.find(
-          searchTerm 
-            ? { name: { $regex: searchTerm, $options: 'i' }, _id: { $ne: toObjectId(currentUserId) } }
-            : { _id: { $ne: toObjectId(currentUserId) } }
-        )
-          .select('_id name role')
-          .lean()
-      ]);
-
-      users = [...mentors, ...students];
-    } else {
-      // Mentors can message students and other mentors
-      const [students, mentors] = await Promise.all([
-        Student.find(
-          searchTerm 
-            ? { name: { $regex: searchTerm, $options: 'i' } }
-            : {}
-        )
-          .select('_id name role')
-          .lean(),
-        Mentor.find(
-          searchTerm 
-            ? { name: { $regex: searchTerm, $options: 'i' }, _id: { $ne: toObjectId(currentUserId) }, approvalStatus: 'approved' }
-            : { _id: { $ne: toObjectId(currentUserId) }, approvalStatus: 'approved' }
-        )
-          .select('_id name role')
-          .lean()
-      ]);
-
-      users = [...students, ...mentors];
+    if (!query || query.length < 2) {
+      return { success: true, users: [] };
     }
 
-    return users.map((user: any) => ({
-      id: user._id.toString(),
-      name: user.name,
-      role: user.role
-    }));
+    const searchRegex = new RegExp(query, 'i');
+
+    // Search in both students and mentors
+    const [students, mentors] = await Promise.all([
+      Student.find({
+        _id: { $ne: toObjectId(currentUserId) },
+        $or: [
+          { name: searchRegex },
+          { email: searchRegex }
+        ]
+      }).select('name email role').limit(10).lean(),
+      
+      Mentor.find({
+        _id: { $ne: toObjectId(currentUserId) },
+        $or: [
+          { name: searchRegex },
+          { email: searchRegex }
+        ]
+      }).select('name email role').limit(10).lean()
+    ]);
+
+    const users: UserSearchResult[] = [
+      ...students.map((s: any) => ({
+        _id: (s._id as Types.ObjectId).toString(),
+        name: s.name,
+        email: s.email,
+        role: 'student' as const
+      })),
+      ...mentors.map((m: any) => ({
+        _id: (m._id as Types.ObjectId).toString(),
+        name: m.name,
+        email: m.email,
+        role: 'mentor' as const
+      }))
+    ];
+
+    return { success: true, users };
   } catch (error) {
-    console.error('Error getting users for messaging:', error);
-    return [];
+    console.error('Error searching users:', error);
+    return { success: false, error: 'Failed to search users' };
   }
 }
 
-export async function getUnreadMessageCount(userId: string): Promise<number> {
+// Get unread message count
+export async function getUnreadCountAction(
+  userId: string
+): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
     await connectDB();
-    return await Message.countDocuments({
+
+    const count = await Message.countDocuments({
       receiverId: toObjectId(userId),
       isRead: false
     });
+
+    return { success: true, count };
   } catch (error) {
-    console.error('Error getting unread message count:', error);
-    return 0;
+    console.error('Error fetching unread count:', error);
+    return { success: false, error: 'Failed to fetch unread count' };
+  }
+}
+
+// Delete a message (only for sender)
+export async function deleteMessageAction(
+  messageId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await connectDB();
+
+    // Use lean to avoid Mongoose document typing issues
+    const message = await Message.findOne({
+      _id: toObjectId(messageId),
+      senderId: toObjectId(userId)
+    }).select('receiverId').lean();
+
+    if (!message) {
+      return { success: false, error: 'Message not found or unauthorized' };
+    }
+
+    await Message.deleteOne({ _id: toObjectId(messageId) });
+
+    // Revalidate paths
+    revalidatePath('/messages');
+    revalidatePath(`/messages/${(message.receiverId as Types.ObjectId).toString()}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    return { success: false, error: 'Failed to delete message' };
   }
 }

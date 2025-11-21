@@ -1,7 +1,9 @@
+// app/mentors/components/MentorMenu.tsx
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react'; // Add useState import
 import { 
   LayoutDashboard, 
   MessageSquare,
@@ -11,11 +13,23 @@ import {
   LogOut,
   ChevronRight,
   CheckCircle,
-  Shield
+  Shield,
+  Mail
 } from 'lucide-react';
 import { mentorLogout } from '@/app/mentors-auth/login/actions/mentor-login.actions';
+import MessageBadge from '@/components/messaging/MessageBadge';
 
-const baseMenuItems = [
+// Define the menu item interface
+interface MenuItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<any>;
+  description: string;
+  requiresApproval: boolean;
+  hasBadge?: boolean; // Add optional hasBadge property
+}
+
+const baseMenuItems: MenuItem[] = [
   { 
     name: 'Dashboard', 
     href: '/mentors/dashboard', 
@@ -38,6 +52,14 @@ const baseMenuItems = [
     requiresApproval: true
   },
   { 
+    name: 'Messages', 
+    href: '/mentors/messages', 
+    icon: Mail,
+    description: 'Personal messaging',
+    requiresApproval: true,
+    hasBadge: true // Add hasBadge property
+  },
+  { 
     name: 'Students', 
     href: '/mentors/students', 
     icon: Users,
@@ -53,7 +75,7 @@ const baseMenuItems = [
   }
 ];
 
-const moderatorMenuItem = {
+const moderatorMenuItem: MenuItem = {
   name: 'Moderator', 
   href: '/mentors/moderator', 
   icon: Shield,
@@ -67,16 +89,26 @@ interface MentorMenuProps {
     rating: number;
   };
   isModerator?: boolean; // Simple boolean from server
+  currentUser?: any; // Add current user for message badge
 }
 
-export default function MentorMenu({ stats, isModerator = false }: MentorMenuProps) {
+export default function MentorMenu({ stats, isModerator = false, currentUser }: MentorMenuProps) {
   const pathname = usePathname();
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
   // Build menu items dynamically based on moderator status from server
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     ...baseMenuItems,
     ...(isModerator ? [moderatorMenuItem] : [])
   ];
+
+  const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const closeSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
 
   const isActive = (href: string) => {
     if (href === '/mentors/dashboard') {
@@ -148,43 +180,81 @@ export default function MentorMenu({ stats, isModerator = false }: MentorMenuPro
               <li key={item.name}>
                 <Link
                   href={item.href}
-                  className={`group flex items-center justify-between p-3 rounded-xl transition-all duration-200 border ${
+                  className={`group flex items-center justify-between p-3 rounded-xl transition-all duration-200 border relative ${
                     active 
-                      ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 shadow-sm' 
+                      ? item.name === 'Messages'
+                        ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200 shadow-sm' 
+                        : item.name === 'Moderator'
+                        ? 'bg-gradient-to-r from-orange-50 to-red-50 border-orange-200 shadow-sm'
+                        : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 shadow-sm'
                       : 'border-transparent hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:border-blue-200 hover:shadow-sm'
+                  } ${
+                    item.name === 'Messages' && !active
+                      ? 'hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 hover:border-purple-200'
+                      : item.name === 'Moderator' && !active
+                      ? 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 hover:border-orange-200'
+                      : ''
                   }`}
                 >
                   <div className="flex items-center space-x-3">
                     <div className="relative">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
                         active 
-                          ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-md' 
+                          ? item.name === 'Messages'
+                            ? 'bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-md'
+                            : item.name === 'Moderator'
+                            ? 'bg-gradient-to-br from-orange-600 to-red-600 text-white shadow-md'
+                            : 'bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-md'
+                          : item.name === 'Messages'
+                          ? 'bg-gradient-to-br from-purple-100 to-pink-100 group-hover:from-purple-200 group-hover:to-pink-200 text-purple-600'
+                          : item.name === 'Moderator'
+                          ? 'bg-gradient-to-br from-orange-100 to-red-100 group-hover:from-orange-200 group-hover:to-red-200 text-orange-600'
                           : 'bg-gradient-to-br from-blue-100 to-purple-100 group-hover:from-blue-200 group-hover:to-purple-200 text-blue-600'
                       }`}>
                         <IconComponent className="w-4 h-4" />
                       </div>
                       {active && (
-                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full shadow-sm"></div>
+                        <div className={`absolute -top-1 -right-1 w-2 h-2 rounded-full shadow-sm ${
+                          item.name === 'Messages' ? 'bg-purple-500' :
+                          item.name === 'Moderator' ? 'bg-orange-500' : 'bg-blue-500'
+                        }`}></div>
                       )}
                     </div>
                     <div className="text-left">
                       <div className={`font-medium transition-colors duration-200 text-sm ${
-                        active ? 'text-blue-900' : 'text-gray-900 group-hover:text-blue-700'
+                        active 
+                          ? item.name === 'Messages' ? 'text-purple-900' :
+                            item.name === 'Moderator' ? 'text-orange-900' : 'text-blue-900'
+                          : 'text-gray-900 group-hover:text-blue-700'
                       }`}>
                         {item.name}
                       </div>
                       <div className={`text-xs transition-colors duration-200 ${
-                        active ? 'text-blue-600' : 'text-gray-500 group-hover:text-blue-500'
+                        active 
+                          ? item.name === 'Messages' ? 'text-purple-600' :
+                            item.name === 'Moderator' ? 'text-orange-600' : 'text-blue-600'
+                          : 'text-gray-500 group-hover:text-blue-500'
                       }`}>
                         {item.description}
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Message Badge */}
+                  {item.hasBadge && currentUser && (
+                    <MessageBadge 
+                      userId={currentUser.id || currentUser._id} 
+                      className="absolute -top-1 -right-1"
+                      showSnackbar={showSnackbar}
+                    />
+                  )}
+                  
                   <ChevronRight className={`w-3 h-3 transition-all duration-200 ${
                     active 
-                      ? 'text-blue-500 translate-x-0.5' 
+                      ? item.name === 'Messages' ? 'text-purple-500' :
+                        item.name === 'Moderator' ? 'text-orange-500' : 'text-blue-500'
                       : 'text-gray-400 group-hover:text-blue-500 group-hover:translate-x-0.5'
-                  }`} />
+                  } ${active ? 'translate-x-0.5' : ''}`} />
                 </Link>
               </li>
             );
@@ -223,6 +293,21 @@ export default function MentorMenu({ stats, isModerator = false }: MentorMenuPro
           </div>
         </div>
       </nav>
+
+      {/* Snackbar */}
+      {snackbar.open && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+          snackbar.severity === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          {snackbar.message}
+          <button 
+            onClick={closeSnackbar}
+            className="ml-4 text-white hover:text-gray-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
