@@ -1,3 +1,4 @@
+// actions/userActions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
@@ -262,6 +263,7 @@ async function getStudentFromCookie(cookieValue: string) {
       role: userDataFromDB.role,
       year: userDataFromDB.year,
       college: userDataFromDB.college,
+      profilePhoto: userDataFromDB.profilePhoto, // 🆕 ADD PROFILE PHOTO
       profiles: userDataFromDB.profiles || {},
       interests: userDataFromDB.interests || [],
       createdAt: userDataFromDB.createdAt?.toISOString() || new Date().toISOString(),
@@ -327,6 +329,7 @@ async function getMentorFromCookie(cookieValue: string) {
       role: mentorDataFromDB.role,
       expertise: mentorDataFromDB.expertise || [],
       college: mentorDataFromDB.college,
+      profilePhoto: mentorDataFromDB.profilePhoto, // 🆕 ADD PROFILE PHOTO
       profiles: mentorDataFromDB.profiles || {},
       experience: mentorDataFromDB.experience,
       bio: mentorDataFromDB.bio,
@@ -380,6 +383,7 @@ export async function verifyStudentSession() {
         role: 'student',
         year: studentDataFromDB.year,
         college: studentDataFromDB.college,
+        profilePhoto: studentDataFromDB.profilePhoto, // 🆕 ADD PROFILE PHOTO
         profiles: studentDataFromDB.profiles || {},
         interests: studentDataFromDB.interests || []
       }
@@ -448,6 +452,7 @@ export async function verifyMentorSession() {
         role: 'mentor',
         expertise: mentorDataFromDB.expertise || [],
         college: mentorDataFromDB.college,
+        profilePhoto: mentorDataFromDB.profilePhoto, // 🆕 ADD PROFILE PHOTO
         profiles: mentorDataFromDB.profiles || {},
         experience: mentorDataFromDB.experience,
         bio: mentorDataFromDB.bio
@@ -609,6 +614,7 @@ export async function getUserData(userId: string) {
       role: userData.role,
       year: userData.year,
       college: userData.college,
+      profilePhoto: userData.profilePhoto, // 🆕 ADD PROFILE PHOTO
       profiles: userData.profiles || {},
       interests: userData.interests || [],
       expertise: userData.expertise || [],
@@ -956,6 +962,7 @@ export async function getCurrentMentorSession() {
         role: 'mentor',
         expertise: mentorDataFromDB.expertise || [],
         college: mentorDataFromDB.college,
+        profilePhoto: mentorDataFromDB.profilePhoto, // 🆕 ADD PROFILE PHOTO
         profiles: mentorDataFromDB.profiles || {},
         experience: mentorDataFromDB.experience,
         bio: mentorDataFromDB.bio
@@ -1000,5 +1007,102 @@ export async function hasMentorSession() {
     return mentorData.role === 'mentor';
   } catch (error) {
     return false;
+  }
+}
+
+// 🆕 NEW: Get user by ID with profile photo (for messaging)
+export async function getUserById(userId: string) {
+  try {
+    console.log('🔍 getUserById - Fetching user by ID:', userId);
+    
+    await connectDB();
+    
+    // Try student first, then mentor
+    let user = await Student.findById(userId).select('name email role profilePhoto').lean();
+    let userType = 'student';
+    
+    if (!user) {
+      user = await Mentor.findById(userId).select('name email role profilePhoto').lean();
+      userType = 'mentor';
+    }
+    
+    if (!user) {
+      console.log('❌ getUserById - User not found for ID:', userId);
+      return null;
+    }
+
+    console.log('✅ getUserById - Found user:', (user as any).name, `(${userType})`);
+
+    const userData = user as any;
+    
+    return {
+      _id: userData._id.toString(),
+      id: userData._id.toString(),
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      profilePhoto: userData.profilePhoto // 🆕 INCLUDES PROFILE PHOTO
+    };
+  } catch (error) {
+    console.error('❌ getUserById - Error:', error);
+    return null;
+  }
+}
+
+// 🆕 NEW: Update user profile (for profile updates)
+export async function updateUserProfile(
+  userId: string, 
+  userRole: 'student' | 'mentor', 
+  updates: any
+) {
+  try {
+    console.log('🔍 updateUserProfile - Updating profile for:', { userId, userRole, updates });
+    
+    await connectDB();
+
+    let result;
+    if (userRole === 'student') {
+      result = await Student.findByIdAndUpdate(
+        userId, 
+        { $set: updates },
+        { new: true }
+      ).select('-password').lean();
+    } else if (userRole === 'mentor') {
+      result = await Mentor.findByIdAndUpdate(
+        userId, 
+        { $set: updates },
+        { new: true }
+      ).select('-password').lean();
+    }
+
+    if (!result) {
+      console.log('❌ updateUserProfile - User not found for ID:', userId);
+      return { success: false, error: 'User not found' };
+    }
+
+    console.log('✅ updateUserProfile - Profile updated successfully');
+    
+    const userData = result as any;
+    
+    return {
+      success: true,
+      user: {
+        _id: userData._id.toString(),
+        id: userData._id.toString(),
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        profilePhoto: userData.profilePhoto,
+        year: userData.year,
+        college: userData.college,
+        expertise: userData.expertise || [],
+        interests: userData.interests || [],
+        experience: userData.experience,
+        bio: userData.bio
+      }
+    };
+  } catch (error) {
+    console.error('❌ updateUserProfile - Error:', error);
+    return { success: false, error: 'Failed to update profile' };
   }
 }

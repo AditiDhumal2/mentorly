@@ -13,9 +13,13 @@ interface UserSearchProps {
   showSnackbar: (message: string, severity?: 'success' | 'error') => void;
 }
 
+interface ExtendedUserSearchResult extends UserSearchResult {
+  profilePhoto?: string;
+}
+
 export default function UserSearch({ currentUserId, onUserSelect, onClose, currentUserRole, showSnackbar }: UserSearchProps) {
   const [query, setQuery] = useState('');
-  const [users, setUsers] = useState<UserSearchResult[]>([]);
+  const [users, setUsers] = useState<ExtendedUserSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -33,7 +37,7 @@ export default function UserSearch({ currentUserId, onUserSelect, onClose, curre
           const filteredUsers = result.users.filter(user => 
             user._id !== currentUserId
           );
-          setUsers(filteredUsers);
+          setUsers(filteredUsers as ExtendedUserSearchResult[]);
         } else {
           showSnackbar(result.error || 'Failed to search users', 'error');
         }
@@ -103,12 +107,21 @@ export default function UserSearch({ currentUserId, onUserSelect, onClose, curre
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
+                  {/* Profile Photo or Initial */}
+                  {user.profilePhoto ? (
+                    <img 
+                      src={user.profilePhoto} 
+                      alt={user.name}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div>
                     <h4 className="font-medium text-gray-900 text-sm">{user.name}</h4>
-                    <p className="text-xs text-gray-500">{user.email}</p>
+                    <p className="text-xs text-gray-500 capitalize">{user.role}</p>
                   </div>
                 </div>
                 {getRoleBadge(user.role)}

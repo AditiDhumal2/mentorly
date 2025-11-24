@@ -24,15 +24,17 @@ export async function getBrandingChecklist(): Promise<BrandingChecklistResponse>
       return { success: false, error: 'Access denied' };
     }
 
-    console.log('🔍 getBrandingChecklist - User year:', user.year);
+    // Use type assertion for student-specific properties
+    const studentUser = user as any;
+    console.log('🔍 getBrandingChecklist - User year:', studentUser.year);
     
     await connectDB();
 
     // Get checklist for user's year
-    const checklist = await BrandingChecklist.findOne({ year: user.year }).lean();
+    const checklist = await BrandingChecklist.findOne({ year: studentUser.year }).lean();
     
     if (!checklist) {
-      console.log('❌ getBrandingChecklist - No checklist found for year:', user.year);
+      console.log('❌ getBrandingChecklist - No checklist found for year:', studentUser.year);
       return { success: false, error: 'No checklist found for your year' };
     }
 
@@ -104,6 +106,9 @@ export async function updateBrandingProgress(
       return { success: false, error: 'User not authenticated' };
     }
 
+    // Use type assertion for student-specific properties
+    const studentUser = user as any;
+
     await connectDB();
 
     const student = await Student.findById(user._id);
@@ -122,7 +127,7 @@ export async function updateBrandingProgress(
 
     // Verify the task exists in the checklist
     const checklist = await BrandingChecklist.findOne({ 
-      year: user.year,
+      year: studentUser.year,
       'tasks._id': taskObjectId 
     });
 
@@ -212,10 +217,13 @@ export async function getBrandingProgressStats(): Promise<{
       return { success: false, error: 'User not authenticated' };
     }
 
+    // Use type assertion for student-specific properties
+    const studentUser = user as any;
+
     await connectDB();
 
     // Get checklist for user's year
-    const checklist = await BrandingChecklist.findOne({ year: user.year }).lean();
+    const checklist = await BrandingChecklist.findOne({ year: studentUser.year }).lean();
     
     if (!checklist) {
       return { success: false, error: 'No checklist found for your year' };
@@ -260,6 +268,9 @@ export async function markMultipleTasksAsCompleted(
       return { success: false, error: 'User not authenticated' };
     }
 
+    // Use type assertion for student-specific properties
+    const studentUser = user as any;
+
     await connectDB();
 
     const student = await Student.findById(user._id);
@@ -279,7 +290,7 @@ export async function markMultipleTasksAsCompleted(
 
       // Verify the task exists in the checklist
       const checklist = await BrandingChecklist.findOne({ 
-        year: user.year,
+        year: studentUser.year,
         'tasks._id': new Types.ObjectId(taskId) 
       });
 
@@ -375,6 +386,9 @@ export async function toggleTaskCompletion(
       return { success: false, error: 'User not authenticated' };
     }
 
+    // Use type assertion for student-specific properties
+    const studentUser = user as any;
+
     await connectDB();
 
     const student = await Student.findById(user._id);
@@ -390,7 +404,7 @@ export async function toggleTaskCompletion(
 
     // Verify the task exists in the checklist
     const checklist = await BrandingChecklist.findOne({ 
-      year: user.year,
+      year: studentUser.year,
       'tasks._id': new Types.ObjectId(taskId) 
     });
 

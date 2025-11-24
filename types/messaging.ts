@@ -4,9 +4,11 @@ export interface Message {
   senderId: string;
   senderName: string;
   senderRole: 'student' | 'mentor' | 'admin';
+  senderProfilePhoto?: string; // 🆕 ADD PROFILE PHOTO
   receiverId: string;
   receiverName: string;
   receiverRole: 'student' | 'mentor' | 'admin';
+  receiverProfilePhoto?: string; // 🆕 ADD PROFILE PHOTO
   content: string;
   isRead: boolean;
   readAt?: string;
@@ -18,6 +20,7 @@ export interface Conversation {
   userId: string;
   userName: string;
   userRole: 'student' | 'mentor' | 'admin';
+  profilePhoto?: string; // 🆕 ADD PROFILE PHOTO
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount: number;
@@ -34,6 +37,6 @@ export interface SendMessageData {
 export interface UserSearchResult {
   _id: string;
   name: string;
-  email: string;
-  role: 'student' | 'mentor' | 'admin';
+  role: 'student' | 'mentor';
+  profilePhoto?: string; // 🆕 ADD PROFILE PHOTO
 }

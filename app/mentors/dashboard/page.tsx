@@ -4,7 +4,9 @@
 import { useEffect, useState } from 'react';
 import { checkMentorAuth } from '@/actions/mentor-auth-actions';
 import { mentorLogout } from '@/app/mentors-auth/login/actions/mentor-login.actions';
+import { uploadProfilePhotoAction } from '@/actions/profile-actions';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Mentor {
   id: string;
@@ -18,6 +20,7 @@ interface Mentor {
   experience: number;
   rating: number;
   totalSessions: number;
+  profilePhoto?: string;
   stats: {
     studentsHelped: number;
     responseTime: number;
@@ -58,6 +61,8 @@ export default function MentorDashboard() {
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [deniedReason, setDeniedReason] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState('');
   const [stats, setStats] = useState<DashboardStats>({
     upcomingSessions: 0,
     completedSessions: 0,
@@ -69,6 +74,7 @@ export default function MentorDashboard() {
 
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     const checkAuthAndAccess = async () => {
@@ -188,6 +194,34 @@ export default function MentorDashboard() {
     checkAuthAndAccess();
   }, []);
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !mentor) return;
+
+    setUploading(true);
+    setUploadMessage('');
+
+    try {
+      const formData = new FormData();
+      formData.append('profilePhoto', file);
+
+      const result = await uploadProfilePhotoAction(mentor._id, 'mentor', formData);
+
+      if (result.success && result.imageUrl) {
+        setUploadMessage('Profile photo saved successfully!');
+        setMentor({ ...mentor, profilePhoto: result.imageUrl });
+      } else {
+        setUploadMessage(result.error || 'Failed to save photo');
+      }
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      setUploadMessage('Error saving photo');
+    } finally {
+      setUploading(false);
+      event.target.value = '';
+    }
+  };
+
   const handleLogout = async () => {
     await mentorLogout();
     window.location.href = '/mentors-auth/login';
@@ -298,10 +332,28 @@ export default function MentorDashboard() {
         <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2">Welcome back, {mentor.name}! 👋</h1>
-              <p className="text-blue-100 text-lg mb-4">
-                Ready to inspire and guide the next generation of students?
-              </p>
+              <div className="flex items-center space-x-4 mb-4">
+                {/* Mentor Profile Photo */}
+                <div className="relative">
+                  {mentor.profilePhoto ? (
+                    <img 
+                      src={mentor.profilePhoto} 
+                      alt={mentor.name}
+                      className="w-16 h-16 rounded-full border-2 border-white object-cover"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-blue-400 rounded-full flex items-center justify-center text-white text-xl font-bold border-2 border-white">
+                      {mentor.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold mb-2">Welcome back, {mentor.name}! 👋</h1>
+                  <p className="text-blue-100 text-lg">
+                    Ready to inspire and guide the next generation of students?
+                  </p>
+                </div>
+              </div>
               <div className="flex flex-wrap gap-4">
                 <div className="bg-white/20 rounded-lg px-4 py-2">
                   <div className="text-sm text-blue-100">Mentor Level</div>
@@ -333,6 +385,62 @@ export default function MentorDashboard() {
                     </svg>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Profile Photo Upload Section */}
+        <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Profile Photo</h2>
+          <div className="flex items-center space-x-6">
+            {/* Current Profile Photo */}
+            <div className="flex-shrink-0">
+              {mentor.profilePhoto ? (
+                <img 
+                  src={mentor.profilePhoto} 
+                  alt={mentor.name}
+                  className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                />
+              ) : (
+                <div className="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center text-white text-xl font-bold border-2 border-gray-200">
+                  {mentor.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            {/* Upload Controls */}
+            <div className="flex-1">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {mentor.profilePhoto ? 'Change Profile Photo' : 'Upload Profile Photo'}
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                </div>
+                
+                <p className="text-xs text-gray-500">
+                  Supported formats: JPG, PNG, GIF. Max size: 5MB
+                </p>
+
+                {uploading && (
+                  <div className="flex items-center space-x-2 text-sm text-blue-600">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span>Uploading to cloud...</span>
+                  </div>
+                )}
+
+                {uploadMessage && (
+                  <p className={`text-sm ${uploadMessage.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
+                    {uploadMessage}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -463,7 +571,7 @@ export default function MentorDashboard() {
                   </div>
                 </Link>
 
-                <Link href="/mentors/profile" className="bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl p-4 text-left transition-colors duration-200 group">
+                <Link href="/profile" className="bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl p-4 text-left transition-colors duration-200 group">
                   <div className="flex items-center">
                     <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white group-hover:bg-orange-700 transition-colors">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -471,7 +579,7 @@ export default function MentorDashboard() {
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <div className="font-semibold text-orange-900">Edit Profile</div>
+                      <div className="font-semibold text-orange-900">View Profile</div>
                       <div className="text-sm text-orange-600">Update information</div>
                     </div>
                   </div>
@@ -574,7 +682,7 @@ export default function MentorDashboard() {
                   <div className="ml-3">
                     <h3 className="font-semibold text-gray-900">Complete Your Profile</h3>
                     <p className="text-sm text-gray-600 mt-1">Add your expertise areas and bio to attract more students</p>
-                    <Link href="/mentors/profile" className="text-blue-600 hover:text-blue-800 text-sm font-medium mt-2 inline-block">
+                    <Link href="/profile" className="text-blue-600 hover:text-blue-800 text-sm font-medium mt-2 inline-block">
                       Update Profile →
                     </Link>
                   </div>

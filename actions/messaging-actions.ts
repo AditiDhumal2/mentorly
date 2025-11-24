@@ -23,12 +23,12 @@ export async function sendMessageAction(
   try {
     await connectDB();
 
-    // Validate receiver exists
+    // Validate receiver exists (with profile photo)
     let receiver;
     if (messageData.receiverRole === 'student') {
-      receiver = await Student.findById(messageData.receiverId).select('name email').lean();
+      receiver = await Student.findById(messageData.receiverId).select('name profilePhoto').lean();
     } else if (messageData.receiverRole === 'mentor') {
-      receiver = await Mentor.findById(messageData.receiverId).select('name email').lean();
+      receiver = await Mentor.findById(messageData.receiverId).select('name profilePhoto').lean();
     }
 
     if (!receiver) {
@@ -53,7 +53,6 @@ export async function sendMessageAction(
     revalidatePath('/messages');
     revalidatePath(`/messages/${messageData.receiverId}`);
 
-    // FIX: Properly type the _id access
     return { 
       success: true, 
       messageId: (message._id as Types.ObjectId).toString() 
@@ -135,15 +134,32 @@ export async function getConversationsAction(
       }
     ]);
 
-    // Convert aggregation result to Conversation type
-    const formattedConversations: Conversation[] = conversations.map((conv: any) => ({
-      userId: (conv._id as Types.ObjectId).toString(),
-      userName: conv.otherUserName,
-      userRole: conv.otherUserRole,
-      lastMessage: conv.lastMessage,
-      lastMessageTime: conv.lastMessageTime?.toISOString(),
-      unreadCount: conv.unreadCount
-    }));
+    // Convert aggregation result to Conversation type with profile photos
+    const formattedConversations: Conversation[] = await Promise.all(
+      conversations.map(async (conv: any) => {
+        // Get profile photo for the other user
+        let profilePhoto = null;
+        const otherUserId = conv._id.toString();
+        
+        if (conv.otherUserRole === 'student') {
+          const student = await Student.findById(otherUserId).select('profilePhoto').lean();
+          profilePhoto = (student as any)?.profilePhoto;
+        } else if (conv.otherUserRole === 'mentor') {
+          const mentor = await Mentor.findById(otherUserId).select('profilePhoto').lean();
+          profilePhoto = (mentor as any)?.profilePhoto;
+        }
+
+        return {
+          userId: otherUserId,
+          userName: conv.otherUserName,
+          userRole: conv.otherUserRole,
+          profilePhoto: profilePhoto,
+          lastMessage: conv.lastMessage,
+          lastMessageTime: conv.lastMessageTime?.toISOString(),
+          unreadCount: conv.unreadCount
+        };
+      })
+    );
 
     return { success: true, conversations: formattedConversations };
   } catch (error) {
@@ -182,15 +198,23 @@ export async function getMessagesAction(
       }
     );
 
+    // Get profile photos for both users
+    const [currentUserProfile, otherUserProfile] = await Promise.all([
+      getProfilePhoto(currentUserId),
+      getProfilePhoto(otherUserId)
+    ]);
+
     // Properly type the message document
     const formattedMessages = messages.map((msg: any) => ({
       _id: (msg._id as Types.ObjectId).toString(),
       senderId: (msg.senderId as Types.ObjectId).toString(),
       senderName: msg.senderName,
       senderRole: msg.senderRole,
+      senderProfilePhoto: msg.senderId.toString() === currentUserId ? currentUserProfile : otherUserProfile,
       receiverId: (msg.receiverId as Types.ObjectId).toString(),
       receiverName: msg.receiverName,
       receiverRole: msg.receiverRole,
+      receiverProfilePhoto: msg.receiverId.toString() === currentUserId ? currentUserProfile : otherUserProfile,
       content: msg.content,
       isRead: msg.isRead,
       readAt: msg.readAt?.toISOString(),
@@ -205,7 +229,21 @@ export async function getMessagesAction(
   }
 }
 
-// Search users for messaging
+// Helper function to get profile photo
+async function getProfilePhoto(userId: string): Promise<string | null> {
+  try {
+    let user = await Student.findById(userId).select('profilePhoto').lean();
+    if (!user) {
+      user = await Mentor.findById(userId).select('profilePhoto').lean();
+    }
+    return (user as any)?.profilePhoto || null;
+  } catch (error) {
+    console.error('Error getting profile photo:', error);
+    return null;
+  }
+}
+
+// Search users for messaging (with profile photos)
 export async function searchUsersAction(
   query: string,
   currentUserId: string
@@ -219,37 +257,35 @@ export async function searchUsersAction(
 
     const searchRegex = new RegExp(query, 'i');
 
-    // Search in both students and mentors
+    // Search in both students and mentors (with profile photos)
     const [students, mentors] = await Promise.all([
       Student.find({
         _id: { $ne: toObjectId(currentUserId) },
         $or: [
-          { name: searchRegex },
-          { email: searchRegex }
+          { name: searchRegex }
         ]
-      }).select('name email role').limit(10).lean(),
+      }).select('name role profilePhoto').limit(10).lean(),
       
       Mentor.find({
         _id: { $ne: toObjectId(currentUserId) },
         $or: [
-          { name: searchRegex },
-          { email: searchRegex }
+          { name: searchRegex }
         ]
-      }).select('name email role').limit(10).lean()
+      }).select('name role profilePhoto').limit(10).lean()
     ]);
 
     const users: UserSearchResult[] = [
       ...students.map((s: any) => ({
         _id: (s._id as Types.ObjectId).toString(),
         name: s.name,
-        email: s.email,
-        role: 'student' as const
+        role: 'student' as const,
+        profilePhoto: (s as any).profilePhoto
       })),
       ...mentors.map((m: any) => ({
         _id: (m._id as Types.ObjectId).toString(),
         name: m.name,
-        email: m.email,
-        role: 'mentor' as const
+        role: 'mentor' as const,
+        profilePhoto: (m as any).profilePhoto
       }))
     ];
 
@@ -287,7 +323,6 @@ export async function deleteMessageAction(
   try {
     await connectDB();
 
-    // Use lean to avoid Mongoose document typing issues
     const message = await Message.findOne({
       _id: toObjectId(messageId),
       senderId: toObjectId(userId)
@@ -301,7 +336,7 @@ export async function deleteMessageAction(
 
     // Revalidate paths
     revalidatePath('/messages');
-    revalidatePath(`/messages/${(message.receiverId as Types.ObjectId).toString()}`);
+    revalidatePath(`/messages/${((message as any).receiverId as Types.ObjectId).toString()}`);
 
     return { success: true };
   } catch (error) {

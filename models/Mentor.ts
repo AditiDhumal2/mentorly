@@ -1,3 +1,4 @@
+// models/Mentor.ts
 import mongoose, { Document, Schema, Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -7,6 +8,9 @@ export interface IMentor extends Document {
   password: string;
   role: 'mentor';
   college?: string;
+  
+  // PROFILE PHOTO FIELD
+  profilePhoto?: string;
   
   // Mentor-specific fields
   expertise: string[];
@@ -91,6 +95,12 @@ const mentorSchema = new Schema<IMentor>({
     type: String,
     required: false,
     trim: true,
+  },
+  
+  // PROFILE PHOTO FIELD
+  profilePhoto: {
+    type: String,
+    required: false
   },
   
   // Mentor profile

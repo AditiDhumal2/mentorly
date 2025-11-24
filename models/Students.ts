@@ -10,6 +10,10 @@ export interface IStudent extends Document {
   year: number;
   college: string;
   preferredLanguage: string;
+  
+  // PROFILE PHOTO FIELD
+  profilePhoto?: string;
+  
   languages: {
     languageId: string;
     proficiency: 'beginner' | 'intermediate' | 'advanced';
@@ -114,6 +118,13 @@ const studentSchema = new Schema<IStudent>({
     required: [true, 'College is required'],
     trim: true,
   },
+  
+  // PROFILE PHOTO FIELD
+  profilePhoto: {
+    type: String,
+    required: false
+  },
+  
   preferredLanguage: {
     type: String,
     default: 'python'

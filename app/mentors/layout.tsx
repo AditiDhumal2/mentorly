@@ -196,14 +196,15 @@ export default function MentorLayout({
     );
   }
 
-  // Define which paths should show the sidebar
+  // Define which paths should show the sidebar - UPDATED TO INCLUDE MESSAGES
   const sidebarPaths = [
     '/mentors/dashboard',
     '/mentors/community',
     '/mentors/sessions',
     '/mentors/students',
     '/mentors/profile',
-    '/mentors/moderator'
+    '/mentors/moderator',
+    '/mentors/messages' // Add this line to show sidebar on messages page
   ];
 
   const showSidebar = sidebarPaths.some(path => 
@@ -214,7 +215,12 @@ export default function MentorLayout({
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="flex min-h-screen">
         {/* Sidebar Menu - Only show for approved mentors on specific pages */}
-        {showSidebar && <MentorMenu isModerator={isModerator} />}
+        {showSidebar && (
+          <MentorMenu 
+            isModerator={isModerator} 
+            currentUser={mentor} // Pass the mentor data for message badges
+          />
+        )}
         
         {/* Main Content */}
         <main className={`${showSidebar ? 'flex-1' : 'w-full'} p-6 overflow-auto`}>
