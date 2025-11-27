@@ -1,14 +1,20 @@
-import AdminLoginForm from './AdminLoginForm';
+// app/admin-login/page.tsx
+import { Suspense } from 'react';
+import AdminLoginContent from './AdminLoginContent';
 
-export default function AdminPage() {
+export const dynamic = 'force-dynamic';
+
+export default function AdminLoginPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-8">
-        <AdminLoginForm />
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <p className="text-xs text-gray-500">Restricted access. Authorized personnel only.</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin login...</p>
         </div>
       </div>
-    </div>
+    }>
+      <AdminLoginContent />
+    </Suspense>
   );
 }

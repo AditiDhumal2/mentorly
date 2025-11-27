@@ -24,6 +24,20 @@ export default async function ProfessionalBrandingPage() {
 
   const { checklist, progress, userProgress = [] } = result;
 
+  // Add null check for checklist
+  if (!checklist) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-6xl mx-auto px-4">
+          <BrandingHeader />
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+            <p className="text-yellow-700">No checklist data available. Please try again later.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Group tasks by category using utility function
   const tasksByCategory = groupTasksByCategory(checklist.tasks);
 

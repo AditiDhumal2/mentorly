@@ -304,14 +304,13 @@ export default function DocumentsManager({ documents }: DocumentsManagerProps) {
         />
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal - FIXED: Removed confirmText prop */}
       <DeleteConfirmationModal
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, docId: null, docName: '' })}
         onConfirm={confirmDeleteDocument}
         title="Delete Document"
         message={`Are you sure you want to delete "${deleteModal.docName}"? This action cannot be undone.`}
-        confirmText="Delete Document"
       />
 
       {/* Snackbar */}

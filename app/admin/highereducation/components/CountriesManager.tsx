@@ -311,14 +311,13 @@ export default function CountriesManager({ countries }: CountriesManagerProps) {
         />
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal - FIXED: Removed confirmText prop */}
       <DeleteConfirmationModal
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, countryId: null, countryName: '' })}
         onConfirm={confirmDeleteCountry}
         title="Delete Country"
         message={`Are you sure you want to delete "${deleteModal.countryName}"? This action cannot be undone.`}
-        confirmText="Delete Country"
       />
 
       {/* Snackbar */}

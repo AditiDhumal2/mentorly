@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getUnreadCountAction } from '@/actions/messaging-actions';
+import { getUnreadMessageCount } from '@/actions/messaging-actions';
 
 interface MessageBadgeProps {
   userId: string;
@@ -16,7 +16,7 @@ export default function MessageBadge({ userId, className = '', showSnackbar }: M
   useEffect(() => {
     const fetchUnreadCount = async () => {
       try {
-        const result = await getUnreadCountAction(userId);
+        const result = await getUnreadMessageCount(userId);
         if (result.success && result.count !== undefined) {
           setUnreadCount(result.count);
         } else if (showSnackbar) {

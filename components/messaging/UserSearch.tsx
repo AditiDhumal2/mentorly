@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { searchUsersAction } from '@/actions/messaging-actions';
+import { getUsersForMessaging } from '@/actions/messaging-actions';
 import { UserSearchResult } from '@/types/messaging';
 
 interface UserSearchProps {
@@ -31,7 +31,7 @@ export default function UserSearch({ currentUserId, onUserSelect, onClose, curre
 
       setLoading(true);
       try {
-        const result = await searchUsersAction(query, currentUserId);
+        const result = await getUsersForMessaging(query, currentUserId);
         if (result.success && result.users) {
           // Filter out current user and show only relevant users
           const filteredUsers = result.users.filter(user => 

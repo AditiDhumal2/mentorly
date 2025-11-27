@@ -1,3 +1,4 @@
+// models/CareerDomain.ts
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ICareerDomain extends Document {
@@ -35,5 +36,4 @@ const CareerDomainSchema = new Schema<ICareerDomain>({
   lastUpdated: { type: Date, default: Date.now }
 });
 
-// Remove the duplicate export - just export the model
 export const CareerDomain = mongoose.models.CareerDomain || mongoose.model<ICareerDomain>('CareerDomain', CareerDomainSchema);

@@ -290,14 +290,13 @@ export default function ExamsManager({ exams }: ExamsManagerProps) {
         />
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal - FIXED: Removed confirmText prop */}
       <DeleteConfirmationModal
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, examId: null, examName: '' })}
         onConfirm={confirmDeleteExam}
         title="Delete Exam"
         message={`Are you sure you want to delete ${deleteModal.examName} preparation? This action cannot be undone.`}
-        confirmText="Delete Exam"
       />
 
       {/* Snackbar */}

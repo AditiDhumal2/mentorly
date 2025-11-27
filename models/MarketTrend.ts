@@ -1,3 +1,4 @@
+// models/MarketTrend.ts
 import mongoose, { Document, Schema, Types } from 'mongoose';
 
 export interface ITrendingSkill {
@@ -78,7 +79,4 @@ const MarketTrendSchema = new Schema<IMarketTrend>({
   timestamps: true
 });
 
-// Use a different variable name to avoid conflict
-const MarketTrendModel = mongoose.models.MarketTrend || mongoose.model<IMarketTrend>('MarketTrend', MarketTrendSchema);
-
-export { MarketTrendModel as MarketTrend };
+export const MarketTrend = mongoose.models.MarketTrend || mongoose.model<IMarketTrend>('MarketTrend', MarketTrendSchema);

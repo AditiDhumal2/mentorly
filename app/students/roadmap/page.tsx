@@ -11,6 +11,22 @@ import {
 import { languages, getLanguageById } from '@/lib/languages';
 import RoadmapClient from './components/roadmap-client';
 
+// Define a type for student user with year property
+interface StudentUser {
+  _id: any;
+  id: any;
+  name: any;
+  email: any;
+  role: 'student';
+  year?: number; // Make year optional
+  college?: any;
+  profilePhoto?: any;
+  profiles?: any;
+  bio?: any;
+  createdAt: any;
+  updatedAt: any;
+}
+
 export default async function StudentRoadmapPage() {
   console.log('📍 /students/roadmap - Loading student roadmap...');
   
@@ -38,7 +54,7 @@ export default async function StudentRoadmapPage() {
     );
   }
 
-  // Verify it's actually a student
+  // Verify it's actually a student and type assertion
   if (user.role !== 'student') {
     console.log('❌ User is not a student:', user.role);
     return (
@@ -59,11 +75,13 @@ export default async function StudentRoadmapPage() {
     );
   }
 
-  console.log('✅ Student authenticated for roadmap:', user.name, 'Year:', user.year);
+  // Type assertion for student user
+  const studentUser = user as StudentUser;
+  const userYear = studentUser.year || 1;
+
+  console.log('✅ Student authenticated for roadmap:', studentUser.name, 'Year:', userYear);
 
   try {
-    const userYear = user.year || 1;
-    
     // Get available languages to determine preferred language
     const languagesResult = await getAvailableLanguagesAction();
     const preferredLanguage = languagesResult.success && languagesResult.data && languagesResult.data.length > 0
@@ -74,7 +92,7 @@ export default async function StudentRoadmapPage() {
 
     const [roadmapResult, progressResult] = await Promise.all([
       getRoadmapAction(userYear, preferredLanguage),
-      getRoadmapProgressAction(user._id, preferredLanguage, userYear) // ✅ Updated to match new signature
+      getRoadmapProgressAction(studentUser._id, preferredLanguage, userYear)
     ]);
 
     // Handle roadmap loading errors
@@ -113,7 +131,7 @@ export default async function StudentRoadmapPage() {
         roadmap={roadmapResult.data} 
         progress={progressResult.data?.progress || []}
         currentYear={userYear}
-        userId={user._id}
+        userId={studentUser._id}
         languages={languages}
         userLanguage={userLanguage}
         preferredLanguage={preferredLanguage}

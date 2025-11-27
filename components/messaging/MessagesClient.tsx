@@ -4,11 +4,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
-  getConversationsAction, 
-  getMessagesAction, 
-  sendMessageAction, 
-  searchUsersAction,
-  getUnreadCountAction 
+  getConversations, 
+  getMessages, 
+  sendMessage, 
+  getUsersForMessaging,
+  getUnreadMessageCount 
 } from '@/actions/messaging-actions';
 import { Conversation, UserSearchResult } from '@/types/messaging';
 
@@ -63,7 +63,7 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
 
   const loadConversations = async () => {
     try {
-      const result = await getConversationsAction(userId!, currentUser.role);
+      const result = await getConversations(userId!, currentUser.role);
       if (result.success && result.conversations) {
         setConversations(result.conversations);
       }
@@ -76,7 +76,7 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
 
   const loadMessages = async (otherUserId: string) => {
     try {
-      const result = await getMessagesAction(userId!, otherUserId);
+      const result = await getMessages(userId!, otherUserId);
       if (result.success && result.messages) {
         setMessages(result.messages);
       }
@@ -87,7 +87,7 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
 
   const loadUnreadCount = async () => {
     try {
-      const result = await getUnreadCountAction(userId!);
+      const result = await getUnreadMessageCount(userId!);
       if (result.success && result.count !== undefined) {
         setUnreadCount(result.count);
       }
@@ -113,7 +113,7 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
         content: newMessage.trim()
       };
 
-      const result = await sendMessageAction(
+      const result = await sendMessage(
         userId!,
         currentUser.name,
         currentUser.role,
@@ -142,7 +142,7 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
     }
 
     try {
-      const result = await searchUsersAction(query, userId!);
+      const result = await getUsersForMessaging(query, userId!);
       if (result.success && result.users) {
         setSearchResults(result.users);
       }

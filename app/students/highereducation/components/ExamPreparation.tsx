@@ -1,38 +1,40 @@
+// app/students/highereducation/components/ExamPreparation.tsx
 'use client';
 
 import { useState } from 'react';
-import { ExamPreparation as ExamPrepType } from '@/types/higher-education';
+import { ExamPreparation as ExamPrepType, ExamScores } from '@/types/higher-education';
 import { saveExamScores } from '@/actions/highereducation-students-actions';
 
 interface ExamPreparationProps {
   exams: ExamPrepType[];
 }
 
-interface ScoresState {
-  gre: {
-    quant: number;
-    verbal: number;
-    awa: number;
-    total: number;
-  };
-  ielts: {
-    overall: number;
-    listening: number;
-    reading: number;
-    writing: number;
-    speaking: number;
-  };
-  toefl: {
-    total: number;
-  };
-}
-
 export default function ExamPreparation({ exams }: ExamPreparationProps) {
   const [selectedExam, setSelectedExam] = useState<ExamPrepType | null>(null);
-  const [scores, setScores] = useState<ScoresState>({
-    gre: { quant: 0, verbal: 0, awa: 0, total: 0 },
-    ielts: { overall: 0, listening: 0, reading: 0, writing: 0, speaking: 0 },
-    toefl: { total: 0 }
+  const [scores, setScores] = useState<ExamScores>({
+    gre: { 
+      quant: 0, 
+      verbal: 0, 
+      awa: 0, 
+      total: 0,
+      testDate: new Date().toISOString().split('T')[0]
+    },
+    ielts: { 
+      overall: 0, 
+      listening: 0, 
+      reading: 0, 
+      writing: 0, 
+      speaking: 0,
+      testDate: new Date().toISOString().split('T')[0]
+    },
+    toefl: { 
+      reading: 0,
+      listening: 0,
+      speaking: 0,
+      writing: 0,
+      total: 0,
+      testDate: new Date().toISOString().split('T')[0]
+    }
   });
 
   // Helper function for unique keys
@@ -57,14 +59,38 @@ export default function ExamPreparation({ exams }: ExamPreparationProps) {
     }
   };
 
-  const handleScoreChange = (examType: keyof ScoresState, section: string, value: number) => {
+  const handleScoreChange = (examType: keyof ExamScores, section: string, value: number | string) => {
     setScores(prev => ({
       ...prev,
       [examType]: {
-        ...prev[examType],
+        ...prev[examType]!,
         [section]: value
       }
     }));
+  };
+
+  const handleDateChange = (examType: keyof ExamScores, date: string) => {
+    setScores(prev => ({
+      ...prev,
+      [examType]: {
+        ...prev[examType]!,
+        testDate: date
+      }
+    }));
+  };
+
+  // Helper function to safely get test date
+  const getTestDate = (examType: string): string => {
+    const examScores = scores[examType as keyof ExamScores] as any;
+    if (!examScores?.testDate) return '';
+    
+    // If it's a Date object, convert to string
+    if (examScores.testDate instanceof Date) {
+      return examScores.testDate.toISOString().split('T')[0];
+    }
+    
+    // If it's already a string, return it
+    return examScores.testDate;
   };
 
   return (
@@ -128,6 +154,17 @@ export default function ExamPreparation({ exams }: ExamPreparationProps) {
           <div className="border-t pt-6">
             <h3 className="text-xl font-bold mb-4">Track Your Scores</h3>
             
+            {/* Test Date Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">Test Date</label>
+              <input
+                type="date"
+                value={getTestDate(selectedExam.examType)}
+                onChange={(e) => handleDateChange(selectedExam.examType as keyof ExamScores, e.target.value)}
+                className="mt-1 block w-full max-w-xs border border-gray-300 rounded-md px-3 py-2"
+              />
+            </div>
+            
             {selectedExam.examType === 'gre' && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
@@ -136,7 +173,7 @@ export default function ExamPreparation({ exams }: ExamPreparationProps) {
                     type="number"
                     min="130"
                     max="170"
-                    value={scores.gre.quant}
+                    value={scores.gre?.quant || 0}
                     onChange={(e) => handleScoreChange('gre', 'quant', parseInt(e.target.value) || 0)}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                   />
@@ -147,7 +184,7 @@ export default function ExamPreparation({ exams }: ExamPreparationProps) {
                     type="number"
                     min="130"
                     max="170"
-                    value={scores.gre.verbal}
+                    value={scores.gre?.verbal || 0}
                     onChange={(e) => handleScoreChange('gre', 'verbal', parseInt(e.target.value) || 0)}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                   />
@@ -159,7 +196,7 @@ export default function ExamPreparation({ exams }: ExamPreparationProps) {
                     min="0"
                     max="6"
                     step="0.5"
-                    value={scores.gre.awa}
+                    value={scores.gre?.awa || 0}
                     onChange={(e) => handleScoreChange('gre', 'awa', parseFloat(e.target.value) || 0)}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                   />
@@ -170,7 +207,7 @@ export default function ExamPreparation({ exams }: ExamPreparationProps) {
                     type="number"
                     min="260"
                     max="340"
-                    value={scores.gre.quant + scores.gre.verbal}
+                    value={(scores.gre?.quant || 0) + (scores.gre?.verbal || 0)}
                     readOnly
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100"
                   />
@@ -190,7 +227,7 @@ export default function ExamPreparation({ exams }: ExamPreparationProps) {
                       min="0"
                       max="9"
                       step="0.5"
-                      value={scores.ielts[section]}
+                      value={scores.ielts?.[section] || 0}
                       onChange={(e) => handleScoreChange('ielts', section, parseFloat(e.target.value) || 0)}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                     />
@@ -200,16 +237,22 @@ export default function ExamPreparation({ exams }: ExamPreparationProps) {
             )}
 
             {selectedExam.examType === 'toefl' && (
-              <div className="max-w-xs">
-                <label className="block text-sm font-medium text-gray-700">Total Score</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={scores.toefl.total}
-                  onChange={(e) => handleScoreChange('toefl', 'total', parseInt(e.target.value) || 0)}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                />
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {(['reading', 'listening', 'speaking', 'writing', 'total'] as const).map((section) => (
+                  <div key={section}>
+                    <label className="block text-sm font-medium text-gray-700 capitalize">
+                      {section}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={section === 'total' ? '120' : '30'}
+                      value={scores.toefl?.[section] || 0}
+                      onChange={(e) => handleScoreChange('toefl', section, parseInt(e.target.value) || 0)}
+                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    />
+                  </div>
+                ))}
               </div>
             )}
 

@@ -14,7 +14,7 @@ const toObjectId = (id: string): Types.ObjectId => {
 };
 
 // Send a new message
-export async function sendMessageAction(
+export async function sendMessage(
   senderId: string,
   senderName: string,
   senderRole: 'student' | 'mentor' | 'admin',
@@ -64,7 +64,7 @@ export async function sendMessageAction(
 }
 
 // Get conversations list for a user
-export async function getConversationsAction(
+export async function getConversations(
   userId: string,
   userRole: 'student' | 'mentor' | 'admin'
 ): Promise<{ success: boolean; conversations?: Conversation[]; error?: string }> {
@@ -169,7 +169,7 @@ export async function getConversationsAction(
 }
 
 // Get messages between two users
-export async function getMessagesAction(
+export async function getMessages(
   currentUserId: string,
   otherUserId: string
 ): Promise<{ success: boolean; messages?: any[]; error?: string }> {
@@ -219,7 +219,9 @@ export async function getMessagesAction(
       isRead: msg.isRead,
       readAt: msg.readAt?.toISOString(),
       createdAt: msg.createdAt.toISOString(),
-      updatedAt: msg.updatedAt.toISOString()
+      updatedAt: msg.updatedAt.toISOString(),
+      // Add isOwnMessage for client-side rendering
+      isOwnMessage: msg.senderId.toString() === currentUserId
     }));
 
     return { success: true, messages: formattedMessages };
@@ -244,7 +246,7 @@ async function getProfilePhoto(userId: string): Promise<string | null> {
 }
 
 // Search users for messaging (with profile photos)
-export async function searchUsersAction(
+export async function getUsersForMessaging(
   query: string,
   currentUserId: string
 ): Promise<{ success: boolean; users?: UserSearchResult[]; error?: string }> {
@@ -297,7 +299,7 @@ export async function searchUsersAction(
 }
 
 // Get unread message count
-export async function getUnreadCountAction(
+export async function getUnreadMessageCount(
   userId: string
 ): Promise<{ success: boolean; count?: number; error?: string }> {
   try {
@@ -316,7 +318,7 @@ export async function getUnreadCountAction(
 }
 
 // Delete a message (only for sender)
-export async function deleteMessageAction(
+export async function deleteMessage(
   messageId: string,
   userId: string
 ): Promise<{ success: boolean; error?: string }> {

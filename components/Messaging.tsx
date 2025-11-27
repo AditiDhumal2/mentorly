@@ -1,7 +1,15 @@
+// components/Messaging.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { sendMessage, getConversations, getMessages, getUsersForMessaging, getUnreadMessageCount, type Conversation } from '@/actions/messaging-actions';
+import { 
+  sendMessage, 
+  getConversations, 
+  getMessages, 
+  getUsersForMessaging, 
+  getUnreadMessageCount
+} from '@/actions/messaging-actions';
+import type { Conversation } from '@/types/messaging';
 
 interface MessagingProps {
   currentUser: {
@@ -26,7 +34,7 @@ export default function Messaging({ currentUser }: MessagingProps) {
   useEffect(() => {
     loadConversations();
     loadUnreadCount();
-  }, [currentUser]);
+  }, [currentUser.id]);
 
   useEffect(() => {
     scrollToBottom();
@@ -34,8 +42,10 @@ export default function Messaging({ currentUser }: MessagingProps) {
 
   const loadConversations = async () => {
     try {
-      const convs = await getConversations(currentUser.id, currentUser.role);
-      setConversations(convs);
+      const result = await getConversations(currentUser.id, currentUser.role);
+      if (result.success && result.conversations) {
+        setConversations(result.conversations);
+      }
     } catch (error) {
       console.error('Error loading conversations:', error);
     }
@@ -43,8 +53,10 @@ export default function Messaging({ currentUser }: MessagingProps) {
 
   const loadUnreadCount = async () => {
     try {
-      const count = await getUnreadMessageCount(currentUser.id);
-      setUnreadCount(count);
+      const result = await getUnreadMessageCount(currentUser.id);
+      if (result.success && result.count !== undefined) {
+        setUnreadCount(result.count);
+      }
     } catch (error) {
       console.error('Error loading unread count:', error);
     }
@@ -54,12 +66,10 @@ export default function Messaging({ currentUser }: MessagingProps) {
     setSelectedUser(user);
     setLoading(true);
     try {
-      // Generate conversation ID (sorted to ensure consistency)
-      const participants = [currentUser.id, user.id].sort();
-      const conversationId = `${participants[0]}_${participants[1]}`;
-      
-      const msgs = await getMessages(conversationId, currentUser.id);
-      setMessages(msgs);
+      const result = await getMessages(currentUser.id, user.id);
+      if (result.success && result.messages) {
+        setMessages(result.messages);
+      }
       setActiveTab('conversations');
       
       // Refresh conversations to update unread counts
@@ -76,23 +86,27 @@ export default function Messaging({ currentUser }: MessagingProps) {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser) return;
 
-    const messageData = {
-      senderId: currentUser.id,
-      senderRole: currentUser.role,
-      senderName: currentUser.name,
-      receiverId: selectedUser.id,
-      receiverRole: selectedUser.role,
-      receiverName: selectedUser.name,
-      message: newMessage.trim()
-    };
-
     try {
-      await sendMessage(messageData);
-      setNewMessage('');
-      
-      // Reload messages to show the new one
-      await loadMessages(selectedUser);
-      await loadConversations();
+      const result = await sendMessage(
+        currentUser.id,
+        currentUser.name,
+        currentUser.role,
+        {
+          receiverId: selectedUser.id,
+          receiverName: selectedUser.name,
+          receiverRole: selectedUser.role,
+          content: newMessage.trim()
+        }
+      );
+
+      if (result.success) {
+        setNewMessage('');
+        // Reload messages to show the new one
+        await loadMessages(selectedUser);
+        await loadConversations();
+      } else {
+        console.error('Failed to send message:', result.error);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -102,8 +116,10 @@ export default function Messaging({ currentUser }: MessagingProps) {
     setSearchTerm(search);
     if (search.length > 1) {
       try {
-        const foundUsers = await getUsersForMessaging(currentUser.id, currentUser.role, search);
-        setUsers(foundUsers);
+        const result = await getUsersForMessaging(search, currentUser.id);
+        if (result.success && result.users) {
+          setUsers(result.users);
+        }
       } catch (error) {
         console.error('Error searching users:', error);
       }
@@ -188,11 +204,19 @@ export default function Messaging({ currentUser }: MessagingProps) {
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold ${
-                          conv.userRole === 'mentor' ? 'bg-purple-500' : 'bg-green-500'
-                        }`}>
-                          {conv.userName.charAt(0).toUpperCase()}
-                        </div>
+                        {conv.profilePhoto ? (
+                          <img 
+                            src={conv.profilePhoto} 
+                            alt={conv.userName}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold ${
+                            conv.userRole === 'mentor' ? 'bg-purple-500' : 'bg-green-500'
+                          }`}>
+                            {conv.userName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <div className="font-medium text-gray-900">
                             {conv.userName}
@@ -212,7 +236,7 @@ export default function Messaging({ currentUser }: MessagingProps) {
                       {conv.lastMessage}
                     </div>
                     <div className="text-xs text-gray-400 mt-1">
-                      {new Date(conv.lastMessageTime).toLocaleDateString()}
+                      {conv.lastMessageTime ? new Date(conv.lastMessageTime).toLocaleDateString() : ''}
                     </div>
                   </div>
                 ))
@@ -232,16 +256,28 @@ export default function Messaging({ currentUser }: MessagingProps) {
               <div className="mt-4 space-y-2">
                 {users.map((user) => (
                   <div
-                    key={user.id}
-                    onClick={() => startNewConversation(user)}
+                    key={user._id}
+                    onClick={() => startNewConversation({
+                      id: user._id,
+                      name: user.name,
+                      role: user.role
+                    })}
                     className="p-3 rounded-lg cursor-pointer hover:bg-gray-50 border border-gray-200"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold ${
-                        user.role === 'mentor' ? 'bg-purple-500' : 'bg-green-500'
-                      }`}>
-                        {user.name.charAt(0).toUpperCase()}
-                      </div>
+                      {user.profilePhoto ? (
+                        <img 
+                          src={user.profilePhoto} 
+                          alt={user.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold ${
+                          user.role === 'mentor' ? 'bg-purple-500' : 'bg-green-500'
+                        }`}>
+                          {user.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div>
                         <div className="font-medium text-gray-900">
                           {user.name}
@@ -309,7 +345,7 @@ export default function Messaging({ currentUser }: MessagingProps) {
                           : 'bg-gray-200 text-gray-900'
                       }`}
                     >
-                      <div className="text-sm">{message.message}</div>
+                      <div className="text-sm">{message.content}</div>
                       <div
                         className={`text-xs mt-1 ${
                           message.isOwnMessage ? 'text-blue-200' : 'text-gray-500'

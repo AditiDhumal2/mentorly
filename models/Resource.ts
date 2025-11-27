@@ -1,7 +1,20 @@
+// models/Resource.ts
 import mongoose, { Document, Schema, Model } from 'mongoose';
-import { ResourceBase, ResourceRating } from '@/types/resource';
 
-export interface IResourceDocument extends ResourceBase, Document {
+export interface ResourceRating {
+  userId: mongoose.Types.ObjectId;
+  rating: number;
+}
+
+export interface IResourceDocument extends Document {
+  title: string;
+  description: string;
+  url: string;
+  type: 'course' | 'internship' | 'portal' | 'newsletter';
+  tags: string[];
+  level: 'beginner' | 'intermediate' | 'advanced';
+  free: boolean;
+  certificate: boolean;
   rating?: number;
   ratedBy: ResourceRating[];
   addedBy: mongoose.Types.ObjectId;
@@ -68,7 +81,7 @@ const ResourceSchema: Schema = new Schema(
     ratedBy: [{
       userId: {
         type: Schema.Types.ObjectId,
-        ref: 'Student', // Changed from 'User' to 'Student'
+        ref: 'Student',
         required: true,
       },
       rating: {
@@ -80,7 +93,7 @@ const ResourceSchema: Schema = new Schema(
     }],
     addedBy: {
       type: Schema.Types.ObjectId,
-      ref: 'Student', // Changed from 'User' to 'Student'
+      ref: 'Student',
       required: true,
     },
   },

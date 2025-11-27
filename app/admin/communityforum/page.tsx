@@ -1,8 +1,9 @@
+// app/admin/communityforum/page.tsx
 import { getAdminCommunityPosts } from '@/actions/communityforum-admin-actions';
 import { getPostsByCategory } from '@/actions/community-categories-actions';
 import AdminCommunityForum from './components/AdminCommunityForum';
 import CategoryHomepage from '@/components/CategoryHomepage';
-import { CommunityPost } from '@/types/community';
+import { CommunityPost } from '@/types/community'; // Updated import
 
 interface AdminCommunityForumPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -53,32 +54,45 @@ function transformPostData(posts: any[]): CommunityPost[] {
         ? post.createdAt 
         : new Date().toISOString();
 
-    const updatedAt = (post as any).updatedAt instanceof Date 
-      ? (post as any).updatedAt.toISOString() 
-      : typeof (post as any).updatedAt === 'string' 
-        ? (post as any).updatedAt 
+    const updatedAt = post.updatedAt instanceof Date 
+      ? post.updatedAt.toISOString() 
+      : typeof post.updatedAt === 'string' 
+        ? post.updatedAt 
         : createdAt;
 
-    const deletedAt = (post as any).deletedAt instanceof Date 
-      ? (post as any).deletedAt.toISOString() 
-      : typeof (post as any).deletedAt === 'string' 
-        ? (post as any).deletedAt 
+    const deletedAt = post.deletedAt instanceof Date 
+      ? post.deletedAt.toISOString() 
+      : typeof post.deletedAt === 'string' 
+        ? post.deletedAt 
         : undefined;
 
-    const transformedReplies: any[] = (post.replies || []).map((reply: any) => {
+    const editedAt = post.editedAt instanceof Date 
+      ? post.editedAt.toISOString() 
+      : typeof post.editedAt === 'string' 
+        ? post.editedAt 
+        : undefined;
+
+    const transformedReplies = (post.replies || []).map((reply: any) => {
       const replyCreatedAt = reply.createdAt instanceof Date 
         ? reply.createdAt.toISOString() 
         : typeof reply.createdAt === 'string' 
           ? reply.createdAt 
           : new Date().toISOString();
 
+      const replyUpdatedAt = reply.updatedAt instanceof Date 
+        ? reply.updatedAt.toISOString() 
+        : typeof reply.updatedAt === 'string' 
+          ? reply.updatedAt 
+          : replyCreatedAt;
+
       return {
         _id: reply._id?.toString() || '',
         userId: reply.userId?.toString() || '',
         userName: reply.userName || 'Unknown User',
         userRole: reply.userRole || 'student',
-        message: reply.message || '',
+        message: reply.message || reply.content || '',
         createdAt: replyCreatedAt,
+        updatedAt: replyUpdatedAt,
         isDeleted: reply.isDeleted || false,
         deletedBy: reply.deletedBy?.toString(),
         deletedAt: reply.deletedAt instanceof Date 
@@ -97,15 +111,23 @@ function transformPostData(posts: any[]): CommunityPost[] {
       title: post.title || 'No Title',
       content: post.content || 'No Content',
       category: post.category || 'general',
-      visibility: (post as any).visibility || 'public',
+      visibility: post.visibility || 'public',
       replies: transformedReplies,
       upvotes: (post.upvotes || []).map((upvote: any) => upvote.toString()),
-      isDeleted: (post as any).isDeleted || false,
-      reportCount: (post as any).reportCount || 0,
-      deletedBy: (post as any).deletedBy?.toString(),
+      isDeleted: post.isDeleted || false,
+      reportCount: post.reportCount || 0,
+      deletedBy: post.deletedBy?.toString(),
       deletedAt: deletedAt,
       createdAt: createdAt,
-      updatedAt: updatedAt
+      updatedAt: updatedAt,
+      edited: post.edited || false,
+      editedAt: editedAt,
+      editCount: post.editCount || 0,
+      targetedMentorId: post.targetedMentorId?.toString(),
+      targetedMentorName: post.targetedMentorName,
+      questionStatus: post.questionStatus || 'pending',
+      priority: post.priority || 'medium',
+      tags: post.tags || []
     };
   });
 }

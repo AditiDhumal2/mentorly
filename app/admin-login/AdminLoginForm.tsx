@@ -1,10 +1,17 @@
+// components/auth/AdminLoginForm.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { adminLogin } from '@/actions/adminAuthActions';
 
-export default function AdminLoginForm() {
+// 🆕 ADD PROPS INTERFACE
+interface AdminLoginFormProps {
+  callbackUrl?: string;
+  error?: string | null;
+}
+
+export default function AdminLoginForm({ callbackUrl = '/admin', error: propError }: AdminLoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -51,7 +58,7 @@ export default function AdminLoginForm() {
       } else if (result?.success) {
         console.log('✅ AdminLoginForm - Login successful, redirecting to /admin');
         // Force redirect to admin dashboard
-        window.location.href = '/admin';
+        window.location.href = callbackUrl;
       } else {
         setError('Unexpected response from server');
       }
@@ -65,6 +72,9 @@ export default function AdminLoginForm() {
   };
 
   const urlError = searchParams.get('error');
+
+  // 🆕 COMBINE ERRORS: Use prop error or URL error or local error
+  const displayError = propError || urlError || error;
 
   // Don't render form until mounted to prevent hydration issues
   if (!isMounted) {
@@ -145,26 +155,14 @@ export default function AdminLoginForm() {
           {/* Form Content */}
           <div className="px-8 py-6">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Show URL error (from server redirects) */}
-              {urlError && (
+              {/* Show combined error */}
+              {displayError && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
                   <div className="flex items-center">
                     <svg className="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="text-red-400 text-sm">{urlError}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Show client-side error */}
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-red-400 text-sm">{error}</span>
+                    <span className="text-red-400 text-sm">{displayError}</span>
                   </div>
                 </div>
               )}

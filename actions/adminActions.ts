@@ -1,10 +1,11 @@
 'use server';
 
 import { connectDB } from '@/lib/db';
+import mongoose from 'mongoose';
 import { Roadmap } from '@/models/Roadmap';
 import { CareerDomain } from '@/models/CareerDomain';
 import { MarketTrend } from '@/models/MarketTrend';
-import { Resource } from '@/models/Resource';
+import Resource from '@/models/Resource';
 import { Student } from '@/models/Students';
 import { verifyAdminSession } from './adminAuthActions';
 
@@ -51,19 +52,23 @@ export interface IMarketTrend {
   updatedAt: Date;
 }
 
+// FIXED: IResource interface that matches the actual Resource model
 export interface IResource {
   _id: string;
   title: string;
   description: string;
   url: string;
-  type: 'video' | 'article' | 'course' | 'book' | 'documentation';
-  domain: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  free: boolean;
-  rating: number;
-  ratedBy: string[];
-  addedBy: string;
+  type: 'course' | 'internship' | 'portal' | 'newsletter';
   tags: string[];
+  level: 'beginner' | 'intermediate' | 'advanced';
+  free: boolean;
+  certificate: boolean;
+  rating?: number;
+  ratedBy: Array<{
+    userId: string;
+    rating: number;
+  }>;
+  addedBy: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -384,7 +389,7 @@ export async function deleteMarketTrend(id: string): Promise<void> {
   }
 }
 
-// Resources Admin Actions
+// Resources Admin Actions - FIXED VERSIONS
 export async function getResources(): Promise<IResource[]> {
   try {
     const session = await verifyAdminSession();
@@ -396,7 +401,7 @@ export async function getResources(): Promise<IResource[]> {
     const resources = await Resource.find()
       .populate('addedBy', 'name email')
       .sort({ createdAt: -1 })
-      .lean() as MongoDocument<IResource>[];
+      .lean() as any[];
     
     return resources.map(resource => ({
       _id: resource._id.toString(),
@@ -404,13 +409,16 @@ export async function getResources(): Promise<IResource[]> {
       description: resource.description,
       url: resource.url,
       type: resource.type,
-      domain: resource.domain,
-      difficulty: resource.difficulty,
-      free: resource.free,
-      rating: resource.rating,
-      ratedBy: resource.ratedBy,
-      addedBy: resource.addedBy,
       tags: resource.tags,
+      level: resource.level,
+      free: resource.free,
+      certificate: resource.certificate,
+      rating: resource.rating,
+      ratedBy: (resource.ratedBy || []).map((rating: any) => ({
+        userId: rating.userId?.toString() || rating.userId,
+        rating: rating.rating
+      })),
+      addedBy: resource.addedBy?._id?.toString() || resource.addedBy?.toString() || resource.addedBy,
       createdAt: new Date(resource.createdAt),
       updatedAt: new Date(resource.updatedAt)
     }));
@@ -434,21 +442,28 @@ export async function createResource(resourceData: Omit<IResource, '_id' | 'rate
       ratedBy: []
     });
     const savedResource = await resource.save();
+    
+    // FIXED: Type assertion to handle Mongoose document
+    const savedDoc = savedResource as any;
+    
     return {
-      _id: savedResource._id.toString(),
-      title: savedResource.title,
-      description: savedResource.description,
-      url: savedResource.url,
-      type: savedResource.type,
-      domain: savedResource.domain,
-      difficulty: savedResource.difficulty,
-      free: savedResource.free,
-      rating: savedResource.rating,
-      ratedBy: savedResource.ratedBy,
-      addedBy: savedResource.addedBy,
-      tags: savedResource.tags,
-      createdAt: savedResource.createdAt,
-      updatedAt: savedResource.updatedAt
+      _id: savedDoc._id.toString(),
+      title: savedDoc.title,
+      description: savedDoc.description,
+      url: savedDoc.url,
+      type: savedDoc.type,
+      tags: savedDoc.tags,
+      level: savedDoc.level,
+      free: savedDoc.free,
+      certificate: savedDoc.certificate,
+      rating: savedDoc.rating,
+      ratedBy: (savedDoc.ratedBy || []).map((rating: any) => ({
+        userId: rating.userId?.toString() || rating.userId,
+        rating: rating.rating
+      })),
+      addedBy: savedDoc.addedBy?.toString() || savedDoc.addedBy,
+      createdAt: new Date(savedDoc.createdAt),
+      updatedAt: new Date(savedDoc.updatedAt)
     };
   } catch (error) {
     console.error('Error creating resource:', error);
@@ -464,7 +479,17 @@ export async function updateResource(id: string, resourceData: Partial<IResource
     }
 
     await connectDB();
-    await Resource.findByIdAndUpdate(id, resourceData);
+    
+    // Convert string IDs to ObjectIds for ratedBy
+    const updateData: any = { ...resourceData };
+    if (updateData.ratedBy && Array.isArray(updateData.ratedBy)) {
+      updateData.ratedBy = updateData.ratedBy.map((rating: any) => ({
+        userId: new mongoose.Types.ObjectId(rating.userId),
+        rating: rating.rating
+      }));
+    }
+    
+    await Resource.findByIdAndUpdate(id, updateData);
   } catch (error) {
     console.error('Error updating resource:', error);
     throw new Error('Failed to update resource');
@@ -511,24 +536,24 @@ export async function getUsers(): Promise<IUser[]> {
       preferredLanguage: user.preferredLanguage,
       profiles: user.profiles,
       interests: user.interests,
-      roadmapProgress: user.roadmapProgress.map((progress: any) => ({
-        roadmapId: progress.roadmapId,
-        completedSteps: progress.completedSteps,
+      roadmapProgress: user.roadmapProgress?.map((progress: any) => ({
+        roadmapId: progress.roadmapId?.toString(),
+        completedSteps: progress.completedSteps?.map((step: any) => step.toString()),
         currentStep: progress.currentStep,
         startedAt: new Date(progress.startedAt),
         lastUpdated: new Date(progress.lastUpdated)
-      })),
+      })) || [],
       learningStats: {
-        totalTimeSpent: user.learningStats.totalTimeSpent,
-        stepsCompleted: user.learningStats.stepsCompleted,
-        resourcesViewed: user.learningStats.resourcesViewed,
-        lastActive: new Date(user.learningStats.lastActive),
-        currentStreak: user.learningStats.currentStreak,
-        longestStreak: user.learningStats.longestStreak,
-        loginCount: user.learningStats.loginCount,
-        averageEngagement: user.learningStats.averageEngagement,
-        totalCodeSubmissions: user.learningStats.totalCodeSubmissions,
-        totalProjectSubmissions: user.learningStats.totalProjectSubmissions
+        totalTimeSpent: user.learningStats?.totalTimeSpent || 0,
+        stepsCompleted: user.learningStats?.stepsCompleted || 0,
+        resourcesViewed: user.learningStats?.resourcesViewed || 0,
+        lastActive: new Date(user.learningStats?.lastActive || user.createdAt),
+        currentStreak: user.learningStats?.currentStreak || 0,
+        longestStreak: user.learningStats?.longestStreak || 0,
+        loginCount: user.learningStats?.loginCount || 0,
+        averageEngagement: user.learningStats?.averageEngagement || 0,
+        totalCodeSubmissions: user.learningStats?.totalCodeSubmissions || 0,
+        totalProjectSubmissions: user.learningStats?.totalProjectSubmissions || 0
       },
       createdAt: new Date(user.createdAt),
       updatedAt: new Date(user.updatedAt)
@@ -576,24 +601,24 @@ export async function getUserById(id: string): Promise<IUser | null> {
       preferredLanguage: user.preferredLanguage,
       profiles: user.profiles,
       interests: user.interests,
-      roadmapProgress: user.roadmapProgress.map((progress: any) => ({
-        roadmapId: progress.roadmapId,
-        completedSteps: progress.completedSteps,
+      roadmapProgress: user.roadmapProgress?.map((progress: any) => ({
+        roadmapId: progress.roadmapId?.toString(),
+        completedSteps: progress.completedSteps?.map((step: any) => step.toString()),
         currentStep: progress.currentStep,
         startedAt: new Date(progress.startedAt),
         lastUpdated: new Date(progress.lastUpdated)
-      })),
+      })) || [],
       learningStats: {
-        totalTimeSpent: user.learningStats.totalTimeSpent,
-        stepsCompleted: user.learningStats.stepsCompleted,
-        resourcesViewed: user.learningStats.resourcesViewed,
-        lastActive: new Date(user.learningStats.lastActive),
-        currentStreak: user.learningStats.currentStreak,
-        longestStreak: user.learningStats.longestStreak,
-        loginCount: user.learningStats.loginCount,
-        averageEngagement: user.learningStats.averageEngagement,
-        totalCodeSubmissions: user.learningStats.totalCodeSubmissions,
-        totalProjectSubmissions: user.learningStats.totalProjectSubmissions
+        totalTimeSpent: user.learningStats?.totalTimeSpent || 0,
+        stepsCompleted: user.learningStats?.stepsCompleted || 0,
+        resourcesViewed: user.learningStats?.resourcesViewed || 0,
+        lastActive: new Date(user.learningStats?.lastActive || user.createdAt),
+        currentStreak: user.learningStats?.currentStreak || 0,
+        longestStreak: user.learningStats?.longestStreak || 0,
+        loginCount: user.learningStats?.loginCount || 0,
+        averageEngagement: user.learningStats?.averageEngagement || 0,
+        totalCodeSubmissions: user.learningStats?.totalCodeSubmissions || 0,
+        totalProjectSubmissions: user.learningStats?.totalProjectSubmissions || 0
       },
       createdAt: new Date(user.createdAt),
       updatedAt: new Date(user.updatedAt)
@@ -746,24 +771,24 @@ export async function searchUsers(query: string): Promise<IUser[]> {
       preferredLanguage: user.preferredLanguage,
       profiles: user.profiles,
       interests: user.interests,
-      roadmapProgress: user.roadmapProgress.map((progress: any) => ({
-        roadmapId: progress.roadmapId,
-        completedSteps: progress.completedSteps,
+      roadmapProgress: user.roadmapProgress?.map((progress: any) => ({
+        roadmapId: progress.roadmapId?.toString(),
+        completedSteps: progress.completedSteps?.map((step: any) => step.toString()),
         currentStep: progress.currentStep,
         startedAt: new Date(progress.startedAt),
         lastUpdated: new Date(progress.lastUpdated)
-      })),
+      })) || [],
       learningStats: {
-        totalTimeSpent: user.learningStats.totalTimeSpent,
-        stepsCompleted: user.learningStats.stepsCompleted,
-        resourcesViewed: user.learningStats.resourcesViewed,
-        lastActive: new Date(user.learningStats.lastActive),
-        currentStreak: user.learningStats.currentStreak,
-        longestStreak: user.learningStats.longestStreak,
-        loginCount: user.learningStats.loginCount,
-        averageEngagement: user.learningStats.averageEngagement,
-        totalCodeSubmissions: user.learningStats.totalCodeSubmissions,
-        totalProjectSubmissions: user.learningStats.totalProjectSubmissions
+        totalTimeSpent: user.learningStats?.totalTimeSpent || 0,
+        stepsCompleted: user.learningStats?.stepsCompleted || 0,
+        resourcesViewed: user.learningStats?.resourcesViewed || 0,
+        lastActive: new Date(user.learningStats?.lastActive || user.createdAt),
+        currentStreak: user.learningStats?.currentStreak || 0,
+        longestStreak: user.learningStats?.longestStreak || 0,
+        loginCount: user.learningStats?.loginCount || 0,
+        averageEngagement: user.learningStats?.averageEngagement || 0,
+        totalCodeSubmissions: user.learningStats?.totalCodeSubmissions || 0,
+        totalProjectSubmissions: user.learningStats?.totalProjectSubmissions || 0
       },
       createdAt: new Date(user.createdAt),
       updatedAt: new Date(user.updatedAt)

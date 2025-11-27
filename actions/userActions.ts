@@ -10,6 +10,12 @@ import { redirect } from 'next/navigation';
 // 🆕 CRITICAL FIX: Enhanced getCurrentUser with proper path detection
 export async function getCurrentUser(request?: any) {
   try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 getCurrentUser - Build mode, returning null');
+      return null;
+    }
+
     console.log('🔍 getCurrentUser - Starting to fetch current user...');
     
     const cookieStore = await cookies();
@@ -34,9 +40,9 @@ export async function getCurrentUser(request?: any) {
     try {
       // Method 1: Try to get from headers (for server components)
       const headers = await import('next/headers');
-      const headerList = await headers.headers(); // 🆕 FIX: Add await here
-      const invokePath = headerList.get('x-invoke-path');
-      const nextUrl = headerList.get('next-url');
+      const headerList = await headers.headers(); // 🆕 FIX: Added await here
+      const invokePath = headerList.get('x-invoke-path'); // 🆕 FIX: Now headerList is not a promise
+      const nextUrl = headerList.get('next-url'); // 🆕 FIX: Now headerList is not a promise
       
       if (invokePath) {
         path = invokePath;
@@ -117,6 +123,12 @@ export async function getCurrentUser(request?: any) {
 // 🆕 NEW: Enhanced route-specific user functions with session clearing
 export async function getCurrentUserForMentorRoute() {
   try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 getCurrentUserForMentorRoute - Build mode, returning null');
+      return null;
+    }
+
     console.log('🔍 getCurrentUserForMentorRoute - Starting to fetch current user for mentor route...');
     
     const cookieStore = await cookies();
@@ -152,6 +164,12 @@ export async function getCurrentUserForMentorRoute() {
 
 export async function getCurrentUserForStudentRoute() {
   try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 getCurrentUserForStudentRoute - Build mode, returning null');
+      return null;
+    }
+
     console.log('🔍 getCurrentUserForStudentRoute - Starting to fetch current user for student route...');
     
     const cookieStore = await cookies();
@@ -188,6 +206,12 @@ export async function getCurrentUserForStudentRoute() {
 // 🆕 NEW: Session cleanup utility
 export async function clearConflictingSessions(requiredRole: 'mentor' | 'student') {
   try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 clearConflictingSessions - Build mode, returning false');
+      return false;
+    }
+
     const cookieStore = await cookies();
     
     if (requiredRole === 'mentor') {
@@ -349,6 +373,12 @@ async function getMentorFromCookie(cookieValue: string) {
 // Student-specific session verification (NO REDIRECTS)
 export async function verifyStudentSession() {
   try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 verifyStudentSession - Build mode, returning invalid');
+      return { isValid: false, error: 'Build mode' };
+    }
+
     const cookieStore = await cookies();
     
     const studentDataCookie = cookieStore.get('student-session-v2')?.value;
@@ -397,6 +427,12 @@ export async function verifyStudentSession() {
 // Mentor-specific session verification (NO REDIRECTS)
 export async function verifyMentorSession() {
   try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 verifyMentorSession - Build mode, returning invalid');
+      return { isValid: false, error: 'Build mode' };
+    }
+
     const cookieStore = await cookies();
     
     const mentorDataCookie = cookieStore.get('mentor-session')?.value;
@@ -500,85 +536,123 @@ export async function checkMentorAuth() {
 
 // Student-only logout - NO REDIRECTS
 export async function studentLogout() {
-  console.log('🔒 Student-only logout initiated');
-  
-  const cookieStore = await cookies();
-  
-  // Clear ALL student-related cookies including new one
-  const studentCookies = [
-    'student-data', 
-    'user-data',
-    'student-session-v2'
-  ];
-  
-  studentCookies.forEach(cookieName => {
-    const hadCookie = !!cookieStore.get(cookieName);
-    cookieStore.delete(cookieName);
-    console.log(`🗑️ studentLogout - Deleted student cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
-  });
-  
-  // Verify student cookies are cleared but admin/mentor cookies remain
-  const studentDataAfter = cookieStore.get('student-data');
-  const userDataAfter = cookieStore.get('user-data');
-  const studentSessionV2After = cookieStore.get('student-session-v2');
-  const adminDataAfter = cookieStore.get('admin-data');
-  const mentorSessionAfter = cookieStore.get('mentor-session');
-  
-  console.log('✅ studentLogout - Verification:', {
-    studentDataAfter: studentDataAfter ? 'STILL_EXISTS' : 'DELETED',
-    userDataAfter: userDataAfter ? 'STILL_EXISTS' : 'DELETED',
-    studentSessionV2After: studentSessionV2After ? 'STILL_EXISTS' : 'DELETED',
-    adminDataAfter: adminDataAfter ? 'STILL_EXISTS' : 'DELETED',
-    mentorSessionAfter: mentorSessionAfter ? 'STILL_EXISTS' : 'DELETED'
-  });
+  try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 studentLogout - Build mode, returning success');
+      return { 
+        success: true, 
+        message: 'Build mode logout',
+        redirectUrl: '/students-auth/login'
+      };
+    }
 
-  console.log('✅ studentLogout - All student cookies cleared, admin/mentor sessions preserved');
-  
-  return { 
-    success: true, 
-    message: 'Student logout successful',
-    redirectUrl: '/students-auth/login?logout=success&t=' + Date.now()
-  };
+    console.log('🔒 Student-only logout initiated');
+    
+    const cookieStore = await cookies();
+    
+    // Clear ALL student-related cookies including new one
+    const studentCookies = [
+      'student-data', 
+      'user-data',
+      'student-session-v2'
+    ];
+    
+    studentCookies.forEach(cookieName => {
+      const hadCookie = !!cookieStore.get(cookieName);
+      cookieStore.delete(cookieName);
+      console.log(`🗑️ studentLogout - Deleted student cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
+    });
+    
+    // Verify student cookies are cleared but admin/mentor cookies remain
+    const studentDataAfter = cookieStore.get('student-data');
+    const userDataAfter = cookieStore.get('user-data');
+    const studentSessionV2After = cookieStore.get('student-session-v2');
+    const adminDataAfter = cookieStore.get('admin-data');
+    const mentorSessionAfter = cookieStore.get('mentor-session');
+    
+    console.log('✅ studentLogout - Verification:', {
+      studentDataAfter: studentDataAfter ? 'STILL_EXISTS' : 'DELETED',
+      userDataAfter: userDataAfter ? 'STILL_EXISTS' : 'DELETED',
+      studentSessionV2After: studentSessionV2After ? 'STILL_EXISTS' : 'DELETED',
+      adminDataAfter: adminDataAfter ? 'STILL_EXISTS' : 'DELETED',
+      mentorSessionAfter: mentorSessionAfter ? 'STILL_EXISTS' : 'DELETED'
+    });
+
+    console.log('✅ studentLogout - All student cookies cleared, admin/mentor sessions preserved');
+    
+    return { 
+      success: true, 
+      message: 'Student logout successful',
+      redirectUrl: '/students-auth/login?logout=success&t=' + Date.now()
+    };
+  } catch (error) {
+    console.error('❌ studentLogout - Error:', error);
+    return { 
+      success: false, 
+      message: 'Logout failed',
+      redirectUrl: '/students-auth/login'
+    };
+  }
 }
 
 // Mentor-only logout - NO REDIRECTS
 export async function mentorLogout() {
-  console.log('🔒 Mentor-only logout initiated');
-  
-  const cookieStore = await cookies();
-  
-  // Clear mentor-related cookies
-  const mentorCookies = [
-    'mentor-session',
-    'mentor-data'
-  ];
-  
-  mentorCookies.forEach(cookieName => {
-    const hadCookie = !!cookieStore.get(cookieName);
-    cookieStore.delete(cookieName);
-    console.log(`🗑️ mentorLogout - Deleted mentor cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
-  });
-  
-  // Verify mentor cookies are cleared but student/admin cookies remain
-  const mentorSessionAfter = cookieStore.get('mentor-session');
-  const mentorDataAfter = cookieStore.get('mentor-data');
-  const studentSessionV2After = cookieStore.get('student-session-v2');
-  const adminDataAfter = cookieStore.get('admin-data');
-  
-  console.log('✅ mentorLogout - Verification:', {
-    mentorSessionAfter: mentorSessionAfter ? 'STILL_EXISTS' : 'DELETED',
-    mentorDataAfter: mentorDataAfter ? 'STILL_EXISTS' : 'DELETED',
-    studentSessionV2After: studentSessionV2After ? 'STILL_EXISTS' : 'DELETED',
-    adminDataAfter: adminDataAfter ? 'STILL_EXISTS' : 'DELETED'
-  });
+  try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 mentorLogout - Build mode, returning success');
+      return { 
+        success: true, 
+        message: 'Build mode logout',
+        redirectUrl: '/mentors-auth/login'
+      };
+    }
 
-  console.log('✅ mentorLogout - All mentor cookies cleared, student/admin sessions preserved');
-  
-  return { 
-    success: true, 
-    message: 'Mentor logout successful',
-    redirectUrl: '/mentors-auth/login?logout=success&t=' + Date.now()
-  };
+    console.log('🔒 Mentor-only logout initiated');
+    
+    const cookieStore = await cookies();
+    
+    // Clear mentor-related cookies
+    const mentorCookies = [
+      'mentor-session',
+      'mentor-data'
+    ];
+    
+    mentorCookies.forEach(cookieName => {
+      const hadCookie = !!cookieStore.get(cookieName);
+      cookieStore.delete(cookieName);
+      console.log(`🗑️ mentorLogout - Deleted mentor cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
+    });
+    
+    // Verify mentor cookies are cleared but student/admin cookies remain
+    const mentorSessionAfter = cookieStore.get('mentor-session');
+    const mentorDataAfter = cookieStore.get('mentor-data');
+    const studentSessionV2After = cookieStore.get('student-session-v2');
+    const adminDataAfter = cookieStore.get('admin-data');
+    
+    console.log('✅ mentorLogout - Verification:', {
+      mentorSessionAfter: mentorSessionAfter ? 'STILL_EXISTS' : 'DELETED',
+      mentorDataAfter: mentorDataAfter ? 'STILL_EXISTS' : 'DELETED',
+      studentSessionV2After: studentSessionV2After ? 'STILL_EXISTS' : 'DELETED',
+      adminDataAfter: adminDataAfter ? 'STILL_EXISTS' : 'DELETED'
+    });
+
+    console.log('✅ mentorLogout - All mentor cookies cleared, student/admin sessions preserved');
+    
+    return { 
+      success: true, 
+      message: 'Mentor logout successful',
+      redirectUrl: '/mentors-auth/login?logout=success&t=' + Date.now()
+    };
+  } catch (error) {
+    console.error('❌ mentorLogout - Error:', error);
+    return { 
+      success: false, 
+      message: 'Logout failed',
+      redirectUrl: '/mentors-auth/login'
+    };
+  }
 }
 
 export async function getUserData(userId: string) {
@@ -879,6 +953,12 @@ export async function checkExistingMentorAuth() {
 // Get current student session data (for client-side use)
 export async function getCurrentStudentSession() {
   try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 getCurrentStudentSession - Build mode, returning not logged in');
+      return { isLoggedIn: false, student: null };
+    }
+
     const cookieStore = await cookies();
     
     const studentDataCookie = cookieStore.get('student-session-v2')?.value;
@@ -907,6 +987,12 @@ export async function getCurrentStudentSession() {
 // Get current mentor session data (for client-side use)
 export async function getCurrentMentorSession() {
   try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 getCurrentMentorSession - Build mode, returning not logged in');
+      return { isLoggedIn: false, mentor: null };
+    }
+
     const cookieStore = await cookies();
     
     const mentorDataCookie = cookieStore.get('mentor-session')?.value;
@@ -977,6 +1063,12 @@ export async function getCurrentMentorSession() {
 // Check if student session exists without validation (for middleware)
 export async function hasStudentSession() {
   try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 hasStudentSession - Build mode, returning false');
+      return false;
+    }
+
     const cookieStore = await cookies();
     
     const studentDataCookie = cookieStore.get('student-session-v2')?.value;
@@ -995,6 +1087,12 @@ export async function hasStudentSession() {
 // Check if mentor session exists without validation (for middleware)
 export async function hasMentorSession() {
   try {
+    // 🆕 FIX: Check if we're in build mode
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🔍 hasMentorSession - Build mode, returning false');
+      return false;
+    }
+
     const cookieStore = await cookies();
     
     const mentorDataCookie = cookieStore.get('mentor-session')?.value;

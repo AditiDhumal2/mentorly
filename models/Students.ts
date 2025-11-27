@@ -10,10 +10,7 @@ export interface IStudent extends Document {
   year: number;
   college: string;
   preferredLanguage: string;
-  
-  // PROFILE PHOTO FIELD
   profilePhoto?: string;
-  
   languages: {
     languageId: string;
     proficiency: 'beginner' | 'intermediate' | 'advanced';
@@ -26,34 +23,27 @@ export interface IStudent extends Document {
     codechef?: string;
   };
   interests: string[];
-  
-  // Enhanced auto-progress tracking
   roadmapProgress: {
     year: number;
     stepId: mongoose.Types.ObjectId;
     completed: boolean;
     completedAt?: Date;
     startedAt?: Date;
-    timeSpent: number; // in minutes
+    timeSpent: number;
     lastActivity: Date;
-    // Auto-completion metrics
-    resourcesViewed: string[]; // URLs of viewed resources
-    timeSpentOnStep: number; // Total time spent on this step
-    engagementScore: number; // 0-100 based on activity
-    autoCompleted: boolean; // Whether system auto-completed it
+    resourcesViewed: string[];
+    timeSpentOnStep: number;
+    engagementScore: number;
+    autoCompleted: boolean;
   }[];
-  
-  // Activity tracking for auto-progress
   activityLog: {
     action: 'started_step' | 'viewed_resource' | 'saved_resource' | 'logged_in' | 'time_spent' | 'code_submission' | 'project_submission';
     stepId?: mongoose.Types.ObjectId;
     resourceId?: mongoose.Types.ObjectId;
     timestamp: Date;
     metadata?: any;
-    duration?: number; // Time spent in minutes
+    duration?: number;
   }[];
-  
-  // Learning analytics
   learningStats: {
     totalTimeSpent: number;
     stepsCompleted: number;
@@ -62,23 +52,19 @@ export interface IStudent extends Document {
     currentStreak: number;
     longestStreak: number;
     loginCount: number;
-    // Auto-progress metrics
     averageEngagement: number;
     totalCodeSubmissions: number;
     totalProjectSubmissions: number;
   };
-  
   brandingProgress: {
     taskId: mongoose.Types.ObjectId;
     completed: boolean;
     completedAt?: Date;
   }[];
-  
   savedResources: {
     resourceId: mongoose.Types.ObjectId;
     savedAt: Date;
   }[];
-  
   comparePassword(candidatePassword: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -118,13 +104,10 @@ const studentSchema = new Schema<IStudent>({
     required: [true, 'College is required'],
     trim: true,
   },
-  
-  // PROFILE PHOTO FIELD
   profilePhoto: {
     type: String,
     required: false
   },
-  
   preferredLanguage: {
     type: String,
     default: 'python'
@@ -148,8 +131,6 @@ const studentSchema = new Schema<IStudent>({
     codechef: String,
   },
   interests: [String],
-  
-  // Enhanced auto-progress tracking
   roadmapProgress: [{
     year: Number,
     stepId: {
@@ -167,13 +148,11 @@ const studentSchema = new Schema<IStudent>({
       default: 0 
     },
     lastActivity: Date,
-    resourcesViewed: [String], // Track which resources were viewed
+    resourcesViewed: [String],
     timeSpentOnStep: { type: Number, default: 0 },
     engagementScore: { type: Number, default: 0 },
     autoCompleted: { type: Boolean, default: false }
   }],
-  
-  // Enhanced activity logging
   activityLog: [{
     action: {
       type: String,
@@ -195,8 +174,6 @@ const studentSchema = new Schema<IStudent>({
     metadata: Schema.Types.Mixed,
     duration: Number
   }],
-  
-  // Enhanced learning analytics
   learningStats: {
     totalTimeSpent: { type: Number, default: 0 },
     stepsCompleted: { type: Number, default: 0 },
@@ -209,7 +186,6 @@ const studentSchema = new Schema<IStudent>({
     totalCodeSubmissions: { type: Number, default: 0 },
     totalProjectSubmissions: { type: Number, default: 0 }
   },
-  
   brandingProgress: [{
     taskId: {
       type: Schema.Types.ObjectId,
@@ -221,7 +197,6 @@ const studentSchema = new Schema<IStudent>({
     },
     completedAt: Date,
   }],
-  
   savedResources: [{
     resourceId: {
       type: Schema.Types.ObjectId,
@@ -236,9 +211,7 @@ const studentSchema = new Schema<IStudent>({
   timestamps: true,
 });
 
-// Enhanced password hashing with better error handling
 studentSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified (or is new)
   if (!this.isModified('password')) {
     console.log('🔑 Password not modified, skipping hash');
     return next();
@@ -248,7 +221,6 @@ studentSchema.pre('save', async function(next) {
     console.log('🔑 Hashing password...');
     console.log('🔑 Plain password before hash:', this.password);
     
-    // Hash the password with cost factor 12
     this.password = await bcrypt.hash(this.password, 12);
     
     console.log('🔑 Password after hash:', this.password.substring(0, 20) + '...');
@@ -260,7 +232,6 @@ studentSchema.pre('save', async function(next) {
   }
 });
 
-// Enhanced password comparison with debugging
 studentSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
   try {
     console.log('🔑 Comparing passwords...');

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Message, SendMessageData } from '@/types/messaging';
-import { getMessagesAction, sendMessageAction } from '@/actions/messaging-actions';
+import { getMessages, sendMessage } from '@/actions/messaging-actions';
 
 interface ChatWindowProps {
   currentUser: any;
@@ -34,7 +34,7 @@ export default function ChatWindow({ currentUser, otherUser, onMessageSent, show
   const loadMessages = async () => {
     setLoading(true);
     try {
-      const result = await getMessagesAction(currentUser.id || currentUser._id, otherUser.id);
+      const result = await getMessages(currentUser.id || currentUser._id, otherUser.id);
       if (result.success && result.messages) {
         setMessages(result.messages as Message[]);
       } else {
@@ -77,7 +77,7 @@ export default function ChatWindow({ currentUser, otherUser, onMessageSent, show
     setSending(true);
 
     try {
-      const result = await sendMessageAction(
+      const result = await sendMessage(
         currentUser.id || currentUser._id,
         currentUser.name,
         currentUser.role,

@@ -1,3 +1,4 @@
+// app/students/highereducation/components/ApplicationDocuments.tsx
 'use client';
 
 import { useState } from 'react';
@@ -7,6 +8,9 @@ import { updateDocumentStatus } from '@/actions/highereducation-students-actions
 interface ApplicationDocumentsProps {
   documents: ApplicationDocument[];
 }
+
+// Define the valid status types
+type DocumentStatus = 'completed' | 'draft' | 'not_started' | 'reviewing';
 
 export default function ApplicationDocuments({ documents }: ApplicationDocumentsProps) {
   const [selectedDoc, setSelectedDoc] = useState<ApplicationDocument | null>(null);
@@ -24,7 +28,7 @@ export default function ApplicationDocuments({ documents }: ApplicationDocuments
     return example._id || `example-${index}`;
   };
 
-  const handleStatusUpdate = async (docType: string, status: string) => {
+  const handleStatusUpdate = async (docType: string, status: DocumentStatus) => {
     try {
       await updateDocumentStatus(docType, status);
       alert('Status updated successfully!');
@@ -128,7 +132,7 @@ export default function ApplicationDocuments({ documents }: ApplicationDocuments
           <div className="border-t pt-6">
             <h3 className="text-xl font-bold mb-4">Update Your Progress</h3>
             <div className="flex space-x-4">
-              {['not_started', 'draft', 'reviewing', 'completed'].map((status) => (
+              {(['not_started', 'draft', 'reviewing', 'completed'] as DocumentStatus[]).map((status) => (
                 <button
                   key={`status-${status}`}
                   onClick={() => handleStatusUpdate(selectedDoc.type, status)}

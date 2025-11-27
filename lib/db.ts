@@ -1,10 +1,20 @@
+// lib/db.ts
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mentorly';
-
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable');
+// Validate and get the MONGODB_URI with proper typing
+function getMongoDBUri(): string {
+  const MONGODB_URI = process.env.MONGODB_URI;
+  
+  if (!MONGODB_URI) {
+    throw new Error(
+      'Please define the MONGODB_URI environment variable inside .env.local'
+    );
+  }
+  
+  return MONGODB_URI;
 }
+
+const MONGODB_URI = getMongoDBUri();
 
 interface MongooseCache {
   conn: typeof mongoose | null;
@@ -26,24 +36,75 @@ if (!global.mongoose) {
 
 export async function connectDB(): Promise<typeof mongoose> {
   if (cached.conn) {
+    console.log('🚀 Using cached MongoDB connection');
     return cached.conn;
   }
 
   if (!cached.promise) {
-    const opts = {
+    const options = {
       bufferCommands: false,
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 45000,
+      family: 4,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts);
+    console.log('🔌 Connecting to MongoDB Atlas...');
+    
+    // Now MONGODB_URI is guaranteed to be a string
+    const connectionString = MONGODB_URI;
+    const dbName = connectionString.split('/').pop()?.split('?')[0] || 'unknown';
+    console.log('📝 Database:', dbName);
+    
+    cached.promise = mongoose.connect(connectionString, options)
+      .then((mongoose) => {
+        console.log('✅ MongoDB Atlas connected successfully');
+        console.log('🏠 Database:', mongoose.connection.db?.databaseName);
+        console.log('📊 Host:', mongoose.connection.host);
+        return mongoose;
+      })
+      .catch((error) => {
+        console.error('❌ MongoDB connection failed:');
+        console.error('   Error:', error.message);
+        console.error('   Code:', error.code);
+        console.error('   Connection string used:', connectionString.replace(/:[^:@]*@/, ':****@'));
+        cached.promise = null;
+        throw new Error(`Database connection failed: ${error.message}`);
+      });
   }
 
   try {
     cached.conn = await cached.promise;
-    console.log('MongoDB connected successfully');
-  } catch (e) {
+  } catch (error) {
     cached.promise = null;
-    throw e;
+    console.error('💥 Failed to establish MongoDB connection:', error);
+    throw error;
   }
 
   return cached.conn;
 }
+
+// Connection event handlers
+mongoose.connection.on('connected', () => {
+  console.log('🔗 Mongoose connected to MongoDB Atlas');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('🔌 Mongoose disconnected from MongoDB');
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  try {
+    await mongoose.connection.close();
+    console.log('👋 MongoDB connection closed through app termination');
+    process.exit(0);
+  } catch (error) {
+    console.error('💥 Error closing MongoDB connection:', error);
+    process.exit(1);
+  }
+});
