@@ -17,6 +17,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Remove the invalid properties and use this approach instead
 };
 
 export default nextConfig;
