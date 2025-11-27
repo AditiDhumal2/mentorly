@@ -1,0 +1,6 @@
+﻿{
+  "version": 2,
+  "buildCommand": "rm -rf .next && npm install && next build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install"
+}
