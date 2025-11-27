@@ -1,6 +1,11 @@
 ﻿{
   "version": 2,
-  "buildCommand": "rm -rf .next && npm install && next build",
+  "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "functions": {
+    "app/**/*.ts": {
+      "maxDuration": 30
+    }
+  }
 }
