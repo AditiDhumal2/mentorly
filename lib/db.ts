@@ -40,17 +40,13 @@ export async function connectDB(): Promise<typeof mongoose> {
   }
 
   if (!cached.promise) {
-    // FIXED: Updated connection options for better compatibility
+    // SIMPLIFIED: Remove problematic SSL options
     const options = {
       bufferCommands: false,
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
-      // REMOVED: family: 4 - This can cause issues in some environments
-      // ADDED: Better SSL handling
-      ssl: true,
-      sslValidate: true,
-      tlsAllowInvalidCertificates: false,
+      // Let MongoDB driver handle SSL automatically
     };
 
     console.log('🔌 Connecting to MongoDB Atlas...');

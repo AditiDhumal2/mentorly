@@ -1,0 +1,59 @@
+[33me38e691[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: commit: change in layout
+[33mf3a6b59[m HEAD@{1}: commit: changes
+[33m9da5cf2[m HEAD@{2}: reset: moving to HEAD~4
+[33m05f770c[m HEAD@{3}: reset: moving to HEAD~4
+[33m8027de1[m HEAD@{4}: commit: changes
+[33mc33f66f[m HEAD@{5}: reset: moving to HEAD~7
+[33m42de0c1[m HEAD@{6}: reset: moving to HEAD~7
+[33mb25f1ed[m HEAD@{7}: commit: updated global.css file
+[33m9c72629[m HEAD@{8}: commit: URGENT FIX: Restore Tailwind CSS styling
+[33m5e3ea40[m HEAD@{9}: commit: fix: correct PostCSS config for Tailwind CSS
+[33m17881b2[m HEAD@{10}: commit: fix: replace tailwindcss import with tailwind directives
+[33m6cd6918[m HEAD@{11}: commit: Build successful: PostCSS fixed, all 42 pages generated
+[33m69ccd9a[m HEAD@{12}: commit: Build completely clean: All authentication errors resolved
+[33mc817b63[m HEAD@{13}: commit: updated login page path
+[33m42de0c1[m HEAD@{14}: commit: fix: wrap ALL mentor auth functions with buildSafeAsync
+[33ma8398a1[m HEAD@{15}: commit: fix: add null checking to mentor login page
+[33m7043ac6[m HEAD@{16}: commit: fix: add proper null checking for auth results
+[33md6e96b3[m HEAD@{17}: commit: fix: complete build-safe auth implementation
+[33ma18a0d4[m HEAD@{18}: commit: fix: correct order of use client and dynamic exports
+[33m47aeecc[m HEAD@{19}: commit: updated middleware
+[33maf7ad52[m HEAD@{20}: commit: test: add new password verification
+[33mc33f66f[m HEAD@{21}: commit: fix: simplify middleware and fix login issues
+[33m99cc0a1[m HEAD@{22}: commit: feat: complete welcome page with beautiful UI
+[33m89473e3[m HEAD@{23}: commit: fix: ultimate build-safe solution
+[33m05f770c[m HEAD@{24}: commit: fix: add .env.production and fix build config
+[33m3f09ab0[m HEAD@{25}: commit: fix: simple config for vercel deployment
+[33m71d1269[m HEAD@{26}: commit: fix: remove vercel.json for auto-detection
+[33ma65737f[m HEAD@{27}: commit: commit build changes
+[33m9da5cf2[m HEAD@{28}: commit: fix: final build configuration and Next.js config
+[33maba7b89[m HEAD@{29}: commit: fix: resolve ESLint errors and build configuration
+[33mf9cb65e[m HEAD@{30}: commit: fix: complete build configuration for deployment
+[33m1fbf35a[m HEAD@{31}: commit: fix: resolve all ESLint errors for deployment
+[33m47cd851[m HEAD@{32}: commit: Build error changes
+[33mc861375[m HEAD@{33}: commit: created the profile photo upload option
+[33mef86859[m HEAD@{34}: commit: created personal messiging
+[33mba7adb4[m HEAD@{35}: commit: changed the functionality the one posting should be able to edit and delete post until there is any reply
+[33mecfe68b[m HEAD@{36}: commit: created moderators functionality
+[33meb6212b[m HEAD@{37}: commit: created categories page and actions for community forum
+[33mab3ffcb[m HEAD@{38}: commit: updated the community part
+[33m9d0f536[m HEAD@{39}: commit: community forum with categories
+[33m23e88f4[m HEAD@{40}: commit: changes made in mentor registration and login
+[33mc4709e2[m HEAD@{41}: commit: created mentor registration page and admin side mentor approval page
+[33m783356d[m HEAD@{42}: commit: created the higher education admin side components
+[33m7615451[m HEAD@{43}: commit: created higher education page
+[33m7303729[m HEAD@{44}: commit: created a delet form component and also worked on placement hub page for both admin and students side
+[33mc763e60[m HEAD@{45}: commit: created community forum page for both admin and student side and also created snackbar
+[33me4f224f[m HEAD@{46}: commit: created resources page for both admin and student section
+[33m39b4f98[m HEAD@{47}: commit: created careerdomains page for both admin and students
+[33mefd5096[m HEAD@{48}: commit: created the types file at root and updated components and action files according to that
+[33m6b04b57[m HEAD@{49}: commit: created the roadmap actions
+[33m948528f[m HEAD@{50}: commit: solved session problem of admin and students
+[33m060f422[m HEAD@{51}: commit: solved login redirect problem
+[33mb3811c6[m HEAD@{52}: commit: Solve redirecting problem on students side
+[33m1701786[m HEAD@{53}: commit: made admin and students seprate dashboard and login pages
+[33m7dea0b3[m HEAD@{54}: commit: created admin dashboard and menu for each page
+[33m8fc6bf7[m HEAD@{55}: commit: worked on on roadmap so user can select their prefferd language and worked on trends page
+[33m87d2684[m HEAD@{56}: commit: created dashboard and roadmap pages
+[33m82f900f[m HEAD@{57}: Branch: renamed refs/heads/master to refs/heads/main
+[33m82f900f[m HEAD@{59}: commit (initial): Initial commit
