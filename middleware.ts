@@ -31,31 +31,38 @@ export function middleware(request: NextRequest) {
   const isAuthenticated = !!userSession || !!authSession || !!authToken || 
                          !!userSimple || !!studentSession || !!mentorSession || !!adminData;
 
+  // ✅ FIXED ROLE DETECTION LOGIC
   let userRole = 'guest';
 
   if (isAuthenticated) {
     try {
-      // Simple role detection - prioritize specific session cookies
-      if (studentSession) {
-        userRole = 'student';
-      } else if (mentorSession) {
+      // 🆕 Route-aware session detection - FIXED VERSION
+      if (pathname.startsWith('/mentors') && mentorSession) {
         userRole = 'mentor';
+      } 
+      else if (pathname.startsWith('/students') && studentSession) {
+        userRole = 'student';
+      }
+      // Route-agnostic fallback
+      else if (mentorSession) {
+        userRole = 'mentor';
+      } else if (studentSession) {
+        userRole = 'student';
       } else if (adminData) {
         userRole = 'admin';
       } else if (userSession) {
         try {
           const userData = JSON.parse(userSession);
-          userRole = userData.role || userData.type || 'student';
+          userRole = userData.role || userData.type || 'guest'; // ✅ Default to guest, not student
         } catch {
-          userRole = 'student';
+          userRole = 'guest'; // ✅ Default to guest on error
         }
       } else {
-        // Default fallback
-        userRole = 'student';
+        userRole = 'guest'; // ✅ Default to guest instead of student
       }
     } catch (error) {
       console.error('Error parsing user session:', error);
-      userRole = 'student';
+      userRole = 'guest'; // ✅ Default to guest on error
     }
   }
 
@@ -75,10 +82,11 @@ export function middleware(request: NextRequest) {
   if (isLoginPage && isAuthenticated) {
     console.log('Redirecting authenticated user from login page');
     
+    // ✅ FIXED: Use the correctly detected role
     if (userRole === 'student') {
       return NextResponse.redirect(new URL('/students/dashboard', request.url));
     } else if (userRole === 'mentor') {
-      return NextResponse.redirect(new URL('/mentors/dashboard', request.url));
+      return NextResponse.redirect(new URL('/mentors/dashboard', request.url)); // ✅ Now correct
     } else if (userRole === 'admin') {
       return NextResponse.redirect(new URL('/admin', request.url));
     } else {
