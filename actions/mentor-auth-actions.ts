@@ -5,9 +5,9 @@ import { connectDB } from '@/lib/db';
 import { Mentor } from '@/models/Mentor';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { buildSafeAsync } from '@/lib/build-safe-auth';
+import { buildSafeAsync } from '@/lib/build-safe-auth'; // 🆕 ADD THIS
 
-// For mentor pages - only returns mentor users
+// 🆕 FIXED: WRAP ALL FUNCTIONS WITH buildSafeAsync
 export async function getCurrentMentorUser() {
   return buildSafeAsync(async () => {
     try {
@@ -30,7 +30,6 @@ export async function getCurrentMentorUser() {
   });
 }
 
-// Strict server-side protection for mentor pages
 export async function requireMentorAuth() {
   return buildSafeAsync(async () => {
     console.log('🔐 requireMentorAuth - Starting strict authentication check');
@@ -47,7 +46,6 @@ export async function requireMentorAuth() {
   });
 }
 
-// Check mentor authentication status
 export async function checkMentorAuth() {
   return buildSafeAsync(async () => {
     try {
@@ -77,7 +75,7 @@ export async function checkMentorAuth() {
   });
 }
 
-// Helper function to get mentor from cookie
+// Helper function (no need to wrap as it's not exported)
 async function getMentorFromCookie(cookieValue: string) {
   try {
     console.log('🔍 getMentorFromCookie - Parsing mentor cookie...');
@@ -85,7 +83,6 @@ async function getMentorFromCookie(cookieValue: string) {
     const mentorData = JSON.parse(cookieValue);
     console.log('🔍 getMentorFromCookie - Full parsed mentor data:', mentorData);
 
-    // Support multiple possible ID fields
     let mentorId = mentorData.mentorId || mentorData.id || mentorData._id;
     
     if (!mentorId) {
@@ -93,7 +90,6 @@ async function getMentorFromCookie(cookieValue: string) {
       return null;
     }
 
-    // Validate role
     if (mentorData.role !== 'mentor') {
       console.log('❌ getMentorFromCookie - Invalid role for mentor access:', mentorData.role);
       return null;
