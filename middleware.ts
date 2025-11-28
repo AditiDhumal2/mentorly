@@ -1,9 +1,22 @@
-﻿// middleware.ts 
+﻿// middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Skip middleware for static files and public assets
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/static') ||
+    pathname.includes('.ico') ||
+    pathname.includes('.png') ||
+    pathname.includes('.jpg') ||
+    pathname.includes('.css') ||
+    pathname.includes('.js')
+  ) {
+    return NextResponse.next();
+  }
 
   // Check for ALL possible session cookies
   const userSession = request.cookies.get('user-session')?.value;
@@ -20,41 +33,39 @@ export function middleware(request: NextRequest) {
 
   let userRole = 'guest';
 
-
   if (isAuthenticated) {
     try {
-      if (userSession) {
-        const userData = JSON.parse(userSession);
-        userRole = userData.role || userData.type || 'student';
-      } else if (authSession) {
-        const userData = JSON.parse(authSession);
-        userRole = userData.role || userData.type || 'student';
-      } else if (userSimple) {
-        const userData = JSON.parse(userSimple);
-        userRole = userData.role || userData.type || 'student';
-      } else if (studentSession) {
+      // Simple role detection - prioritize specific session cookies
+      if (studentSession) {
         userRole = 'student';
       } else if (mentorSession) {
         userRole = 'mentor';
       } else if (adminData) {
         userRole = 'admin';
+      } else if (userSession) {
+        try {
+          const userData = JSON.parse(userSession);
+          userRole = userData.role || userData.type || 'student';
+        } catch {
+          userRole = 'student';
+        }
+      } else {
+        // Default fallback
+        userRole = 'student';
       }
-      
-      console.log('✅ User role determined:', userRole);
-      
     } catch (error) {
-      console.error('❌ Error parsing user session, but user is authenticated');
-      // If we can't parse but cookies exist, treat as student by default
+      console.error('Error parsing user session:', error);
       userRole = 'student';
     }
   }
 
-  console.log('🛡️ MIDDLEWARE:');
-  console.log('  Path:', pathname);
-  console.log('  Authenticated:', isAuthenticated);
-  console.log('  Role:', userRole);
+  console.log('🛡️ MIDDLEWARE:', {
+    path: pathname,
+    authenticated: isAuthenticated,
+    role: userRole
+  });
 
-  // 🎯 CRITICAL: REDIRECT AUTHENTICATED USERS AWAY FROM LOGIN PAGES
+  // 🔐 REDIRECT AUTHENTICATED USERS AWAY FROM LOGIN PAGES
   const isLoginPage = 
     pathname === '/login' || 
     pathname === '/students-auth/login' || 
@@ -62,9 +73,8 @@ export function middleware(request: NextRequest) {
     pathname === '/admin-login';
 
   if (isLoginPage && isAuthenticated) {
-    console.log('🚫 Authenticated user trying to access login - redirecting to dashboard');
+    console.log('Redirecting authenticated user from login page');
     
-    // Redirect based on ACTUAL role (not guest)
     if (userRole === 'student') {
       return NextResponse.redirect(new URL('/students/dashboard', request.url));
     } else if (userRole === 'mentor') {
@@ -72,96 +82,82 @@ export function middleware(request: NextRequest) {
     } else if (userRole === 'admin') {
       return NextResponse.redirect(new URL('/admin', request.url));
     } else {
-      // Fallback for any other role
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
-  // 🎯 ALLOW LOGIN PAGES ONLY FOR UNAUTHENTICATED USERS
-  if (isLoginPage) {
-    console.log('✅ Allowing access to login page (user not authenticated)');
+  // ✅ ALLOW PUBLIC ROUTES WITHOUT AUTH
+  const publicRoutes = [
+    '/',
+    '/welcome',
+    '/register',
+    '/students-auth/register',
+    '/mentors-auth/register'
+  ];
+
+  if (publicRoutes.includes(pathname) || pathname.includes('-auth/register')) {
     return NextResponse.next();
   }
 
-  // 🎯 ALLOW REGISTRATION PAGES
-  if (pathname === '/register' || pathname.includes('-auth/register')) {
-    console.log('✅ Allowing access to registration page');
+  // ✅ ALLOW LOGIN PAGES FOR UNAUTHENTICATED USERS
+  if (isLoginPage && !isAuthenticated) {
     return NextResponse.next();
-  }
-
-  // 🎯 ALLOW PUBLIC PAGES
-  if (pathname === '/' || pathname === '/welcome') {
-    console.log('✅ Allowing access to public page');
-    return NextResponse.next();
-  }
-
-  // 🚫 PROTECT DASHBOARD ROUTE
-  if (pathname === '/dashboard') {
-    if (!isAuthenticated) {
-      console.log('🚫 No auth for dashboard, redirecting to login');
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-    console.log('✅ User authenticated, allowing access to dashboard');
   }
 
   // 🚫 PROTECT STUDENT ROUTES
   if (pathname.startsWith('/students/')) {
     if (!isAuthenticated) {
-      console.log('🚫 No auth for student route, redirecting to login');
-      return NextResponse.redirect(new URL('/login?type=student', request.url));
+      console.log('Redirecting to student login');
+      return NextResponse.redirect(new URL('/students-auth/login', request.url));
     }
     if (userRole !== 'student') {
-      console.log('🚫 Wrong role for student route, redirecting to login');
-      return NextResponse.redirect(new URL('/login?type=student', request.url));
+      console.log('Wrong role for student route');
+      return NextResponse.redirect(new URL('/students-auth/login', request.url));
     }
-    console.log('✅ Student authenticated, allowing access');
   }
 
   // 🚫 PROTECT MENTOR ROUTES
   if (pathname.startsWith('/mentors/')) {
     if (!isAuthenticated) {
-      console.log('🚫 No auth for mentor route, redirecting to login');
-      return NextResponse.redirect(new URL('/login?type=mentor', request.url));
+      console.log('Redirecting to mentor login');
+      return NextResponse.redirect(new URL('/mentors-auth/login', request.url));
     }
     if (userRole !== 'mentor') {
-      console.log('🚫 Wrong role for mentor route, redirecting to login');
-      return NextResponse.redirect(new URL('/login?type=mentor', request.url));
+      console.log('Wrong role for mentor route');
+      return NextResponse.redirect(new URL('/mentors-auth/login', request.url));
     }
-    console.log('✅ Mentor authenticated, allowing access');
   }
 
   // 🚫 PROTECT ADMIN ROUTES
   if (pathname.startsWith('/admin')) {
     if (!isAuthenticated) {
-      console.log('🚫 No auth for admin route, redirecting to login');
-      return NextResponse.redirect(new URL('/login', request.url));
+      console.log('Redirecting to admin login');
+      return NextResponse.redirect(new URL('/admin-login', request.url));
     }
     if (userRole !== 'admin') {
-      console.log('🚫 Wrong role for admin route, redirecting to login');
-      return NextResponse.redirect(new URL('/login', request.url));
+      console.log('Wrong role for admin route');
+      return NextResponse.redirect(new URL('/admin-login', request.url));
     }
-    console.log('✅ Admin authenticated, allowing access');
+  }
+
+  // 🚫 PROTECT MAIN DASHBOARD
+  if (pathname === '/dashboard' && !isAuthenticated) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // ✅ ALLOW ALL OTHER REQUESTS
-  console.log('➡️ Allowing request to continue');
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    // Protect these routes
-    '/admin/:path*',
-    '/students/:path*',
-    '/mentors/:path*',
-    '/dashboard',
-    
-    // Allow access to these (with authentication checks)
-    '/login',
-    '/register', 
-    '/admin-login',
-    '/students-auth/:path*',
-    '/mentors-auth/:path*',
-    '/welcome',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js)$).*)',
   ],
 };
