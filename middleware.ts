@@ -2,74 +2,75 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Simple session validation without database calls (for Edge Runtime)
+function validateSession(cookieValue: string | undefined, expectedRole: string): boolean {
+  if (!cookieValue) return false;
+  
+  try {
+    const sessionData = JSON.parse(cookieValue);
+    
+    // Basic validation checks
+    if (sessionData.role !== expectedRole) return false;
+    
+    // Check for required fields based on role
+    if (expectedRole === 'student' && !sessionData.id) return false;
+    if (expectedRole === 'mentor' && !sessionData.mentorId) return false;
+    if (expectedRole === 'admin' && !sessionData.adminId) return false;
+    
+    // Optional: Check if session is not expired
+    if (sessionData.expires && new Date(sessionData.expires) < new Date()) {
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
+  const url = request.nextUrl.clone();
 
   // Skip middleware for static files and public assets
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/static') ||
+    pathname.startsWith('/api/') || // Allow API routes
     pathname.includes('.ico') ||
     pathname.includes('.png') ||
     pathname.includes('.jpg') ||
     pathname.includes('.css') ||
-    pathname.includes('.js')
+    pathname.includes('.js') ||
+    pathname.includes('.svg')
   ) {
     return NextResponse.next();
   }
 
-  // Check for ALL possible session cookies
-  const userSession = request.cookies.get('user-session')?.value;
-  const authSession = request.cookies.get('auth-session')?.value;
-  const authToken = request.cookies.get('auth-token')?.value;
-  const userSimple = request.cookies.get('user-simple')?.value;
+  // Get session cookies
   const studentSession = request.cookies.get('student-session-v2')?.value;
   const mentorSession = request.cookies.get('mentor-session')?.value;
   const adminData = request.cookies.get('admin-data')?.value;
 
-  // User is authenticated if ANY of these cookies exist
-  const isAuthenticated = !!userSession || !!authSession || !!authToken || 
-                         !!userSimple || !!studentSession || !!mentorSession || !!adminData;
+  // Validate sessions
+  const hasValidStudentSession = validateSession(studentSession, 'student');
+  const hasValidMentorSession = validateSession(mentorSession, 'mentor');
+  const hasValidAdminSession = validateSession(adminData, 'admin');
 
-  // ✅ FIXED ROLE DETECTION LOGIC
+  const isAuthenticated = hasValidStudentSession || hasValidMentorSession || hasValidAdminSession;
+
+  // Determine user role
   let userRole = 'guest';
-
-  if (isAuthenticated) {
-    try {
-      // 🆕 Route-aware session detection - FIXED VERSION
-      if (pathname.startsWith('/mentors') && mentorSession) {
-        userRole = 'mentor';
-      } 
-      else if (pathname.startsWith('/students') && studentSession) {
-        userRole = 'student';
-      }
-      // Route-agnostic fallback
-      else if (mentorSession) {
-        userRole = 'mentor';
-      } else if (studentSession) {
-        userRole = 'student';
-      } else if (adminData) {
-        userRole = 'admin';
-      } else if (userSession) {
-        try {
-          const userData = JSON.parse(userSession);
-          userRole = userData.role || userData.type || 'guest'; // ✅ Default to guest, not student
-        } catch {
-          userRole = 'guest'; // ✅ Default to guest on error
-        }
-      } else {
-        userRole = 'guest'; // ✅ Default to guest instead of student
-      }
-    } catch (error) {
-      console.error('Error parsing user session:', error);
-      userRole = 'guest'; // ✅ Default to guest on error
-    }
-  }
+  if (hasValidStudentSession) userRole = 'student';
+  else if (hasValidMentorSession) userRole = 'mentor';
+  else if (hasValidAdminSession) userRole = 'admin';
 
   console.log('🛡️ MIDDLEWARE:', {
     path: pathname,
     authenticated: isAuthenticated,
-    role: userRole
+    role: userRole,
+    hasStudent: hasValidStudentSession,
+    hasMentor: hasValidMentorSession
   });
 
   // 🔐 REDIRECT AUTHENTICATED USERS AWAY FROM LOGIN PAGES
@@ -82,15 +83,15 @@ export function middleware(request: NextRequest) {
   if (isLoginPage && isAuthenticated) {
     console.log('Redirecting authenticated user from login page');
     
-    // ✅ FIXED: Use the correctly detected role
+    // Add cache-buster to prevent caching issues
+    const timestamp = Date.now();
+    
     if (userRole === 'student') {
-      return NextResponse.redirect(new URL('/students/dashboard', request.url));
+      return NextResponse.redirect(new URL(`/students/dashboard?t=${timestamp}`, request.url));
     } else if (userRole === 'mentor') {
-      return NextResponse.redirect(new URL('/mentors/dashboard', request.url)); // ✅ Now correct
+      return NextResponse.redirect(new URL(`/mentors/dashboard?t=${timestamp}`, request.url));
     } else if (userRole === 'admin') {
-      return NextResponse.redirect(new URL('/admin', request.url));
-    } else {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      return NextResponse.redirect(new URL(`/admin?t=${timestamp}`, request.url));
     }
   }
 
@@ -100,10 +101,15 @@ export function middleware(request: NextRequest) {
     '/welcome',
     '/register',
     '/students-auth/register',
-    '/mentors-auth/register'
+    '/mentors-auth/register',
+    '/api/auth', // Allow auth API routes
+    '/auth' // Allow auth pages
   ];
 
-  if (publicRoutes.includes(pathname) || pathname.includes('-auth/register')) {
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route)) || 
+                       pathname.includes('-auth/register');
+
+  if (isPublicRoute) {
     return NextResponse.next();
   }
 
@@ -114,41 +120,33 @@ export function middleware(request: NextRequest) {
 
   // 🚫 PROTECT STUDENT ROUTES
   if (pathname.startsWith('/students/')) {
-    if (!isAuthenticated) {
-      console.log('Redirecting to student login');
-      return NextResponse.redirect(new URL('/students-auth/login', request.url));
-    }
-    if (userRole !== 'student') {
-      console.log('Wrong role for student route');
-      return NextResponse.redirect(new URL('/students-auth/login', request.url));
+    if (!isAuthenticated || !hasValidStudentSession) {
+      console.log('Student route protection: Redirecting to student login');
+      // Add redirect URL for after login
+      const redirectUrl = `/students-auth/login?redirect=${encodeURIComponent(pathname)}`;
+      return NextResponse.redirect(new URL(redirectUrl, request.url));
     }
   }
 
   // 🚫 PROTECT MENTOR ROUTES
   if (pathname.startsWith('/mentors/')) {
-    if (!isAuthenticated) {
-      console.log('Redirecting to mentor login');
-      return NextResponse.redirect(new URL('/mentors-auth/login', request.url));
-    }
-    if (userRole !== 'mentor') {
-      console.log('Wrong role for mentor route');
-      return NextResponse.redirect(new URL('/mentors-auth/login', request.url));
+    if (!isAuthenticated || !hasValidMentorSession) {
+      console.log('Mentor route protection: Redirecting to mentor login');
+      // Add redirect URL for after login
+      const redirectUrl = `/mentors-auth/login?redirect=${encodeURIComponent(pathname)}`;
+      return NextResponse.redirect(new URL(redirectUrl, request.url));
     }
   }
 
   // 🚫 PROTECT ADMIN ROUTES
   if (pathname.startsWith('/admin')) {
-    if (!isAuthenticated) {
-      console.log('Redirecting to admin login');
-      return NextResponse.redirect(new URL('/admin-login', request.url));
-    }
-    if (userRole !== 'admin') {
-      console.log('Wrong role for admin route');
+    if (!isAuthenticated || !hasValidAdminSession) {
+      console.log('Admin route protection: Redirecting to admin login');
       return NextResponse.redirect(new URL('/admin-login', request.url));
     }
   }
 
-  // 🚫 PROTECT MAIN DASHBOARD
+  // 🚫 PROTECT MAIN DASHBOARD - require any authenticated role
   if (pathname === '/dashboard' && !isAuthenticated) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
@@ -161,11 +159,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js)$).*)',
+    '/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js)$).*)',
   ],
 };
