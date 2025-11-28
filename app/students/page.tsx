@@ -1,5 +1,7 @@
-// app/students/page.tsx
+// app/students/dashboard/page.tsx
 'use client';
+
+export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { getCurrentUser, getUserProgress } from '../../actions/userActions';

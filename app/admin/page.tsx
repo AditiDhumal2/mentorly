@@ -1,3 +1,8 @@
+// app/admin/page.tsx
+'use client';
+
+export const dynamic = 'force-dynamic';
+
 export default function AdminDashboard() {
   return (
     <div className="p-6">
