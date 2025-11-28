@@ -33,7 +33,8 @@ export default function MentorLayout({
         
         const authResult = await checkMentorAuth();
         
-        if (!authResult.isAuthenticated || !authResult.mentor) {
+        // 🆕 ADD PROPER NULL CHECKING
+        if (!authResult || !authResult.isAuthenticated || !authResult.mentor) {
           console.log('❌ Mentor not authenticated, redirecting to login');
           window.location.href = '/mentors-auth/login';
           return;

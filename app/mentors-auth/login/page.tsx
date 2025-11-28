@@ -13,9 +13,11 @@ export default function MentorLoginPage() {
     const checkAuth = async () => {
       try {
         const authResult = await checkMentorAuth();
-        if (authResult.isAuthenticated) {
-          // FIX: Redirect to CORRECT dashboard path
-          window.location.href = '/mentors/dashboard'; // ← CHANGE THIS LINE
+        
+        // 🆕 FIXED: PROPER NULL CHECKING
+        if (authResult && authResult.isAuthenticated) {
+          // Redirect to CORRECT dashboard path
+          window.location.href = '/mentors/dashboard';
         }
       } catch (error) {
         console.error('Error checking auth:', error);
