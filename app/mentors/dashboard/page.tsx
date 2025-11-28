@@ -4,6 +4,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { checkMentorAuth } from '@/actions/mentor-auth-actions';
 import { getMentorDashboardData } from '@/actions/mentor-dashboard-actions';
 import WelcomeBanner from './components/WelcomeBanner';
@@ -33,13 +34,15 @@ export default function MentorDashboard() {
   });
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     const checkAuthAndAccess = async () => {
       try {
         const authResult = await checkMentorAuth();
         
-        if (!authResult.isAuthenticated || !authResult.mentor) {
+        // 🆕 PROPER NULL CHECKING
+        if (!authResult || !authResult.isAuthenticated || !authResult.mentor) {
           window.location.href = '/mentors-auth/login';
           return;
         }

@@ -5,69 +5,76 @@ import { connectDB } from '@/lib/db';
 import { Mentor } from '@/models/Mentor';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { buildSafeAsync } from '@/lib/build-safe-auth';
 
 // For mentor pages - only returns mentor users
 export async function getCurrentMentorUser() {
-  try {
-    console.log('🔍 getCurrentMentorUser - Starting mentor-specific user fetch...');
-    
-    const cookieStore = await cookies();
-    const mentorCookie = cookieStore.get('mentor-session');
+  return buildSafeAsync(async () => {
+    try {
+      console.log('🔍 getCurrentMentorUser - Starting mentor-specific user fetch...');
+      
+      const cookieStore = await cookies();
+      const mentorCookie = cookieStore.get('mentor-session');
 
-    if (!mentorCookie?.value) {
-      console.log('❌ getCurrentMentorUser - No mentor session found');
+      if (!mentorCookie?.value) {
+        console.log('❌ getCurrentMentorUser - No mentor session found');
+        return null;
+      }
+
+      console.log('🔍 getCurrentMentorUser - Found mentor cookie, parsing...');
+      return await getMentorFromCookie(mentorCookie.value);
+    } catch (error) {
+      console.error('❌ getCurrentMentorUser - Error:', error);
       return null;
     }
-
-    console.log('🔍 getCurrentMentorUser - Found mentor cookie, parsing...');
-    return await getMentorFromCookie(mentorCookie.value);
-  } catch (error) {
-    console.error('❌ getCurrentMentorUser - Error:', error);
-    return null;
-  }
+  });
 }
 
 // Strict server-side protection for mentor pages
 export async function requireMentorAuth() {
-  console.log('🔐 requireMentorAuth - Starting strict authentication check');
-  
-  const user = await getCurrentMentorUser();
-  
-  if (!user) {
-    console.log('❌ requireMentorAuth - No mentor user found, redirecting to login');
-    redirect('/mentors-auth/login');
-  }
-  
-  console.log('✅ requireMentorAuth - Mentor authenticated:', user.name);
-  return user;
+  return buildSafeAsync(async () => {
+    console.log('🔐 requireMentorAuth - Starting strict authentication check');
+    
+    const user = await getCurrentMentorUser();
+    
+    if (!user) {
+      console.log('❌ requireMentorAuth - No mentor user found, redirecting to login');
+      redirect('/mentors-auth/login');
+    }
+    
+    console.log('✅ requireMentorAuth - Mentor authenticated:', user.name);
+    return user;
+  });
 }
 
 // Check mentor authentication status
 export async function checkMentorAuth() {
-  try {
-    const user = await getCurrentMentorUser();
-    
-    if (!user) {
-      return { 
-        isAuthenticated: false, 
+  return buildSafeAsync(async () => {
+    try {
+      const user = await getCurrentMentorUser();
+      
+      if (!user) {
+        return { 
+          isAuthenticated: false, 
+          mentor: null,
+          error: 'No mentor session found'
+        };
+      }
+
+      return {
+        isAuthenticated: true,
+        mentor: user,
+        error: null
+      };
+    } catch (error) {
+      console.error('❌ checkMentorAuth - Error:', error);
+      return {
+        isAuthenticated: false,
         mentor: null,
-        error: 'No mentor session found'
+        error: 'Authentication check failed'
       };
     }
-
-    return {
-      isAuthenticated: true,
-      mentor: user,
-      error: null
-    };
-  } catch (error) {
-    console.error('❌ checkMentorAuth - Error:', error);
-    return {
-      isAuthenticated: false,
-      mentor: null,
-      error: 'Authentication check failed'
-    };
-  }
+  });
 }
 
 // Helper function to get mentor from cookie
