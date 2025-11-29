@@ -1,7 +1,6 @@
 import { getCurrentUserForMentorRoute } from '@/actions/userActions';
 import { redirect } from 'next/navigation';
-import MentorMenu from './components/MentorMenu';
-import { headers } from 'next/headers';
+import MentorLayoutClient from './components/MentorLayoutClient';
 
 interface Mentor {
   id: string;
@@ -22,6 +21,8 @@ interface Mentor {
   mentorId?: any;
 }
 
+export const dynamic = 'force-dynamic';
+
 export default async function MentorLayout({
   children,
 }: {
@@ -30,17 +31,6 @@ export default async function MentorLayout({
   console.log('🔄 MENTOR LAYOUT: Starting server component...');
   
   try {
-    // Get current path from headers
-    const headersList = await headers();
-    const pathname = headersList.get('x-invoke-path') || '';
-    console.log('📍 MENTOR LAYOUT: Current path:', pathname);
-
-    // Skip auth check for auth pages to prevent redirect loops
-    if (pathname.includes('/mentors-auth/')) {
-      console.log('✅ MENTOR LAYOUT: Allowing access to auth pages');
-      return <>{children}</>;
-    }
-
     const currentUser = await getCurrentUserForMentorRoute();
     
     console.log('🔍 MENTOR LAYOUT: Current user:', currentUser ? 'Authenticated' : 'Not authenticated');
@@ -70,50 +60,25 @@ export default async function MentorLayout({
       }
     }
 
-    console.log('🎯 MENTOR LAYOUT: Rendering layout with sidebar...');
-
-    // Define which paths should show the sidebar
-    const sidebarPaths = [
-      '/mentors/dashboard',
-      '/mentors/community',
-      '/mentors/sessions',
-      '/mentors/students',
-      '/mentors/profile',
-      '/mentors/moderator',
-      '/mentors/messages'
-    ];
-
-    const showSidebar = sidebarPaths.some(path => 
-      pathname.startsWith(path)
-    );
-
-    console.log('📋 MENTOR LAYOUT: Show sidebar:', showSidebar);
-
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-        <div className="flex min-h-screen">
-          {/* Sidebar Menu */}
-          {showSidebar && (
-            <div className="w-64 flex-shrink-0">
-              <MentorMenu 
-                isModerator={isModerator} 
-                currentUser={currentUser as Mentor}
-              />
-            </div>
-          )}
-          
-          {/* Main Content */}
-          <main className={`${showSidebar ? 'flex-1' : 'w-full'} p-6 overflow-auto`}>
-            <div className="max-w-7xl mx-auto">
-              {children}
-            </div>
-          </main>
-        </div>
-      </div>
+      <MentorLayoutClient 
+        currentUser={currentUser as Mentor}
+        isModerator={isModerator}
+      >
+        {children}
+      </MentorLayoutClient>
     );
   } catch (error) {
     console.error('❌ MENTOR LAYOUT: Error in layout:', error);
-    // Don't redirect on error to prevent loops, just show children
-    return <>{children}</>;
+    // Fallback: render without sidebar
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+        <div className="p-6">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        </div>
+      </div>
+    );
   }
 }

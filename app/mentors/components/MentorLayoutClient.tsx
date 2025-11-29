@@ -35,8 +35,6 @@ export default function MentorLayoutClient({
 }: MentorLayoutClientProps) {
   const pathname = usePathname();
 
-  console.log('🔍 Client: Mentor layout rendering with user:', currentUser?.name);
-
   // Define which paths should show the sidebar
   const sidebarPaths = [
     '/mentors/dashboard',
@@ -52,15 +50,19 @@ export default function MentorLayoutClient({
     pathname?.startsWith(path)
   );
 
+  console.log('🔍 CLIENT LAYOUT: Current path:', pathname, 'Show sidebar:', showSidebar);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       <div className="flex min-h-screen">
         {/* Sidebar Menu */}
-        {showSidebar && currentUser && (
-          <MentorMenu 
-            isModerator={isModerator} 
-            currentUser={currentUser}
-          />
+        {showSidebar && (
+          <div className="w-64 flex-shrink-0">
+            <MentorMenu 
+              isModerator={isModerator} 
+              currentUser={currentUser}
+            />
+          </div>
         )}
         
         {/* Main Content */}
