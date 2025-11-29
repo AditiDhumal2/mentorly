@@ -2,34 +2,33 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export async function logout() {
   try {
     const cookieStore = await cookies();
     
     // Clear ALL student authentication cookies
-    const pastDate = new Date(0);
-    const studentCookies = ['student-data', 'user-data', 'student-session-v2'];
+    const studentCookies = [
+      'student-data', 
+      'user-data', 
+      'student-session-v2',
+      'auth-token'
+    ];
     
+    // 🆕 FIX: Properly clear cookies by setting expired dates
     studentCookies.forEach(cookieName => {
-      cookieStore.set(cookieName, '', { 
-        expires: pastDate,
-        path: '/',
-      });
+      cookieStore.delete(cookieName);
     });
 
-    console.log('✅ ALL student cookies cleared including new student-session-v2');
+    console.log('✅ ALL student cookies cleared successfully');
     
-    return {
-      success: true,
-      redirectUrl: '/students-auth/login?logout=success'
-    };
+    // 🆕 CRITICAL: Use redirect() instead of returning URL
+    redirect('/students-auth/login?logout=success');
+    
   } catch (error) {
     console.error('❌ Logout error:', error);
-    return {
-      success: false,
-      error: 'Failed to logout',
-      redirectUrl: '/students-auth/login?logout=error'
-    };
+    // 🆕 FIX: Redirect even on error
+    redirect('/students-auth/login?logout=error');
   }
 }

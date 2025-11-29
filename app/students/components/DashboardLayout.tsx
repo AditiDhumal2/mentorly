@@ -1,4 +1,4 @@
-// app/students/layout.tsx (or wherever your student dashboard layout is)
+// app/students/layout.tsx
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
@@ -88,24 +88,32 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
 
   const isActive = (path: string) => pathname === path;
 
-  const handleLogout = async () => {
+  // 🆕 FIXED LOGOUT - Uses server action only
+  const handleSimpleLogout = async () => {
     setIsLoggingOut(true);
+    console.log('🎓 Student logout started...');
+    
     try {
-      const result = await studentLogout();
-      
-      if (result.success) {
-        console.log('✅ Student logout successful, redirecting...');
-        // Use hard redirect to ensure clean state
-        window.location.href = result.redirectUrl;
-      } else {
-        console.error('❌ Student logout failed');
-        // Fallback redirect
-        window.location.href = '/students-auth/login?logout=success&fallback=true';
+      // Clear client-side storage first
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
       }
+      
+      // 🆕 Call the server action - it will handle the redirect
+      console.log('📡 Calling studentLogout server action...');
+      await studentLogout();
+      
+      // If we're still here, the redirect didn't work - use client redirect
+      console.log('🔄 Server redirect failed, using client redirect...');
+      window.location.href = '/students-auth/login?logout=success';
+      
     } catch (error) {
-      console.error('Logout failed:', error);
-      // Final fallback
-      window.location.href = '/students-auth/login?logout=success&error=true';
+      console.error('❌ Logout error:', error);
+      // Fallback redirect
+      window.location.href = '/students-auth/login?logout=success';
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -281,9 +289,9 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
               <p className="text-green-200 text-xs mt-1">You are safely authenticated</p>
             </div>
             
-            {/* Logout Button */}
+            {/* Logout Button - Using fixed server action logout */}
             <button
-              onClick={handleLogout}
+              onClick={handleSimpleLogout}
               disabled={isLoggingOut}
               className="w-full flex items-center justify-center space-x-2 p-3 rounded-xl text-blue-100 hover:bg-red-500/20 hover:text-red-200 transition-all duration-200 border border-blue-600 hover:border-red-400/50 group disabled:opacity-50 disabled:cursor-not-allowed"
             >

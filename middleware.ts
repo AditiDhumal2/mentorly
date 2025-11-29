@@ -80,18 +80,18 @@ export function middleware(request: NextRequest) {
   const isAdminLoginPage = pathname === '/admin-login';
   const isGenericLoginPage = pathname === '/login';
 
-  // 🆕 SPECIFIC LOGIN PAGE REDIRECTS
-  if (isStudentLoginPage && hasValidStudentSession) {
+  // 🆕 FIX: Only redirect if user has a VALID session for that specific role
+  if (isStudentLoginPage && hasValidStudentSession && userRole === 'student') {
     console.log('Redirecting student from student login to student dashboard');
-    return NextResponse.redirect(new URL('/students/dashboard', request.url));
+    return NextResponse.redirect(new URL('/students', request.url));
   }
 
-  if (isMentorLoginPage && hasValidMentorSession) {
+  if (isMentorLoginPage && hasValidMentorSession && userRole === 'mentor') {
     console.log('Redirecting mentor from mentor login to mentor dashboard');
     return NextResponse.redirect(new URL('/mentors/dashboard', request.url));
   }
 
-  if (isAdminLoginPage && hasValidAdminSession) {
+  if (isAdminLoginPage && hasValidAdminSession && userRole === 'admin') {
     console.log('Redirecting admin from admin login to admin dashboard');
     return NextResponse.redirect(new URL('/admin', request.url));
   }
@@ -99,7 +99,7 @@ export function middleware(request: NextRequest) {
   if (isGenericLoginPage && isAuthenticated) {
     console.log('Redirecting authenticated user from generic login');
     // 🆕 Go to appropriate dashboard based on actual role
-    if (userRole === 'student') return NextResponse.redirect(new URL('/students/dashboard', request.url));
+    if (userRole === 'student') return NextResponse.redirect(new URL('/students', request.url));
     if (userRole === 'mentor') return NextResponse.redirect(new URL('/mentors/dashboard', request.url));
     if (userRole === 'admin') return NextResponse.redirect(new URL('/admin', request.url));
   }
@@ -111,23 +111,24 @@ export function middleware(request: NextRequest) {
     '/register',
     '/students-auth/register',
     '/mentors-auth/register',
+    '/students-auth/login',
+    '/mentors-auth/login',
+    '/admin-login',
+    '/login',
     '/api/auth'
   ];
 
   const isPublicRoute = publicRoutes.includes(pathname) || 
-                       pathname.includes('-auth/register');
+                       pathname.includes('-auth/register') ||
+                       pathname.includes('-auth/login');
 
   if (isPublicRoute) {
     return NextResponse.next();
   }
 
-  // ✅ ALLOW LOGIN PAGES FOR UNAUTHENTICATED USERS
-  if ((isStudentLoginPage || isMentorLoginPage || isAdminLoginPage || isGenericLoginPage) && !isAuthenticated) {
-    return NextResponse.next();
-  }
-
   // 🚫 PROTECT STUDENT ROUTES - ONLY STUDENTS ALLOWED
-  if (pathname.startsWith('/students/')) {
+  // 🆕 FIX: Added protection for '/students' (without trailing slash)
+  if (pathname.startsWith('/students/') || pathname === '/students') {
     if (!hasValidStudentSession) {
       console.log('🚫 Student route accessed without valid student session');
       
@@ -145,12 +146,17 @@ export function middleware(request: NextRequest) {
     // 🆕 Ensure only students can access student routes
     if (userRole !== 'student') {
       console.log('🚫 Non-student trying to access student route');
-      return NextResponse.redirect(new URL('/students-auth/login', request.url));
+      const response = NextResponse.redirect(new URL('/students-auth/login', request.url));
+      // Clear any conflicting sessions
+      if (hasValidMentorSession) response.cookies.delete('mentor-session');
+      if (hasValidAdminSession) response.cookies.delete('admin-data');
+      return response;
     }
   }
 
   // 🚫 PROTECT MENTOR ROUTES - ONLY MENTORS ALLOWED
-  if (pathname.startsWith('/mentors/')) {
+  // 🆕 FIX: Added protection for '/mentors/dashboard' explicitly
+  if (pathname.startsWith('/mentors/') || pathname === '/mentors/dashboard') {
     if (!hasValidMentorSession) {
       console.log('🚫 Mentor route accessed without valid mentor session');
       
@@ -168,7 +174,11 @@ export function middleware(request: NextRequest) {
     // 🆕 Ensure only mentors can access mentor routes
     if (userRole !== 'mentor') {
       console.log('🚫 Non-mentor trying to access mentor route');
-      return NextResponse.redirect(new URL('/mentors-auth/login', request.url));
+      const response = NextResponse.redirect(new URL('/mentors-auth/login', request.url));
+      // Clear any conflicting sessions
+      if (hasValidStudentSession) response.cookies.delete('student-session-v2');
+      if (hasValidAdminSession) response.cookies.delete('admin-data');
+      return response;
     }
   }
 
@@ -178,6 +188,21 @@ export function middleware(request: NextRequest) {
       console.log('🚫 Admin route accessed without valid admin session');
       return NextResponse.redirect(new URL('/admin-login', request.url));
     }
+  }
+
+  // 🆕 FIX: Handle root path redirects
+  if (pathname === '/') {
+    if (hasValidStudentSession && userRole === 'student') {
+      return NextResponse.redirect(new URL('/students', request.url));
+    }
+    if (hasValidMentorSession && userRole === 'mentor') {
+      return NextResponse.redirect(new URL('/mentors/dashboard', request.url));
+    }
+    if (hasValidAdminSession && userRole === 'admin') {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+    // For unauthenticated users, keep them on welcome page or redirect to welcome
+    return NextResponse.next();
   }
 
   return NextResponse.next();

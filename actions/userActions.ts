@@ -191,6 +191,82 @@ export async function getCurrentUser() {
   }
 }
 
+// 🆕 FIXED: Logout functions - Return plain objects only
+export async function studentLogout() {
+  try {
+    console.log('🔒 Student-only logout initiated');
+    
+    const cookieStore = await cookies();
+    
+    const studentCookies = [
+      'student-data', 
+      'user-data',
+      'student-session-v2'
+    ];
+    
+    // Clear cookies
+    studentCookies.forEach(cookieName => {
+      const hadCookie = !!cookieStore.get(cookieName);
+      cookieStore.delete(cookieName);
+      console.log(`🗑️ studentLogout - Deleted student cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
+    });
+    
+    console.log('✅ studentLogout - All student cookies cleared');
+    
+    // 🆕 CRITICAL FIX: Return plain object instead of NextResponse
+    return { 
+      success: true, 
+      message: 'Student logout successful',
+      redirectUrl: '/students-auth/login?logout=success&t=' + Date.now()
+    };
+    
+  } catch (error) {
+    console.error('❌ studentLogout - Error:', error);
+    return { 
+      success: false, 
+      message: 'Logout failed',
+      redirectUrl: '/students-auth/login?logout=error'
+    };
+  }
+}
+
+export async function mentorLogout() {
+  try {
+    console.log('🔒 Mentor-only logout initiated');
+    
+    const cookieStore = await cookies();
+    
+    const mentorCookies = [
+      'mentor-session',
+      'mentor-data'
+    ];
+    
+    // Clear cookies
+    mentorCookies.forEach(cookieName => {
+      const hadCookie = !!cookieStore.get(cookieName);
+      cookieStore.delete(cookieName);
+      console.log(`🗑️ mentorLogout - Deleted mentor cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
+    });
+    
+    console.log('✅ mentorLogout - All mentor cookies cleared');
+    
+    // 🆕 CRITICAL FIX: Return plain object instead of NextResponse
+    return { 
+      success: true, 
+      message: 'Mentor logout successful',
+      redirectUrl: '/mentors-auth/login?logout=success&t=' + Date.now()
+    };
+    
+  } catch (error) {
+    console.error('❌ mentorLogout - Error:', error);
+    return { 
+      success: false, 
+      message: 'Logout failed',
+      redirectUrl: '/mentors-auth/login?logout=error'
+    };
+  }
+}
+
 // 🆕 HELPER FUNCTIONS
 async function getStudentFromCookie(cookieValue: string) {
   try {
@@ -531,80 +607,6 @@ export async function checkMentorAuth() {
     authenticated: true,
     mentor: session.mentor
   };
-}
-
-// 🆕 Logout functions
-export async function studentLogout() {
-  return buildSafeAsync(async () => {
-    try {
-      console.log('🔒 Student-only logout initiated');
-      
-      const cookieStore = await cookies();
-      
-      const studentCookies = [
-        'student-data', 
-        'user-data',
-        'student-session-v2'
-      ];
-      
-      studentCookies.forEach(cookieName => {
-        const hadCookie = !!cookieStore.get(cookieName);
-        cookieStore.delete(cookieName);
-        console.log(`🗑️ studentLogout - Deleted student cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
-      });
-      
-      console.log('✅ studentLogout - All student cookies cleared');
-      
-      return { 
-        success: true, 
-        message: 'Student logout successful',
-        redirectUrl: '/students-auth/login?logout=success&t=' + Date.now()
-      };
-    } catch (error) {
-      console.error('❌ studentLogout - Error:', error);
-      return { 
-        success: false, 
-        message: 'Logout failed',
-        redirectUrl: '/students-auth/login'
-      };
-    }
-  });
-}
-
-export async function mentorLogout() {
-  return buildSafeAsync(async () => {
-    try {
-      console.log('🔒 Mentor-only logout initiated');
-      
-      const cookieStore = await cookies();
-      
-      const mentorCookies = [
-        'mentor-session',
-        'mentor-data'
-      ];
-      
-      mentorCookies.forEach(cookieName => {
-        const hadCookie = !!cookieStore.get(cookieName);
-        cookieStore.delete(cookieName);
-        console.log(`🗑️ mentorLogout - Deleted mentor cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
-      });
-      
-      console.log('✅ mentorLogout - All mentor cookies cleared');
-      
-      return { 
-        success: true, 
-        message: 'Mentor logout successful',
-        redirectUrl: '/mentors-auth/login?logout=success&t=' + Date.now()
-      };
-    } catch (error) {
-      console.error('❌ mentorLogout - Error:', error);
-      return { 
-        success: false, 
-        message: 'Logout failed',
-        redirectUrl: '/mentors-auth/login'
-      };
-    }
-  });
 }
 
 // 🆕 Strict auth protection
