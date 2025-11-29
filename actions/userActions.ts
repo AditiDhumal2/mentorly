@@ -8,9 +8,23 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { buildSafeAsync } from '@/lib/build-safe-auth';
 
+// 🆕 Helper to check if we're in static build
+function isStaticBuild() {
+  return process.env.NEXT_PHASE === 'phase-production-build' || 
+         process.env.NODE_ENV === 'production' && 
+         typeof window === 'undefined' && 
+         !process.env.VERCEL;
+}
+
 // 🆕 FIXED: Get current student - SIMPLIFIED WITHOUT buildSafeAsync
 export async function getCurrentStudent() {
   try {
+    // 🆕 Skip during static build
+    if (isStaticBuild()) {
+      console.log('🏗️ Build mode - skipping getCurrentStudent');
+      return null;
+    }
+
     console.log('🔍 getCurrentStudent - Starting student detection...');
     
     const cookieStore = await cookies();
@@ -73,6 +87,11 @@ export async function getCurrentStudent() {
       updatedAt: studentFromDB.updatedAt
     };
   } catch (error) {
+    // 🆕 Handle dynamic server usage gracefully
+    if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+      console.log('🏗️ Static build - skipping getCurrentStudent');
+      return null;
+    }
     console.error('❌ getCurrentStudent - Unexpected error:', error);
     return null;
   }
@@ -81,6 +100,12 @@ export async function getCurrentStudent() {
 // 🆕 FIXED: Get current mentor - SIMPLIFIED WITHOUT buildSafeAsync
 export async function getCurrentMentor() {
   try {
+    // 🆕 Skip during static build
+    if (isStaticBuild()) {
+      console.log('🏗️ Build mode - skipping getCurrentMentor');
+      return null;
+    }
+
     console.log('🔍 getCurrentMentor - Starting mentor detection...');
     
     const cookieStore = await cookies();
@@ -154,14 +179,25 @@ export async function getCurrentMentor() {
       updatedAt: mentorFromDB.updatedAt
     };
   } catch (error) {
+    // 🆕 Handle dynamic server usage gracefully
+    if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+      console.log('🏗️ Static build - skipping getCurrentMentor');
+      return null;
+    }
     console.error('❌ getCurrentMentor - Unexpected error:', error);
     return null;
   }
 }
 
-// 🆕 SIMPLIFIED: Get current user based on route context
+// 🆕 FIXED: Get current user based on route context
 export async function getCurrentUser() {
   try {
+    // 🆕 Skip during static build
+    if (isStaticBuild()) {
+      console.log('🏗️ Build mode - skipping getCurrentUser');
+      return null;
+    }
+
     // Try to get from headers or context to determine route
     const headersList = await headers();
     const pathname = headersList.get('x-invoke-path') || '';
@@ -186,6 +222,11 @@ export async function getCurrentUser() {
       return null;
     }
   } catch (error) {
+    // 🆕 Handle dynamic server usage gracefully
+    if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+      console.log('🏗️ Static build - skipping getCurrentUser');
+      return null;
+    }
     console.error('❌ getCurrentUser - Error:', error);
     return null;
   }
@@ -194,6 +235,16 @@ export async function getCurrentUser() {
 // 🆕 FIXED: Logout functions - Return plain objects only
 export async function studentLogout() {
   try {
+    // 🆕 Skip during static build
+    if (isStaticBuild()) {
+      console.log('🏗️ Build mode - skipping studentLogout');
+      return { 
+        success: true, 
+        message: 'Build mode - logout skipped',
+        redirectUrl: '/students-auth/login'
+      };
+    }
+
     console.log('🔒 Student-only logout initiated');
     
     const cookieStore = await cookies();
@@ -232,6 +283,16 @@ export async function studentLogout() {
 
 export async function mentorLogout() {
   try {
+    // 🆕 Skip during static build
+    if (isStaticBuild()) {
+      console.log('🏗️ Build mode - skipping mentorLogout');
+      return { 
+        success: true, 
+        message: 'Build mode - logout skipped',
+        redirectUrl: '/mentors-auth/login'
+      };
+    }
+
     console.log('🔒 Mentor-only logout initiated');
     
     const cookieStore = await cookies();
@@ -379,6 +440,8 @@ async function getMentorFromCookie(cookieValue: string) {
       profiles: mentorDataFromDB.profiles || {},
       experience: mentorDataFromDB.experience,
       bio: mentorDataFromDB.bio,
+      profileCompleted: mentorDataFromDB.profileCompleted, // ✅ ADDED
+      approvalStatus: mentorDataFromDB.approvalStatus,     // ✅ ADDED
       createdAt: mentorDataFromDB.createdAt?.toISOString() || new Date().toISOString(),
       updatedAt: mentorDataFromDB.updatedAt?.toISOString() || new Date().toISOString()
     };
@@ -392,9 +455,15 @@ async function getMentorFromCookie(cookieValue: string) {
   }
 }
 
-// 🆕 Route-specific user fetching
+// 🆕 FIXED: Route-specific user fetching - UPDATED TO INCLUDE MISSING FIELDS
 export async function getCurrentUserForMentorRoute() {
   try {
+    // 🆕 Skip during static build
+    if (isStaticBuild()) {
+      console.log('🏗️ Build mode - skipping getCurrentUserForMentorRoute');
+      return null;
+    }
+
     console.log('🔍 getCurrentUserForMentorRoute - Starting to fetch current user for mentor route...');
     
     const cookieStore = await cookies();
@@ -421,6 +490,11 @@ export async function getCurrentUserForMentorRoute() {
     console.log('❌ getCurrentUserForMentorRoute - No mentor session found for mentor route');
     return null;
   } catch (error) {
+    // 🆕 Handle dynamic server usage gracefully
+    if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+      console.log('🏗️ Static build - skipping getCurrentUserForMentorRoute');
+      return null;
+    }
     console.error('❌ getCurrentUserForMentorRoute - Unexpected error:', error);
     return null;
   }
@@ -428,6 +502,12 @@ export async function getCurrentUserForMentorRoute() {
 
 export async function getCurrentUserForStudentRoute() {
   try {
+    // 🆕 Skip during static build
+    if (isStaticBuild()) {
+      console.log('🏗️ Build mode - skipping getCurrentUserForStudentRoute');
+      return null;
+    }
+
     console.log('🔍 getCurrentUserForStudentRoute - Starting to fetch current user for student route...');
     
     const cookieStore = await cookies();
@@ -454,15 +534,26 @@ export async function getCurrentUserForStudentRoute() {
     console.log('❌ getCurrentUserForStudentRoute - No student session found for student route');
     return null;
   } catch (error) {
+    // 🆕 Handle dynamic server usage gracefully
+    if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+      console.log('🏗️ Static build - skipping getCurrentUserForStudentRoute');
+      return null;
+    }
     console.error('❌ getCurrentUserForStudentRoute - Unexpected error:', error);
     return null;
   }
 }
 
-// 🆕 Session verification functions
+// 🆕 FIXED: Session verification functions
 export async function verifyStudentSession() {
   return buildSafeAsync(async () => {
     try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping verifyStudentSession');
+        return { isValid: false, error: 'Build mode - skipping verification' };
+      }
+
       const cookieStore = await cookies();
       
       const studentDataCookie = cookieStore.get('student-session-v2')?.value;
@@ -502,6 +593,11 @@ export async function verifyStudentSession() {
         }
       };
     } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping verifyStudentSession');
+        return { isValid: false, error: 'Build mode - skipping verification' };
+      }
       console.error('❌ verifyStudentSession - Error:', error);
       return { isValid: false, error: 'Student session verification failed' };
     }
@@ -511,6 +607,12 @@ export async function verifyStudentSession() {
 export async function verifyMentorSession() {
   return buildSafeAsync(async () => {
     try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping verifyMentorSession');
+        return { isValid: false, error: 'Build mode - skipping verification' };
+      }
+
       const cookieStore = await cookies();
       
       const mentorDataCookie = cookieStore.get('mentor-session')?.value;
@@ -566,10 +668,17 @@ export async function verifyMentorSession() {
           profilePhoto: mentorDataFromDB.profilePhoto,
           profiles: mentorDataFromDB.profiles || {},
           experience: mentorDataFromDB.experience,
-          bio: mentorDataFromDB.bio
+          bio: mentorDataFromDB.bio,
+          profileCompleted: mentorDataFromDB.profileCompleted, // ✅ ADDED
+          approvalStatus: mentorDataFromDB.approvalStatus      // ✅ ADDED
         }
       };
     } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping verifyMentorSession');
+        return { isValid: false, error: 'Build mode - skipping verification' };
+      }
       console.error('❌ verifyMentorSession - Error:', error);
       return { isValid: false, error: 'Mentor session verification failed' };
     }
@@ -609,46 +718,76 @@ export async function checkMentorAuth() {
   };
 }
 
-// 🆕 Strict auth protection
+// 🆕 FIXED: Strict auth protection
 export async function requireStudentAuth() {
   return buildSafeAsync(async () => {
-    console.log('🔐 requireStudentAuth - Starting strict authentication check');
-    
-    const user = await getCurrentUserForStudentRoute();
-    
-    if (!user) {
-      console.log('❌ requireStudentAuth - No user found, redirecting to login');
-      redirect('/students-auth/login?error=no_user&redirect=/students');
+    try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping requireStudentAuth');
+        return null;
+      }
+
+      console.log('🔐 requireStudentAuth - Starting strict authentication check');
+      
+      const user = await getCurrentUserForStudentRoute();
+      
+      if (!user) {
+        console.log('❌ requireStudentAuth - No user found, redirecting to login');
+        redirect('/students-auth/login?error=no_user&redirect=/students');
+      }
+      
+      if (user.role !== 'student') {
+        console.log('❌ requireStudentAuth - Invalid role, redirecting to login');
+        redirect('/students-auth/login?error=invalid_role&redirect=/students');
+      }
+      
+      console.log('✅ requireStudentAuth - Student authenticated:', user.name);
+      return user;
+    } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping requireStudentAuth');
+        return null;
+      }
+      throw error;
     }
-    
-    if (user.role !== 'student') {
-      console.log('❌ requireStudentAuth - Invalid role, redirecting to login');
-      redirect('/students-auth/login?error=invalid_role&redirect=/students');
-    }
-    
-    console.log('✅ requireStudentAuth - Student authenticated:', user.name);
-    return user;
   });
 }
 
 export async function requireMentorAuth() {
   return buildSafeAsync(async () => {
-    console.log('🔐 requireMentorAuth - Starting strict authentication check');
-    
-    const user = await getCurrentUserForMentorRoute();
-    
-    if (!user) {
-      console.log('❌ requireMentorAuth - No user found, redirecting to login');
-      redirect('/mentors-auth/login?error=no_user&redirect=/mentors');
+    try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping requireMentorAuth');
+        return null;
+      }
+
+      console.log('🔐 requireMentorAuth - Starting strict authentication check');
+      
+      const user = await getCurrentUserForMentorRoute();
+      
+      if (!user) {
+        console.log('❌ requireMentorAuth - No user found, redirecting to login');
+        redirect('/mentors-auth/login?error=no_user&redirect=/mentors');
+      }
+      
+      if (user.role !== 'mentor') {
+        console.log('❌ requireMentorAuth - Invalid role, redirecting to login');
+        redirect('/mentors-auth/login?error=invalid_role&redirect=/mentors');
+      }
+      
+      console.log('✅ requireMentorAuth - Mentor authenticated:', user.name);
+      return user;
+    } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping requireMentorAuth');
+        return null;
+      }
+      throw error;
     }
-    
-    if (user.role !== 'mentor') {
-      console.log('❌ requireMentorAuth - Invalid role, redirecting to login');
-      redirect('/mentors-auth/login?error=invalid_role&redirect=/mentors');
-    }
-    
-    console.log('✅ requireMentorAuth - Mentor authenticated:', user.name);
-    return user;
   });
 }
 
@@ -656,6 +795,12 @@ export async function requireMentorAuth() {
 export async function checkExistingStudentAuth() {
   return buildSafeAsync(async () => {
     try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping checkExistingStudentAuth');
+        return false;
+      }
+
       const session = await verifyStudentSession();
       
       if (session?.isValid) {
@@ -666,6 +811,11 @@ export async function checkExistingStudentAuth() {
       console.log('✅ checkExistingStudentAuth - No student session');
       return false;
     } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping checkExistingStudentAuth');
+        return false;
+      }
       console.log('✅ checkExistingStudentAuth - Error, assuming no session');
       return false;
     }
@@ -675,6 +825,12 @@ export async function checkExistingStudentAuth() {
 export async function checkExistingMentorAuth() {
   return buildSafeAsync(async () => {
     try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping checkExistingMentorAuth');
+        return false;
+      }
+
       const session = await verifyMentorSession();
       
       if (session?.isValid) {
@@ -685,6 +841,11 @@ export async function checkExistingMentorAuth() {
       console.log('✅ checkExistingMentorAuth - No mentor session');
       return false;
     } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping checkExistingMentorAuth');
+        return false;
+      }
       console.log('✅ checkExistingMentorAuth - Error, assuming no session');
       return false;
     }
@@ -695,6 +856,12 @@ export async function checkExistingMentorAuth() {
 export async function clearConflictingSessions(requiredRole: 'mentor' | 'student') {
   return buildSafeAsync(async () => {
     try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping clearConflictingSessions');
+        return false;
+      }
+
       const cookieStore = await cookies();
       
       if (requiredRole === 'mentor') {
@@ -717,6 +884,11 @@ export async function clearConflictingSessions(requiredRole: 'mentor' | 'student
       
       return false;
     } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping clearConflictingSessions');
+        return false;
+      }
       console.error('❌ clearConflictingSessions - Error:', error);
       return false;
     }
@@ -727,6 +899,12 @@ export async function clearConflictingSessions(requiredRole: 'mentor' | 'student
 export async function hasStudentSession() {
   return buildSafeAsync(async () => {
     try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping hasStudentSession');
+        return false;
+      }
+
       const cookieStore = await cookies();
       
       const studentDataCookie = cookieStore.get('student-session-v2')?.value;
@@ -738,6 +916,11 @@ export async function hasStudentSession() {
       const studentData = JSON.parse(studentDataCookie);
       return studentData.role === 'student';
     } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping hasStudentSession');
+        return false;
+      }
       return false;
     }
   });
@@ -746,6 +929,12 @@ export async function hasStudentSession() {
 export async function hasMentorSession() {
   return buildSafeAsync(async () => {
     try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping hasMentorSession');
+        return false;
+      }
+
       const cookieStore = await cookies();
       
       const mentorDataCookie = cookieStore.get('mentor-session')?.value;
@@ -757,6 +946,11 @@ export async function hasMentorSession() {
       const mentorData = JSON.parse(mentorDataCookie);
       return mentorData.role === 'mentor';
     } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping hasMentorSession');
+        return false;
+      }
       return false;
     }
   });
@@ -766,12 +960,29 @@ export async function hasMentorSession() {
 export async function checkAuth() {
   return buildSafeAsync(async () => {
     try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping checkAuth');
+        return { 
+          authenticated: false,
+          user: null 
+        };
+      }
+
       const user = await getCurrentUser();
       return { 
         authenticated: !!user,
         user 
       };
     } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping checkAuth');
+        return { 
+          authenticated: false,
+          user: null 
+        };
+      }
       console.error('❌ checkAuth - Error:', error);
       return { 
         authenticated: false,
@@ -1069,10 +1280,16 @@ export async function getUserData(userId: string) {
   }
 }
 
-// Get current student session data (for client-side use)
+// 🆕 FIXED: Get current student session data (for client-side use)
 export async function getCurrentStudentSession() {
   return buildSafeAsync(async () => {
     try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping getCurrentStudentSession');
+        return { isLoggedIn: false, student: null };
+      }
+
       const cookieStore = await cookies();
       
       const studentDataCookie = cookieStore.get('student-session-v2')?.value;
@@ -1093,16 +1310,27 @@ export async function getCurrentStudentSession() {
         student: studentData 
       };
     } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping getCurrentStudentSession');
+        return { isLoggedIn: false, student: null };
+      }
       console.error('❌ getCurrentStudentSession - Error:', error);
       return { isLoggedIn: false, student: null };
     }
   });
 }
 
-// Get current mentor session data (for client-side use)
+// 🆕 FIXED: Get current mentor session data (for client-side use)
 export async function getCurrentMentorSession() {
   return buildSafeAsync(async () => {
     try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping getCurrentMentorSession');
+        return { isLoggedIn: false, mentor: null };
+      }
+
       const cookieStore = await cookies();
       
       const mentorDataCookie = cookieStore.get('mentor-session')?.value;
@@ -1161,25 +1389,47 @@ export async function getCurrentMentorSession() {
           profilePhoto: mentorDataFromDB.profilePhoto,
           profiles: mentorDataFromDB.profiles || {},
           experience: mentorDataFromDB.experience,
-          bio: mentorDataFromDB.bio
+          bio: mentorDataFromDB.bio,
+          profileCompleted: mentorDataFromDB.profileCompleted, // ✅ ADDED
+          approvalStatus: mentorDataFromDB.approvalStatus      // ✅ ADDED
         }
       };
     } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping getCurrentMentorSession');
+        return { isLoggedIn: false, mentor: null };
+      }
       console.error('❌ getCurrentMentorSession - Error:', error);
       return { isLoggedIn: false, mentor: null };
     }
   });
 }
 
-// Enhanced authentication check for any authenticated user
+// 🆕 Enhanced authentication check for any authenticated user
 export async function requireAuth() {
   return buildSafeAsync(async () => {
-    const user = await getCurrentUser();
-    
-    if (!user) {
-      redirect('/students-auth/login?redirect=' + encodeURIComponent('/dashboard'));
+    try {
+      // 🆕 Skip during static build
+      if (isStaticBuild()) {
+        console.log('🏗️ Build mode - skipping requireAuth');
+        return null;
+      }
+
+      const user = await getCurrentUser();
+      
+      if (!user) {
+        redirect('/students-auth/login?redirect=' + encodeURIComponent('/dashboard'));
+      }
+      
+      return user;
+    } catch (error) {
+      // 🆕 Handle dynamic server usage gracefully
+      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
+        console.log('🏗️ Static build - skipping requireAuth');
+        return null;
+      }
+      throw error;
     }
-    
-    return user;
   });
 }
