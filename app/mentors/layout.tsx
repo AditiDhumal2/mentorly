@@ -6,7 +6,6 @@ import { getCurrentUserForMentorRoute } from '@/actions/userActions';
 import MentorMenu from './components/MentorMenu';
 import { usePathname, useRouter } from 'next/navigation';
 
-// Complete Mentor interface with ALL possible properties
 interface Mentor {
   id: string;
   _id: string;
@@ -34,6 +33,7 @@ export default function MentorLayout({
   const [mentor, setMentor] = useState<Mentor | null>(null);
   const [isModerator, setIsModerator] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -49,36 +49,31 @@ export default function MentorLayout({
           return;
         }
 
-        // Use consistent auth function
-        const mentorData = await getCurrentUserForMentorRoute();
-        console.log('🔍 Mentor layout - Raw mentor data:', mentorData);
+        // Try to get real user data with timeout
+        const mentorData = await Promise.race([
+          getCurrentUserForMentorRoute(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))
+        ]);
+
+        console.log('🔍 Mentor layout - Raw mentor data from auth:', mentorData);
 
         if (!mentorData || mentorData.role !== 'mentor') {
-          console.log('❌ No mentor data found or not mentor role, redirecting to login');
-          router.push('/mentors-auth/login');
+          console.log('❌ No valid mentor session found');
+          // Don't redirect immediately in production - let user see the error
+          setError('Please log in to access mentor pages');
+          setLoading(false);
           return;
         }
 
-        // FIX: Use type assertion to avoid TypeScript property checking
-        const mentorWithTypedProperties = mentorData as Mentor;
+        console.log('👤 Final mentor data being used:', mentorData);
+        setMentor(mentorData as Mentor);
         
-        console.log('👤 Mentor data received:', {
-          id: mentorWithTypedProperties.id,
-          name: mentorWithTypedProperties.name,
-          profileCompleted: mentorWithTypedProperties.profileCompleted, // Now TypeScript won't complain
-          approvalStatus: mentorWithTypedProperties.approvalStatus,     // Now TypeScript won't complain
-          role: mentorWithTypedProperties.role
-        });
-
-        setMentor(mentorWithTypedProperties);
-        
-        // Check moderator status in background
-        if (mentorWithTypedProperties.id) {
+        // Check moderator status in background (don't block on this)
+        if (mentorData.id) {
           try {
             const { isUserModerator } = await import('@/actions/moderator-actions');
-            const moderatorStatus = await isUserModerator(mentorWithTypedProperties.id);
+            const moderatorStatus = await isUserModerator(mentorData.id);
             setIsModerator(moderatorStatus);
-            console.log('🛡️ Moderator status:', moderatorStatus);
           } catch (error) {
             console.error('Error checking moderator status:', error);
             setIsModerator(false);
@@ -87,7 +82,7 @@ export default function MentorLayout({
 
       } catch (error) {
         console.error('❌ Error in mentor layout:', error);
-        // Don't redirect here - let individual pages handle their own auth
+        setError('Authentication failed. Please try logging in again.');
       } finally {
         setLoading(false);
       }
@@ -108,13 +103,33 @@ export default function MentorLayout({
     );
   }
 
-  // If no mentor but not on auth page, show loading or redirect
-  if (!mentor && !pathname?.includes('/mentors-auth/')) {
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-4">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+            <h2 className="text-xl font-bold text-red-800 mb-2">Authentication Required</h2>
+            <p className="text-red-700 mb-4">{error}</p>
+            <button 
+              onClick={() => router.push('/mentors-auth/login')}
+              className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Go to Mentor Login
+            </button>
+            <p className="text-sm text-red-600 mt-4">
+              If this persists, check your browser cookies are enabled.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!mentor) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 mb-4">Verifying mentor access...</p>
+          <p className="text-gray-600 mb-4">No mentor session found</p>
           <button 
             onClick={() => router.push('/mentors-auth/login')}
             className="text-blue-600 hover:text-blue-800 underline"
@@ -144,7 +159,7 @@ export default function MentorLayout({
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       <div className="flex min-h-screen">
-        {/* Sidebar Menu - Only show if we have a mentor AND it's a sidebar path */}
+        {/* Sidebar Menu */}
         {showSidebar && mentor && (
           <MentorMenu 
             isModerator={isModerator} 
