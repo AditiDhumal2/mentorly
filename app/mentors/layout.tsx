@@ -40,13 +40,21 @@ export default function MentorLayout({
         }
 
         const mentorData = await getCurrentMentor();
-        console.log('🔍 Mentor data from getCurrentMentor:', mentorData);
+        console.log('🔍 Mentor layout - Raw mentor data:', mentorData);
 
         if (!mentorData) {
-          console.log('❌ No mentor found, redirecting to login');
+          console.log('❌ No mentor data found, redirecting to login');
           router.push('/mentors-auth/login');
           return;
         }
+
+        console.log('👤 Mentor data received:', {
+          id: mentorData.id,
+          name: mentorData.name,
+          profileCompleted: mentorData.profileCompleted,
+          approvalStatus: mentorData.approvalStatus,
+          role: mentorData.role
+        });
 
         if (mentorData.role !== 'mentor') {
           console.log('❌ User is not a mentor, redirecting to login');
@@ -55,11 +63,9 @@ export default function MentorLayout({
         }
 
         setMentor(mentorData as Mentor);
-
-        // 🆕 CRITICAL FIX: Set loading to false IMMEDIATELY after setting mentor
         setLoading(false);
 
-        // Check moderator status in background (non-blocking)
+        // Check moderator status in background
         if (mentorData.id) {
           try {
             const { isUserModerator } = await import('@/actions/moderator-actions');
@@ -74,7 +80,7 @@ export default function MentorLayout({
 
       } catch (error) {
         console.error('❌ Error in mentor layout:', error);
-        setLoading(false); // 🆕 CRITICAL: Always set loading to false
+        setLoading(false);
         router.push('/mentors-auth/login');
       }
     };
@@ -82,7 +88,6 @@ export default function MentorLayout({
     verifyAccess();
   }, [pathname, router]);
 
-  // 🆕 SIMPLIFIED LOADING STATE
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
@@ -90,6 +95,22 @@ export default function MentorLayout({
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600 text-lg">Loading mentor portal...</p>
           <p className="text-gray-400 text-sm mt-2">Path: {pathname}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!mentor) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Not authenticated as mentor</p>
+          <button 
+            onClick={() => router.push('/mentors-auth/login')}
+            className="text-blue-600 hover:text-blue-800 underline"
+          >
+            Go to Mentor Login
+          </button>
         </div>
       </div>
     );
@@ -108,7 +129,7 @@ export default function MentorLayout({
 
   const showSidebar = sidebarPaths.some(path => 
     pathname?.startsWith(path)
-  ) && mentor?.approvalStatus === 'approved';
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">

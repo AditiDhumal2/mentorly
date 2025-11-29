@@ -8,152 +8,155 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { buildSafeAsync } from '@/lib/build-safe-auth';
 
-// 🆕 IMPROVED: Get current student with better error handling
+// 🆕 FIXED: Get current student - SIMPLIFIED WITHOUT buildSafeAsync
 export async function getCurrentStudent() {
-  return buildSafeAsync(async () => {
-    try {
-      console.log('🔍 getCurrentStudent - Starting student detection...');
-      
-      const cookieStore = await cookies();
-      const studentCookie = cookieStore.get('student-session-v2');
-      
-      if (!studentCookie?.value) {
-        console.log('❌ getCurrentStudent - No student session cookie found');
-        return null;
-      }
-
-      console.log('🔍 getCurrentStudent - Found student cookie, parsing...');
-      
-      let studentData;
-      try {
-        studentData = JSON.parse(studentCookie.value);
-        console.log('🔍 getCurrentStudent - Parsed cookie data:', {
-          id: studentData.id,
-          email: studentData.email,
-          role: studentData.role
-        });
-      } catch (parseError) {
-        console.error('❌ getCurrentStudent - Error parsing cookie:', parseError);
-        return null;
-      }
-
-      // Validate required fields
-      if (!studentData.id || studentData.role !== 'student') {
-        console.log('❌ getCurrentStudent - Invalid student data in cookie');
-        return null;
-      }
-
-      console.log('🔍 getCurrentStudent - Connecting to database for student ID:', studentData.id);
-      await connectDB();
-      
-      const student = await Student.findById(studentData.id).select('-password').lean();
-      
-      if (!student) {
-        console.log('❌ getCurrentStudent - Student not found in database for ID:', studentData.id);
-        // Clear invalid cookie
-        cookieStore.delete('student-session-v2');
-        return null;
-      }
-
-      console.log('✅ getCurrentStudent - Student found:', (student as any).name);
-      
-      const studentFromDB = student as any;
-      
-      return {
-        _id: studentFromDB._id.toString(),
-        id: studentFromDB._id.toString(),
-        name: studentFromDB.name,
-        email: studentFromDB.email,
-        role: 'student',
-        year: studentFromDB.year,
-        college: studentFromDB.college,
-        profilePhoto: studentFromDB.profilePhoto,
-        profiles: studentFromDB.profiles || {},
-        interests: studentFromDB.interests || [],
-        createdAt: studentFromDB.createdAt,
-        updatedAt: studentFromDB.updatedAt
-      };
-    } catch (error) {
-      console.error('❌ getCurrentStudent - Unexpected error:', error);
+  try {
+    console.log('🔍 getCurrentStudent - Starting student detection...');
+    
+    const cookieStore = await cookies();
+    const studentCookie = cookieStore.get('student-session-v2');
+    
+    if (!studentCookie?.value) {
+      console.log('❌ getCurrentStudent - No student session cookie found');
       return null;
     }
-  });
+
+    console.log('🔍 getCurrentStudent - Found student cookie, parsing...');
+    
+    let studentData;
+    try {
+      studentData = JSON.parse(studentCookie.value);
+      console.log('🔍 getCurrentStudent - Parsed cookie data:', {
+        id: studentData.id,
+        email: studentData.email,
+        role: studentData.role
+      });
+    } catch (parseError) {
+      console.error('❌ getCurrentStudent - Error parsing cookie:', parseError);
+      return null;
+    }
+
+    // Validate required fields
+    if (!studentData.id || studentData.role !== 'student') {
+      console.log('❌ getCurrentStudent - Invalid student data in cookie');
+      return null;
+    }
+
+    console.log('🔍 getCurrentStudent - Connecting to database for student ID:', studentData.id);
+    await connectDB();
+    
+    const student = await Student.findById(studentData.id).select('-password').lean();
+    
+    if (!student) {
+      console.log('❌ getCurrentStudent - Student not found in database for ID:', studentData.id);
+      // Clear invalid cookie
+      cookieStore.delete('student-session-v2');
+      return null;
+    }
+
+    console.log('✅ getCurrentStudent - Student found:', (student as any).name);
+    
+    const studentFromDB = student as any;
+    
+    return {
+      _id: studentFromDB._id.toString(),
+      id: studentFromDB._id.toString(),
+      name: studentFromDB.name,
+      email: studentFromDB.email,
+      role: 'student',
+      year: studentFromDB.year,
+      college: studentFromDB.college,
+      profilePhoto: studentFromDB.profilePhoto,
+      profiles: studentFromDB.profiles || {},
+      interests: studentFromDB.interests || [],
+      createdAt: studentFromDB.createdAt,
+      updatedAt: studentFromDB.updatedAt
+    };
+  } catch (error) {
+    console.error('❌ getCurrentStudent - Unexpected error:', error);
+    return null;
+  }
 }
 
-// 🆕 IMPROVED: Get current mentor with better error handling
+// 🆕 FIXED: Get current mentor - SIMPLIFIED WITHOUT buildSafeAsync
 export async function getCurrentMentor() {
-  return buildSafeAsync(async () => {
-    try {
-      console.log('🔍 getCurrentMentor - Starting mentor detection...');
-      
-      const cookieStore = await cookies();
-      const mentorCookie = cookieStore.get('mentor-session');
-      
-      if (!mentorCookie?.value) {
-        console.log('❌ getCurrentMentor - No mentor session cookie found');
-        return null;
-      }
-
-      console.log('🔍 getCurrentMentor - Found mentor cookie, parsing...');
-      
-      let mentorData;
-      try {
-        mentorData = JSON.parse(mentorCookie.value);
-        console.log('🔍 getCurrentMentor - Parsed cookie data:', {
-          mentorId: mentorData.mentorId,
-          email: mentorData.email,
-          role: mentorData.role
-        });
-      } catch (parseError) {
-        console.error('❌ getCurrentMentor - Error parsing cookie:', parseError);
-        return null;
-      }
-
-      // Validate required fields
-      if (!mentorData.mentorId || mentorData.role !== 'mentor') {
-        console.log('❌ getCurrentMentor - Invalid mentor data in cookie');
-        return null;
-      }
-
-      console.log('🔍 getCurrentMentor - Connecting to database for mentor ID:', mentorData.mentorId);
-      await connectDB();
-      
-      const mentor = await Mentor.findById(mentorData.mentorId).select('-password').lean();
-      
-      if (!mentor) {
-        console.log('❌ getCurrentMentor - Mentor not found in database for ID:', mentorData.mentorId);
-        // Clear invalid cookie
-        cookieStore.delete('mentor-session');
-        return null;
-      }
-
-      console.log('✅ getCurrentMentor - Mentor found:', (mentor as any).name);
-      
-      const mentorFromDB = mentor as any;
-      
-      return {
-        _id: mentorFromDB._id.toString(),
-        id: mentorFromDB._id.toString(),
-        mentorId: mentorFromDB._id.toString(),
-        name: mentorFromDB.name,
-        email: mentorFromDB.email,
-        role: 'mentor',
-        expertise: mentorFromDB.expertise || [],
-        college: mentorFromDB.college,
-        profilePhoto: mentorFromDB.profilePhoto,
-        profiles: mentorFromDB.profiles || {},
-        experience: mentorFromDB.experience,
-        bio: mentorFromDB.bio,
-        profileCompleted: mentorFromDB.profileCompleted,
-        approvalStatus: mentorFromDB.approvalStatus,
-        createdAt: mentorFromDB.createdAt,
-        updatedAt: mentorFromDB.updatedAt
-      };
-    } catch (error) {
-      console.error('❌ getCurrentMentor - Unexpected error:', error);
+  try {
+    console.log('🔍 getCurrentMentor - Starting mentor detection...');
+    
+    const cookieStore = await cookies();
+    const mentorCookie = cookieStore.get('mentor-session');
+    
+    console.log('🍪 Mentor cookie exists:', !!mentorCookie);
+    
+    if (!mentorCookie?.value) {
+      console.log('❌ getCurrentMentor - No mentor session cookie found');
       return null;
     }
-  });
+
+    console.log('🔍 getCurrentMentor - Found mentor cookie, parsing...');
+    
+    let mentorData;
+    try {
+      mentorData = JSON.parse(mentorCookie.value);
+      console.log('🔍 getCurrentMentor - Parsed cookie data:', {
+        mentorId: mentorData.mentorId,
+        email: mentorData.email,
+        role: mentorData.role
+      });
+    } catch (parseError) {
+      console.error('❌ getCurrentMentor - Error parsing cookie:', parseError);
+      console.log('🔍 Raw cookie value (first 100 chars):', mentorCookie.value.substring(0, 100));
+      return null;
+    }
+
+    // Validate required fields
+    if (!mentorData.mentorId) {
+      console.log('❌ getCurrentMentor - No mentorId in cookie data:', mentorData);
+      return null;
+    }
+
+    if (mentorData.role !== 'mentor') {
+      console.log('❌ getCurrentMentor - Invalid role in cookie:', mentorData.role);
+      return null;
+    }
+
+    console.log('🔍 getCurrentMentor - Connecting to database for mentor ID:', mentorData.mentorId);
+    
+    await connectDB();
+    const mentor = await Mentor.findById(mentorData.mentorId).select('-password').lean();
+    
+    if (!mentor) {
+      console.log('❌ getCurrentMentor - Mentor not found in database for ID:', mentorData.mentorId);
+      cookieStore.delete('mentor-session');
+      return null;
+    }
+
+    console.log('✅ getCurrentMentor - Mentor found:', (mentor as any).name);
+    
+    const mentorFromDB = mentor as any;
+    
+    return {
+      _id: mentorFromDB._id.toString(),
+      id: mentorFromDB._id.toString(),
+      mentorId: mentorFromDB._id.toString(),
+      name: mentorFromDB.name,
+      email: mentorFromDB.email,
+      role: 'mentor',
+      expertise: mentorFromDB.expertise || [],
+      college: mentorFromDB.college,
+      profilePhoto: mentorFromDB.profilePhoto,
+      profiles: mentorFromDB.profiles || {},
+      experience: mentorFromDB.experience,
+      bio: mentorFromDB.bio,
+      profileCompleted: mentorFromDB.profileCompleted,
+      approvalStatus: mentorFromDB.approvalStatus,
+      createdAt: mentorFromDB.createdAt,
+      updatedAt: mentorFromDB.updatedAt
+    };
+  } catch (error) {
+    console.error('❌ getCurrentMentor - Unexpected error:', error);
+    return null;
+  }
 }
 
 // 🆕 SIMPLIFIED: Get current user based on route context
@@ -315,73 +318,69 @@ async function getMentorFromCookie(cookieValue: string) {
 
 // 🆕 Route-specific user fetching
 export async function getCurrentUserForMentorRoute() {
-  return buildSafeAsync(async () => {
-    try {
-      console.log('🔍 getCurrentUserForMentorRoute - Starting to fetch current user for mentor route...');
-      
-      const cookieStore = await cookies();
-      
-      const mentorCookie = cookieStore.get('mentor-session');
-      const studentCookie = cookieStore.get('student-session-v2');
+  try {
+    console.log('🔍 getCurrentUserForMentorRoute - Starting to fetch current user for mentor route...');
+    
+    const cookieStore = await cookies();
+    
+    const mentorCookie = cookieStore.get('mentor-session');
+    const studentCookie = cookieStore.get('student-session-v2');
 
-      console.log('🔍 getCurrentUserForMentorRoute - Session cookies found:', {
-        student: !!studentCookie,
-        mentor: !!mentorCookie
-      });
+    console.log('🔍 getCurrentUserForMentorRoute - Session cookies found:', {
+      student: !!studentCookie,
+      mentor: !!mentorCookie
+    });
 
-      // 🆕 SECURITY: Clear student session if trying to access mentor route
-      if (studentCookie?.value) {
-        console.log('🧹 SECURITY: Clearing student session for mentor route access');
-        cookieStore.delete('student-session-v2');
-      }
-
-      if (mentorCookie?.value) {
-        console.log('🔍 getCurrentUserForMentorRoute - Using mentor session for mentor route');
-        return await getMentorFromCookie(mentorCookie.value);
-      }
-
-      console.log('❌ getCurrentUserForMentorRoute - No mentor session found for mentor route');
-      return null;
-    } catch (error) {
-      console.error('❌ getCurrentUserForMentorRoute - Unexpected error:', error);
-      return null;
+    // 🆕 SECURITY: Clear student session if trying to access mentor route
+    if (studentCookie?.value) {
+      console.log('🧹 SECURITY: Clearing student session for mentor route access');
+      cookieStore.delete('student-session-v2');
     }
-  });
+
+    if (mentorCookie?.value) {
+      console.log('🔍 getCurrentUserForMentorRoute - Using mentor session for mentor route');
+      return await getMentorFromCookie(mentorCookie.value);
+    }
+
+    console.log('❌ getCurrentUserForMentorRoute - No mentor session found for mentor route');
+    return null;
+  } catch (error) {
+    console.error('❌ getCurrentUserForMentorRoute - Unexpected error:', error);
+    return null;
+  }
 }
 
 export async function getCurrentUserForStudentRoute() {
-  return buildSafeAsync(async () => {
-    try {
-      console.log('🔍 getCurrentUserForStudentRoute - Starting to fetch current user for student route...');
-      
-      const cookieStore = await cookies();
-      
-      const studentCookie = cookieStore.get('student-session-v2');
-      const mentorCookie = cookieStore.get('mentor-session');
+  try {
+    console.log('🔍 getCurrentUserForStudentRoute - Starting to fetch current user for student route...');
+    
+    const cookieStore = await cookies();
+    
+    const studentCookie = cookieStore.get('student-session-v2');
+    const mentorCookie = cookieStore.get('mentor-session');
 
-      console.log('🔍 getCurrentUserForStudentRoute - Session cookies found:', {
-        student: !!studentCookie,
-        mentor: !!mentorCookie
-      });
+    console.log('🔍 getCurrentUserForStudentRoute - Session cookies found:', {
+      student: !!studentCookie,
+      mentor: !!mentorCookie
+    });
 
-      // 🆕 SECURITY: Clear mentor session if trying to access student route
-      if (mentorCookie?.value) {
-        console.log('🧹 SECURITY: Clearing mentor session for student route access');
-        cookieStore.delete('mentor-session');
-      }
-
-      if (studentCookie?.value) {
-        console.log('🔍 getCurrentUserForStudentRoute - Using student session for student route');
-        return await getStudentFromCookie(studentCookie.value);
-      }
-
-      console.log('❌ getCurrentUserForStudentRoute - No student session found for student route');
-      return null;
-    } catch (error) {
-      console.error('❌ getCurrentUserForStudentRoute - Unexpected error:', error);
-      return null;
+    // 🆕 SECURITY: Clear mentor session if trying to access student route
+    if (mentorCookie?.value) {
+      console.log('🧹 SECURITY: Clearing mentor session for student route access');
+      cookieStore.delete('mentor-session');
     }
-  });
+
+    if (studentCookie?.value) {
+      console.log('🔍 getCurrentUserForStudentRoute - Using student session for student route');
+      return await getStudentFromCookie(studentCookie.value);
+    }
+
+    console.log('❌ getCurrentUserForStudentRoute - No student session found for student route');
+    return null;
+  } catch (error) {
+    console.error('❌ getCurrentUserForStudentRoute - Unexpected error:', error);
+    return null;
+  }
 }
 
 // 🆕 Session verification functions
@@ -708,7 +707,7 @@ export async function clearConflictingSessions(requiredRole: 'mentor' | 'student
       if (requiredRole === 'student') {
         const mentorCookie = cookieStore.get('mentor-session');
         if (mentorCookie) {
-          console.log('🧹 clearConflictingSessions - Clearing mentor session for student access');
+          console.log('🧹 clearConflictingSessions - Clearing mentor session for student route access');
           cookieStore.delete('mentor-session');
           return true;
         }
@@ -780,9 +779,7 @@ export async function checkAuth() {
   });
 }
 
-// 🆕 MISSING FUNCTIONS THAT WERE CAUSING ERRORS
-
-// Get user progress - NO COOKIES, so no wrapper needed
+// 🆕 Get user progress - NO COOKIES, so no wrapper needed
 export async function getUserProgress(userId: string) {
   try {
     console.log('🔍 getUserProgress - Fetching progress for user ID:', userId);
