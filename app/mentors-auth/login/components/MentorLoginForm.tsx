@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { mentorLogin } from '../actions/mentor-login.actions';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -18,12 +18,14 @@ export default function MentorLoginForm() {
   const message = searchParams.get('message');
   const registeredEmail = searchParams.get('email');
 
-  // Show success message if redirected from registration
-  useState(() => {
+  // 🆕 FIXED: Use useEffect instead of useState for side effects
+  useEffect(() => {
     if (message === 'registered' && registeredEmail) {
       setSuccess(`Registration successful! Please login to complete your profile.`);
+      // Pre-fill email if available
+      setFormData(prev => ({ ...prev, email: registeredEmail }));
     }
-  });
+  }, [message, registeredEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,27 +39,32 @@ export default function MentorLoginForm() {
       return;
     }
 
-    const result = await mentorLogin(formData.email, formData.password);
+    try {
+      const result = await mentorLogin(formData.email, formData.password);
 
-    if (result.success) {
-      setSuccess(result.message || 'Login successful!');
-      
-      // Handle redirect from client side
-      if (result.redirectTo) {
-        setTimeout(() => {
-          window.location.href = result.redirectTo;
-        }, 1000);
+      if (result.success) {
+        setSuccess(result.message || 'Login successful! Redirecting...');
+        
+        // 🆕 IMPROVED: Handle redirect from client side
+        if (result.redirectTo) {
+          setTimeout(() => {
+            window.location.href = result.redirectTo;
+          }, 1500);
+        } else {
+          // Default redirect to dashboard
+          setTimeout(() => {
+            window.location.href = '/mentors/dashboard';
+          }, 1500);
+        }
       } else {
-        // Default redirect to dashboard
-        setTimeout(() => {
-          window.location.href = '/mentors/dashboard';
-        }, 1000);
+        setError(result.error || 'Login failed. Please try again.');
       }
-    } else {
-      setError(result.error || 'Login failed');
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -10,10 +10,7 @@ import { buildSafeAsync } from '@/lib/build-safe-auth';
 
 // 🆕 Helper to check if we're in static build
 function isStaticBuild() {
-  return process.env.NEXT_PHASE === 'phase-production-build' || 
-         process.env.NODE_ENV === 'production' && 
-         typeof window === 'undefined' && 
-         !process.env.VERCEL;
+  return process.env.NEXT_PHASE === 'phase-production-build';
 }
 
 // 🆕 FIXED: Get current student - SIMPLIFIED WITHOUT buildSafeAsync
@@ -189,7 +186,7 @@ export async function getCurrentMentor() {
   }
 }
 
-// 🆕 FIXED: Get current user based on route context
+// 🆕 FIXED: Get current user based on route context - IMPROVED PATH DETECTION
 export async function getCurrentUser() {
   try {
     // 🆕 Skip during static build
@@ -201,26 +198,61 @@ export async function getCurrentUser() {
     // Try to get from headers or context to determine route
     const headersList = await headers();
     const pathname = headersList.get('x-invoke-path') || '';
+    const referer = headersList.get('referer') || '';
     
     console.log('🔍 getCurrentUser - Detected path:', pathname);
+    console.log('🔍 getCurrentUser - Referer:', referer);
+
+    // 🆕 IMPROVED: Better route detection
+    const isMentorRoute = pathname.includes('/mentors/') || referer.includes('/mentors/');
+    const isStudentRoute = pathname.includes('/students/') || referer.includes('/students/');
+
+    console.log('🔍 getCurrentUser - Route detection:', {
+      isMentorRoute,
+      isStudentRoute,
+      pathname,
+      referer
+    });
     
-    if (pathname.includes('/mentors/')) {
+    if (isMentorRoute) {
       console.log('🎯 getCurrentUser - Using mentor context');
-      return await getCurrentMentor();
-    } else if (pathname.includes('/students/')) {
-      console.log('🎯 getCurrentUser - Using student context');
-      return await getCurrentStudent();
-    } else {
-      // Fallback: try both
-      console.log('🔍 getCurrentUser - Trying both sessions...');
       const mentor = await getCurrentMentor();
       if (mentor) return mentor;
       
+      // If mentor route but no mentor session, try student as fallback
+      console.log('🔄 getCurrentUser - No mentor session, trying student...');
+      const student = await getCurrentStudent();
+      return student;
+    } 
+    
+    if (isStudentRoute) {
+      console.log('🎯 getCurrentUser - Using student context');
       const student = await getCurrentStudent();
       if (student) return student;
       
-      return null;
+      // If student route but no student session, try mentor as fallback
+      console.log('🔄 getCurrentUser - No student session, trying mentor...');
+      const mentor = await getCurrentMentor();
+      return mentor;
     }
+
+    // Fallback: try both with priority based on most recent activity
+    console.log('🔍 getCurrentUser - Trying both sessions with priority...');
+    const mentor = await getCurrentMentor();
+    if (mentor) {
+      console.log('✅ getCurrentUser - Using mentor session');
+      return mentor;
+    }
+    
+    const student = await getCurrentStudent();
+    if (student) {
+      console.log('✅ getCurrentUser - Using student session');
+      return student;
+    }
+    
+    console.log('❌ getCurrentUser - No sessions found');
+    return null;
+    
   } catch (error) {
     // 🆕 Handle dynamic server usage gracefully
     if (error instanceof Error && error.message.includes('Dynamic server usage')) {
@@ -440,8 +472,8 @@ async function getMentorFromCookie(cookieValue: string) {
       profiles: mentorDataFromDB.profiles || {},
       experience: mentorDataFromDB.experience,
       bio: mentorDataFromDB.bio,
-      profileCompleted: mentorDataFromDB.profileCompleted, // ✅ ADDED
-      approvalStatus: mentorDataFromDB.approvalStatus,     // ✅ ADDED
+      profileCompleted: mentorDataFromDB.profileCompleted,
+      approvalStatus: mentorDataFromDB.approvalStatus,
       createdAt: mentorDataFromDB.createdAt?.toISOString() || new Date().toISOString(),
       updatedAt: mentorDataFromDB.updatedAt?.toISOString() || new Date().toISOString()
     };
@@ -669,8 +701,8 @@ export async function verifyMentorSession() {
           profiles: mentorDataFromDB.profiles || {},
           experience: mentorDataFromDB.experience,
           bio: mentorDataFromDB.bio,
-          profileCompleted: mentorDataFromDB.profileCompleted, // ✅ ADDED
-          approvalStatus: mentorDataFromDB.approvalStatus      // ✅ ADDED
+          profileCompleted: mentorDataFromDB.profileCompleted,
+          approvalStatus: mentorDataFromDB.approvalStatus
         }
       };
     } catch (error) {
@@ -1390,8 +1422,8 @@ export async function getCurrentMentorSession() {
           profiles: mentorDataFromDB.profiles || {},
           experience: mentorDataFromDB.experience,
           bio: mentorDataFromDB.bio,
-          profileCompleted: mentorDataFromDB.profileCompleted, // ✅ ADDED
-          approvalStatus: mentorDataFromDB.approvalStatus      // ✅ ADDED
+          profileCompleted: mentorDataFromDB.profileCompleted,
+          approvalStatus: mentorDataFromDB.approvalStatus
         }
       };
     } catch (error) {

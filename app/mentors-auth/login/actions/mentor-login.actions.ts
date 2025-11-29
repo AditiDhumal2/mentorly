@@ -4,12 +4,13 @@
 import { connectDB } from '@/lib/db';
 import { Mentor } from '@/models/Mentor';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export async function mentorLogin(email: string, password: string) {
   try {
     await connectDB();
 
-    console.log('🔐 Attempting mentor login for:', email);
+    console.log('🔐 PRODUCTION: Attempting mentor login for:', email);
 
     // Find mentor by email and include password field
     const mentor = await Mentor.findOne({ email }).select('+password');
@@ -41,14 +42,14 @@ export async function mentorLogin(email: string, password: string) {
       };
     }
 
-    console.log('✅ Mentor login successful:', email);
+    console.log('✅ PRODUCTION: Mentor login successful:', email);
     console.log('📊 Mentor status:', {
       profileCompleted: mentor.profileCompleted,
       approvalStatus: mentor.approvalStatus,
       canLogin: mentor.canLogin
     });
 
-    // Create session using cookies
+    // 🆕 PRODUCTION FIX: Create session with proper cookie settings
     const cookieStore = await cookies();
     const sessionData = {
       mentorId: mentor._id.toString(),
@@ -60,13 +61,22 @@ export async function mentorLogin(email: string, password: string) {
       loggedInAt: new Date().toISOString()
     };
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    console.log('🍪 PRODUCTION: Setting cookie, production mode:', isProduction);
+
+    // 🆕 CRITICAL FIX: Production cookie settings
     cookieStore.set('mentor-session', JSON.stringify(sessionData), {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProduction, // ✅ Secure only in production
+      sameSite: 'lax', // ✅ More permissive for cross-origin
       maxAge: 60 * 60 * 24 * 7, // 1 week
       path: '/',
+      // 🆕 Optional: Add domain for production if needed
+      // domain: isProduction ? '.yourdomain.com' : undefined
     });
+
+    console.log('✅ PRODUCTION: Cookie set successfully');
 
     // 🎯 FLOW CONTROL: Redirect based on status
     if (!mentor.profileCompleted) {
@@ -88,21 +98,19 @@ export async function mentorLogin(email: string, password: string) {
     }
 
     // ✅ Only approved mentors with completed profiles go to dashboard
-    console.log('🎯 Redirecting to dashboard - fully approved');
-    return { 
-      success: true, 
-      redirectTo: '/mentors/dashboard',
-      message: 'Login successful!',
-      mentor: {
-        id: mentor._id.toString(),
-        name: mentor.name,
-        email: mentor.email,
-        role: 'mentor'
-      }
-    };
+    console.log('🎯 PRODUCTION: Redirecting to dashboard - fully approved');
+    
+    // 🆕 Use server redirect for better reliability
+    redirect('/mentors/dashboard');
 
   } catch (error: any) {
-    console.error('❌ Mentor login error:', error);
+    console.error('❌ PRODUCTION: Mentor login error:', error);
+    
+    // 🆕 More specific error handling for production
+    if (error.message?.includes('Redirect')) {
+      throw error; // Let redirect errors propagate
+    }
+    
     return { 
       success: false, 
       error: 'Login failed. Please try again.' 
@@ -110,18 +118,31 @@ export async function mentorLogin(email: string, password: string) {
   }
 }
 
-// 🆕 FIXED: Check if mentor is logged in - PROPER RETURN STRUCTURE
+// 🆕 FIXED: Check if mentor is logged in - PRODUCTION OPTIMIZED
 export async function checkMentorAuth() {
   try {
-    console.log('🔍 checkMentorAuth - Checking mentor session...');
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    if (isProduction) {
+      console.log('🔍 PRODUCTION: Checking mentor session...');
+    }
     
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('mentor-session');
     
-    console.log('🍪 Session cookie found:', !!sessionCookie);
+    if (isProduction) {
+      console.log('🍪 PRODUCTION: Session cookie found:', !!sessionCookie);
+      if (sessionCookie) {
+        console.log('🔍 PRODUCTION: Cookie details:', {
+          name: sessionCookie.name,
+          valueLength: sessionCookie.value?.length,
+          hasValue: !!sessionCookie.value
+        });
+      }
+    }
     
     if (!sessionCookie?.value) {
-      console.log('❌ No mentor session cookie found');
+      console.log('❌ PRODUCTION: No mentor session cookie found');
       return { 
         isAuthenticated: false, 
         mentor: null 
@@ -131,13 +152,16 @@ export async function checkMentorAuth() {
     let sessionData;
     try {
       sessionData = JSON.parse(sessionCookie.value);
-      console.log('🔍 Parsed session data:', {
-        mentorId: sessionData.mentorId,
-        email: sessionData.email,
-        role: sessionData.role
-      });
+      
+      if (isProduction) {
+        console.log('🔍 PRODUCTION: Parsed session data:', {
+          mentorId: sessionData.mentorId,
+          email: sessionData.email,
+          role: sessionData.role
+        });
+      }
     } catch (parseError) {
-      console.error('❌ Error parsing session cookie:', parseError);
+      console.error('❌ PRODUCTION: Error parsing session cookie:', parseError);
       cookieStore.delete('mentor-session');
       return { 
         isAuthenticated: false, 
@@ -145,12 +169,30 @@ export async function checkMentorAuth() {
       };
     }
 
-    // Verify session is still valid with database
-    await connectDB();
-    const mentor = await Mentor.findById(sessionData.mentorId);
+    // 🆕 Add timeout for production database calls
+    const dbPromise = connectDB().then(async () => {
+      const mentor = await Mentor.findById(sessionData.mentorId);
+      return mentor;
+    });
+
+    let mentor;
+    if (isProduction) {
+      // Use timeout in production to prevent hanging
+      mentor = await Promise.race([
+        dbPromise,
+        new Promise<null>((resolve) => 
+          setTimeout(() => {
+            console.log('⏰ PRODUCTION: Database timeout');
+            resolve(null);
+          }, 3000)
+        )
+      ]);
+    } else {
+      mentor = await dbPromise;
+    }
     
     if (!mentor) {
-      console.log('❌ Mentor not found in database for ID:', sessionData.mentorId);
+      console.log('❌ PRODUCTION: Mentor not found in database for ID:', sessionData.mentorId);
       cookieStore.delete('mentor-session');
       return { 
         isAuthenticated: false, 
@@ -159,7 +201,7 @@ export async function checkMentorAuth() {
     }
 
     if (!mentor.canLogin) {
-      console.log('🚫 Mentor cannot login:', sessionData.email);
+      console.log('🚫 PRODUCTION: Mentor cannot login:', sessionData.email);
       cookieStore.delete('mentor-session');
       return { 
         isAuthenticated: false, 
@@ -167,7 +209,7 @@ export async function checkMentorAuth() {
       };
     }
 
-    console.log('✅ Mentor session valid for:', mentor.email);
+    console.log('✅ PRODUCTION: Mentor session valid for:', mentor.email);
     
     return { 
       isAuthenticated: true,
@@ -182,7 +224,7 @@ export async function checkMentorAuth() {
       }
     };
   } catch (error) {
-    console.error('❌ Error checking mentor auth:', error);
+    console.error('❌ PRODUCTION: Error checking mentor auth:', error);
     return { 
       isAuthenticated: false, 
       mentor: null 
@@ -190,24 +232,59 @@ export async function checkMentorAuth() {
   }
 }
 
-// 🆕 FIXED: Logout function - SIMPLIFIED
+// 🆕 FIXED: Logout function - PRODUCTION READY
 export async function mentorLogout() {
   try {
     const cookieStore = await cookies();
-    cookieStore.delete('mentor-session');
+    const isProduction = process.env.NODE_ENV === 'production';
     
-    console.log('✅ Mentor logout successful');
+    console.log('🔒 PRODUCTION: Mentor logout initiated');
+    
+    // 🆕 Clear all mentor-related cookies
+    const mentorCookies = ['mentor-session', 'mentor-data'];
+    
+    mentorCookies.forEach(cookieName => {
+      const hadCookie = !!cookieStore.get(cookieName);
+      cookieStore.delete(cookieName);
+      console.log(`🗑️ PRODUCTION: Deleted mentor cookie: ${cookieName} - ${hadCookie ? 'HAD_COOKIE' : 'NO_COOKIE'}`);
+    });
+    
+    console.log('✅ PRODUCTION: Mentor logout successful');
+    
+    // 🆕 Use proper redirect for production
     return { 
       success: true, 
       message: 'Logged out successfully',
-      redirectTo: '/mentors-auth/login'
+      redirectTo: '/mentors-auth/login?logout=success'
     };
+    
   } catch (error) {
-    console.error('❌ Error during logout:', error);
+    console.error('❌ PRODUCTION: Error during logout:', error);
     return { 
       success: false, 
       error: 'Logout failed' 
     };
+  }
+}
+
+// 🆕 FIXED: Quick session check without database call (for performance)
+export async function hasActiveMentorSession() {
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('mentor-session');
+    
+    if (!sessionCookie?.value) {
+      return false;
+    }
+
+    const sessionData = JSON.parse(sessionCookie.value);
+    
+    // Basic validation without database call
+    return !!(sessionData.mentorId && sessionData.role === 'mentor');
+    
+  } catch (error) {
+    console.error('❌ Error checking session:', error);
+    return false;
   }
 }
 
