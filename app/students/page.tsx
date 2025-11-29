@@ -30,6 +30,7 @@ export default function StudentsDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
+  const [authChecked, setAuthChecked] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -40,6 +41,13 @@ export default function StudentsDashboardPage() {
         const userData = await getCurrentStudent();
         console.log('🎯 Student Dashboard - User data:', userData);
         
+        // 🆕 FIX: Check if user is authenticated and is a student
+        if (!userData || userData.role !== 'student') {
+          console.log('❌ Student Dashboard - No valid student session, redirecting to login');
+          router.push('/students-auth/login');
+          return;
+        }
+
         setUser(userData as Student);
 
         if (userData?._id) {
@@ -52,13 +60,16 @@ export default function StudentsDashboardPage() {
         }
       } catch (error) {
         console.error('❌ Student Dashboard - Error fetching data:', error);
+        // 🆕 FIX: Redirect to login on error
+        router.push('/students-auth/login');
       } finally {
         setLoading(false);
+        setAuthChecked(true);
       }
     };
 
     fetchData();
-  }, []);
+  }, [router]); // 🆕 FIX: Added router to dependency array
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -121,7 +132,8 @@ export default function StudentsDashboardPage() {
     }
   };
 
-  if (loading) {
+  // 🆕 FIX: Show loading only until auth check is complete
+  if (loading || !authChecked) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -132,15 +144,18 @@ export default function StudentsDashboardPage() {
     );
   }
 
-  // 🆕 BETTER AUTH CHECK
+  // 🆕 FIX: Better auth check with immediate redirect
   if (!user || user.role !== 'student') {
     console.log('❌ Student Dashboard - Invalid user:', user);
+    
+    // Show temporary message before redirect
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Not authenticated as student</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 mb-4">Redirecting to login...</p>
           <Link href="/students-auth/login" className="text-blue-600 hover:text-blue-800">
-            Go to Student Login
+            Click here if not redirected
           </Link>
         </div>
       </div>
