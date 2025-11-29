@@ -4,7 +4,6 @@
 import { connectDB } from '@/lib/db';
 import { Mentor } from '@/models/Mentor';
 import { cookies } from 'next/headers';
-import { buildSafeAsync } from '@/lib/build-safe-auth'; // 🆕 ADD THIS IMPORT
 
 export async function mentorLogin(email: string, password: string) {
   try {
@@ -111,59 +110,105 @@ export async function mentorLogin(email: string, password: string) {
   }
 }
 
-// Check if mentor is logged in - 🆕 FIXED: WRAPPED WITH buildSafeAsync
+// 🆕 FIXED: Check if mentor is logged in - PROPER RETURN STRUCTURE
 export async function checkMentorAuth() {
-  return buildSafeAsync(async () => {
-    try {
-      const cookieStore = await cookies();
-      const sessionCookie = cookieStore.get('mentor-session');
-      
-      if (!sessionCookie?.value) {
-        return { isAuthenticated: false };
-      }
-
-      const sessionData = JSON.parse(sessionCookie.value);
-      
-      // Verify session is still valid
-      await connectDB();
-      const mentor = await Mentor.findById(sessionData.mentorId);
-      
-      if (!mentor || !mentor.canLogin) {
-        // Clear invalid session
-        cookieStore.delete('mentor-session');
-        return { isAuthenticated: false };
-      }
-
+  try {
+    console.log('🔍 checkMentorAuth - Checking mentor session...');
+    
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('mentor-session');
+    
+    console.log('🍪 Session cookie found:', !!sessionCookie);
+    
+    if (!sessionCookie?.value) {
+      console.log('❌ No mentor session cookie found');
       return { 
-        isAuthenticated: true,
-        mentor: {
-          id: mentor._id.toString(),
-          name: mentor.name,
-          email: mentor.email,
-          profileCompleted: mentor.profileCompleted,
-          approvalStatus: mentor.approvalStatus
-        }
+        isAuthenticated: false, 
+        mentor: null 
       };
-    } catch (error) {
-      console.error('Error checking mentor auth:', error);
-      return { isAuthenticated: false };
     }
-  });
+
+    let sessionData;
+    try {
+      sessionData = JSON.parse(sessionCookie.value);
+      console.log('🔍 Parsed session data:', {
+        mentorId: sessionData.mentorId,
+        email: sessionData.email,
+        role: sessionData.role
+      });
+    } catch (parseError) {
+      console.error('❌ Error parsing session cookie:', parseError);
+      cookieStore.delete('mentor-session');
+      return { 
+        isAuthenticated: false, 
+        mentor: null 
+      };
+    }
+
+    // Verify session is still valid with database
+    await connectDB();
+    const mentor = await Mentor.findById(sessionData.mentorId);
+    
+    if (!mentor) {
+      console.log('❌ Mentor not found in database for ID:', sessionData.mentorId);
+      cookieStore.delete('mentor-session');
+      return { 
+        isAuthenticated: false, 
+        mentor: null 
+      };
+    }
+
+    if (!mentor.canLogin) {
+      console.log('🚫 Mentor cannot login:', sessionData.email);
+      cookieStore.delete('mentor-session');
+      return { 
+        isAuthenticated: false, 
+        mentor: null 
+      };
+    }
+
+    console.log('✅ Mentor session valid for:', mentor.email);
+    
+    return { 
+      isAuthenticated: true,
+      mentor: {
+        id: mentor._id.toString(),
+        _id: mentor._id.toString(),
+        name: mentor.name,
+        email: mentor.email,
+        profileCompleted: mentor.profileCompleted,
+        approvalStatus: mentor.approvalStatus,
+        role: 'mentor'
+      }
+    };
+  } catch (error) {
+    console.error('❌ Error checking mentor auth:', error);
+    return { 
+      isAuthenticated: false, 
+      mentor: null 
+    };
+  }
 }
 
-// Logout function - 🆕 FIXED: WRAPPED WITH buildSafeAsync
+// 🆕 FIXED: Logout function - SIMPLIFIED
 export async function mentorLogout() {
-  return buildSafeAsync(async () => {
-    try {
-      const cookieStore = await cookies();
-      cookieStore.delete('mentor-session');
-      
-      return { success: true, message: 'Logged out successfully' };
-    } catch (error) {
-      console.error('Error during logout:', error);
-      return { success: false, error: 'Logout failed' };
-    }
-  });
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete('mentor-session');
+    
+    console.log('✅ Mentor logout successful');
+    return { 
+      success: true, 
+      message: 'Logged out successfully',
+      redirectTo: '/mentors-auth/login'
+    };
+  } catch (error) {
+    console.error('❌ Error during logout:', error);
+    return { 
+      success: false, 
+      error: 'Logout failed' 
+    };
+  }
 }
 
 function getLoginMessage(status: string): string {

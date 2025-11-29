@@ -5,29 +5,50 @@ import { useEffect, useState } from 'react';
 import { checkMentorAuth } from './actions/mentor-login.actions';
 import MentorLoginForm from './components/MentorLoginForm';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function MentorLoginPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log('🔄 Checking if mentor is already authenticated...');
         const authResult = await checkMentorAuth();
         
-        // 🆕 FIXED: PROPER NULL CHECKING
-        if (authResult && authResult.isAuthenticated) {
-          // Redirect to CORRECT dashboard path
-          window.location.href = '/mentors/dashboard';
+        console.log('🔍 Auth result:', authResult);
+        
+        // 🆕 FIXED: PROPER CHECK FOR AUTHENTICATION
+        if (authResult?.isAuthenticated && authResult.mentor) {
+          console.log('✅ Mentor already authenticated, redirecting...');
+          console.log('👤 Mentor data:', {
+            name: authResult.mentor.name,
+            profileCompleted: authResult.mentor.profileCompleted,
+            approvalStatus: authResult.mentor.approvalStatus
+          });
+          
+          // 🆕 FIXED: Use router.push instead of window.location for better UX
+          if (!authResult.mentor.profileCompleted) {
+            router.push('/mentors/complete-profile');
+          } else if (authResult.mentor.approvalStatus !== 'approved') {
+            router.push('/mentors/pending-approval');
+          } else {
+            router.push('/mentors/dashboard');
+          }
+          return;
+        } else {
+          console.log('❌ No valid mentor session found');
         }
       } catch (error) {
-        console.error('Error checking auth:', error);
+        console.error('❌ Error checking auth:', error);
       } finally {
         setIsCheckingAuth(false);
       }
     };
 
     checkAuth();
-  }, []);
+  }, [router]);
 
   if (isCheckingAuth) {
     return (

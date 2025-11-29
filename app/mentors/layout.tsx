@@ -1,16 +1,19 @@
- 'use client';
+ // app/mentors/layout.tsx
+'use client';
 
 import { useEffect, useState } from 'react';
-import { checkMentorAuth } from '@/app/mentors-auth/login/actions/mentor-login.actions';
+import { getCurrentMentor } from '@/actions/userActions';
 import MentorMenu from './components/MentorMenu';
 import { usePathname, useRouter } from 'next/navigation';
 
 interface Mentor {
   id: string;
+  _id: string;
   name: string;
   email: string;
   profileCompleted: boolean;
   approvalStatus: string;
+  role: string;
 }
 
 export default function MentorLayout({
@@ -31,22 +34,44 @@ export default function MentorLayout({
       try {
         console.log('🔄 Mentor layout verifying access for:', pathname);
         
-        const authResult = await checkMentorAuth();
+        // 🆕 FIX: Use getCurrentMentor instead of checkMentorAuth to avoid loops
+        const mentorData = await getCurrentMentor();
         
-        // 🆕 ADD PROPER NULL CHECKING
-        if (!authResult || !authResult.isAuthenticated || !authResult.mentor) {
-          console.log('❌ Mentor not authenticated, redirecting to login');
-          window.location.href = '/mentors-auth/login';
+        console.log('🔍 Mentor layout - Raw mentor data:', mentorData);
+
+        // 🆕 FIX: Proper null checking
+        if (!mentorData) {
+          console.log('❌ No mentor data found, redirecting to login');
+          router.push('/mentors-auth/login');
           return;
         }
 
-        const mentorData = authResult.mentor;
-        console.log('👤 Mentor data:', mentorData);
+        console.log('👤 Mentor data received:', {
+          id: mentorData.id,
+          name: mentorData.name,
+          profileCompleted: mentorData.profileCompleted,
+          approvalStatus: mentorData.approvalStatus,
+          role: mentorData.role
+        });
 
-        setMentor(mentorData);
+        // 🆕 FIX: Ensure it's actually a mentor
+        if (mentorData.role !== 'mentor') {
+          console.log('❌ User is not a mentor, redirecting to login');
+          router.push('/mentors-auth/login');
+          return;
+        }
+
+        setMentor(mentorData as Mentor);
 
         // 🎯 STRICT ACCESS CONTROL FOR ALL MENTOR PAGES
         const currentPath = pathname || '';
+
+        // 🆕 FIX: Allow login page to handle its own redirects
+        if (currentPath.includes('/mentors-auth/login')) {
+          console.log('✅ Allowing access to login page');
+          setLoading(false);
+          return;
+        }
 
         // Allow access to complete-profile only if profile is not completed
         if (currentPath === '/mentors/complete-profile') {
@@ -82,6 +107,7 @@ export default function MentorLayout({
           console.log('📝 Profile not completed, showing access denied');
           setAccessDenied(true);
           setDeniedReason('profile');
+          setLoading(false); // 🆕 FIX: Don't forget to set loading to false
           return;
         }
 
@@ -89,11 +115,12 @@ export default function MentorLayout({
           console.log('⏳ Mentor not approved, showing access denied');
           setAccessDenied(true);
           setDeniedReason('approval');
+          setLoading(false); // 🆕 FIX: Don't forget to set loading to false
           return;
         }
 
         // ✅ Only approved mentors with completed profiles can access other pages
-        console.log('✅ Mentor fully approved, allowing access');
+        console.log('✅ Mentor fully approved, allowing access to:', currentPath);
         
         // Set loading to false first to render the page
         setLoading(false);
@@ -113,12 +140,26 @@ export default function MentorLayout({
 
       } catch (error) {
         console.error('❌ Error verifying access:', error);
-        window.location.href = '/mentors-auth/login';
+        // 🆕 FIX: Use router.push instead of window.location to avoid full page reloads
+        router.push('/mentors-auth/login');
       }
     };
 
     verifyAccess();
   }, [pathname, router]);
+
+  // 🆕 FIX: Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-300 text-lg">Verifying your access...</p>
+          <p className="text-gray-400 text-sm mt-2">Path: {pathname}</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show full-screen access denied for restricted pages
   if (accessDenied) {
@@ -143,7 +184,7 @@ export default function MentorLayout({
                 </p>
                 <div className="space-y-3">
                   <button
-                    onClick={() => window.location.href = '/mentors/complete-profile'}
+                    onClick={() => router.push('/mentors/complete-profile')}
                     className="w-full px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 text-lg font-semibold"
                   >
                     Complete Your Profile
@@ -162,7 +203,7 @@ export default function MentorLayout({
                 </p>
                 <div className="space-y-3">
                   <button
-                    onClick={() => window.location.href = '/mentors/pending-approval'}
+                    onClick={() => router.push('/mentors/pending-approval')}
                     className="w-full px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 text-lg font-semibold"
                   >
                     Check Approval Status
@@ -185,19 +226,7 @@ export default function MentorLayout({
     );
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-300 text-lg">Verifying your access...</p>
-          <p className="text-gray-400 text-sm mt-2">Path: {pathname}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Define which paths should show the sidebar - UPDATED TO INCLUDE MESSAGES
+  // Define which paths should show the sidebar
   const sidebarPaths = [
     '/mentors/dashboard',
     '/mentors/community',
@@ -205,7 +234,7 @@ export default function MentorLayout({
     '/mentors/students',
     '/mentors/profile',
     '/mentors/moderator',
-    '/mentors/messages' // Add this line to show sidebar on messages page
+    '/mentors/messages'
   ];
 
   const showSidebar = sidebarPaths.some(path => 
@@ -219,7 +248,7 @@ export default function MentorLayout({
         {showSidebar && (
           <MentorMenu 
             isModerator={isModerator} 
-            currentUser={mentor} // Pass the mentor data for message badges
+            currentUser={mentor}
           />
         )}
         

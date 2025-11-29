@@ -4,13 +4,14 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { getCurrentMentor, getUserProgress } from '@/actions/userActions';
 import { uploadProfilePhotoAction, deleteProfilePhotoAction } from '@/actions/profile-actions';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Mentor {
   _id: string;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -39,7 +40,7 @@ export default function MentorDashboard() {
         const mentorData = await getCurrentMentor();
         console.log('🎯 Mentor Dashboard - Mentor data:', mentorData);
         
-        setMentor(mentorData);
+        setMentor(mentorData as Mentor);
 
         if (mentorData?._id) {
           console.log('🎯 Mentor Dashboard - Fetching progress for ID:', mentorData._id);
@@ -157,7 +158,7 @@ export default function MentorDashboard() {
               Please complete your mentor profile to access the dashboard.
             </p>
             <button
-              onClick={() => router.push('/mentors/profile')}
+              onClick={() => router.push('/mentors/complete-profile')}
               className="bg-yellow-600 text-white px-6 py-2 rounded-lg hover:bg-yellow-700"
             >
               Complete Profile
