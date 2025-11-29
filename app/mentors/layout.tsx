@@ -24,37 +24,30 @@ export default function MentorLayout({
   const [mentor, setMentor] = useState<Mentor | null>(null);
   const [isModerator, setIsModerator] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [accessDenied, setAccessDenied] = useState(false);
-  const [deniedReason, setDeniedReason] = useState('');
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     const verifyAccess = async () => {
       try {
-        console.log('🔄 Mentor layout verifying access for:', pathname);
+        console.log('🔄 Mentor layout checking access for:', pathname);
         
-        // 🆕 FIX: Use getCurrentMentor instead of checkMentorAuth to avoid loops
-        const mentorData = await getCurrentMentor();
-        
-        console.log('🔍 Mentor layout - Raw mentor data:', mentorData);
+        // Skip auth check for auth pages
+        if (pathname?.includes('/mentors-auth/')) {
+          console.log('✅ Allowing access to auth pages');
+          setLoading(false);
+          return;
+        }
 
-        // 🆕 FIX: Proper null checking
+        const mentorData = await getCurrentMentor();
+        console.log('🔍 Mentor data from getCurrentMentor:', mentorData);
+
         if (!mentorData) {
-          console.log('❌ No mentor data found, redirecting to login');
+          console.log('❌ No mentor found, redirecting to login');
           router.push('/mentors-auth/login');
           return;
         }
 
-        console.log('👤 Mentor data received:', {
-          id: mentorData.id,
-          name: mentorData.name,
-          profileCompleted: mentorData.profileCompleted,
-          approvalStatus: mentorData.approvalStatus,
-          role: mentorData.role
-        });
-
-        // 🆕 FIX: Ensure it's actually a mentor
         if (mentorData.role !== 'mentor') {
           console.log('❌ User is not a mentor, redirecting to login');
           router.push('/mentors-auth/login');
@@ -63,69 +56,10 @@ export default function MentorLayout({
 
         setMentor(mentorData as Mentor);
 
-        // 🎯 STRICT ACCESS CONTROL FOR ALL MENTOR PAGES
-        const currentPath = pathname || '';
-
-        // 🆕 FIX: Allow login page to handle its own redirects
-        if (currentPath.includes('/mentors-auth/login')) {
-          console.log('✅ Allowing access to login page');
-          setLoading(false);
-          return;
-        }
-
-        // Allow access to complete-profile only if profile is not completed
-        if (currentPath === '/mentors/complete-profile') {
-          if (mentorData.profileCompleted) {
-            console.log('📝 Profile already completed, redirecting to pending approval');
-            router.push('/mentors/pending-approval');
-            return;
-          }
-          console.log('✅ Allowing access to complete-profile');
-          setLoading(false);
-          return;
-        }
-
-        // Allow access to pending-approval only if profile is completed but not approved
-        if (currentPath === '/mentors/pending-approval') {
-          if (!mentorData.profileCompleted) {
-            console.log('📝 Profile not completed, redirecting to complete-profile');
-            router.push('/mentors/complete-profile');
-            return;
-          }
-          if (mentorData.approvalStatus === 'approved') {
-            console.log('✅ Mentor approved, redirecting to dashboard');
-            router.push('/mentors/dashboard');
-            return;
-          }
-          console.log('✅ Allowing access to pending-approval');
-          setLoading(false);
-          return;
-        }
-
-        // For ALL other mentor routes (dashboard, community, etc.), require full approval
-        if (!mentorData.profileCompleted) {
-          console.log('📝 Profile not completed, showing access denied');
-          setAccessDenied(true);
-          setDeniedReason('profile');
-          setLoading(false); // 🆕 FIX: Don't forget to set loading to false
-          return;
-        }
-
-        if (mentorData.approvalStatus !== 'approved') {
-          console.log('⏳ Mentor not approved, showing access denied');
-          setAccessDenied(true);
-          setDeniedReason('approval');
-          setLoading(false); // 🆕 FIX: Don't forget to set loading to false
-          return;
-        }
-
-        // ✅ Only approved mentors with completed profiles can access other pages
-        console.log('✅ Mentor fully approved, allowing access to:', currentPath);
-        
-        // Set loading to false first to render the page
+        // 🆕 CRITICAL FIX: Set loading to false IMMEDIATELY after setting mentor
         setLoading(false);
-        
-        // Then check moderator status separately to avoid blocking the render
+
+        // Check moderator status in background (non-blocking)
         if (mentorData.id) {
           try {
             const { isUserModerator } = await import('@/actions/moderator-actions');
@@ -139,8 +73,8 @@ export default function MentorLayout({
         }
 
       } catch (error) {
-        console.error('❌ Error verifying access:', error);
-        // 🆕 FIX: Use router.push instead of window.location to avoid full page reloads
+        console.error('❌ Error in mentor layout:', error);
+        setLoading(false); // 🆕 CRITICAL: Always set loading to false
         router.push('/mentors-auth/login');
       }
     };
@@ -148,79 +82,14 @@ export default function MentorLayout({
     verifyAccess();
   }, [pathname, router]);
 
-  // 🆕 FIX: Show loading state
+  // 🆕 SIMPLIFIED LOADING STATE
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-300 text-lg">Verifying your access...</p>
+          <p className="text-gray-600 text-lg">Loading mentor portal...</p>
           <p className="text-gray-400 text-sm mt-2">Path: {pathname}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show full-screen access denied for restricted pages
-  if (accessDenied) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center p-4">
-        <div className="max-w-md w-full text-center">
-          <div className="bg-white/5 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/10 p-8">
-            <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-12 h-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            
-            <h1 className="text-3xl font-bold text-white mb-4">
-              Access Restricted
-            </h1>
-            
-            {deniedReason === 'profile' && (
-              <div className="space-y-6">
-                <p className="text-gray-300 text-lg">
-                  Please complete your profile setup to access mentor features.
-                </p>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => router.push('/mentors/complete-profile')}
-                    className="w-full px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 text-lg font-semibold"
-                  >
-                    Complete Your Profile
-                  </button>
-                  <p className="text-gray-400 text-sm">
-                    You need to fill out your profile details before accessing the mentor portal.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {deniedReason === 'approval' && (
-              <div className="space-y-6">
-                <p className="text-gray-300 text-lg">
-                  Your profile is under admin review. You'll get access once approved.
-                </p>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => router.push('/mentors/pending-approval')}
-                    className="w-full px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 text-lg font-semibold"
-                  >
-                    Check Approval Status
-                  </button>
-                  <p className="text-gray-400 text-sm">
-                    Our team is reviewing your application. This usually takes 24-48 hours.
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            <div className="mt-8 pt-6 border-t border-white/10">
-              <p className="text-gray-400 text-sm">
-                Contact support if you have any questions about your application.
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -242,9 +111,9 @@ export default function MentorLayout({
   ) && mentor?.approvalStatus === 'approved';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       <div className="flex min-h-screen">
-        {/* Sidebar Menu - Only show for approved mentors on specific pages */}
+        {/* Sidebar Menu */}
         {showSidebar && (
           <MentorMenu 
             isModerator={isModerator} 

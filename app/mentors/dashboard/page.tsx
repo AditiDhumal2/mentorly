@@ -1,8 +1,6 @@
  // app/mentors/dashboard/page.tsx
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import { useEffect, useState } from 'react';
 import { getCurrentMentor, getUserProgress } from '@/actions/userActions';
 import { uploadProfilePhotoAction, deleteProfilePhotoAction } from '@/actions/profile-actions';
@@ -40,6 +38,12 @@ export default function MentorDashboard() {
         const mentorData = await getCurrentMentor();
         console.log('🎯 Mentor Dashboard - Mentor data:', mentorData);
         
+        if (!mentorData) {
+          console.log('❌ No mentor data found, redirecting to login');
+          router.push('/mentors-auth/login');
+          return;
+        }
+
         setMentor(mentorData as Mentor);
 
         if (mentorData?._id) {
@@ -52,13 +56,14 @@ export default function MentorDashboard() {
         }
       } catch (error) {
         console.error('❌ Mentor Dashboard - Error fetching data:', error);
+        router.push('/mentors-auth/login');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [router]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -132,9 +137,7 @@ export default function MentorDashboard() {
     );
   }
 
-  // 🆕 BETTER AUTH CHECK
-  if (!mentor || mentor.role !== 'mentor') {
-    console.log('❌ Mentor Dashboard - Invalid mentor:', mentor);
+  if (!mentor) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -321,18 +324,57 @@ export default function MentorDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Mentor Progress</h3>
             <p className="text-2xl font-bold text-green-600">{mentorProgress}%</p>
             <p className="text-gray-600 text-sm">Profile completion</p>
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+              <div 
+                className="bg-green-600 h-2 rounded-full transition-all duration-500" 
+                style={{ width: `${mentorProgress}%` }}
+              ></div>
+            </div>
           </div>
           
           <div className="bg-white rounded-lg p-6 shadow-sm border">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Areas of Expertise</h3>
             <p className="text-2xl font-bold text-blue-600">{expertiseCount}</p>
             <p className="text-gray-600 text-sm">Expertise areas</p>
+            <div className="mt-2">
+              {mentor.expertise?.slice(0, 3).map((exp, index) => (
+                <span 
+                  key={index}
+                  className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-1 mb-1"
+                >
+                  {exp}
+                </span>
+              ))}
+              {mentor.expertise && mentor.expertise.length > 3 && (
+                <span className="text-xs text-gray-500">
+                  +{mentor.expertise.length - 3} more
+                </span>
+              )}
+            </div>
           </div>
           
           <div className="bg-white rounded-lg p-6 shadow-sm border">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Experience Level</h3>
             <p className="text-2xl font-bold text-purple-600 capitalize">{experienceLevel}</p>
             <p className="text-gray-600 text-sm">Mentoring experience</p>
+            <div className="mt-2">
+              <div className="flex items-center space-x-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <span 
+                    key={star}
+                    className={`text-lg ${
+                      star <= (experienceLevel === 'expert' ? 5 : 
+                              experienceLevel === 'advanced' ? 4 :
+                              experienceLevel === 'intermediate' ? 3 : 2)
+                        ? 'text-yellow-400'
+                        : 'text-gray-300'
+                    }`}
+                  >
+                    ★
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -342,34 +384,38 @@ export default function MentorDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <button 
               onClick={() => router.push('/mentors/sessions')}
-              className="p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors"
+              className="p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors text-left group"
             >
-              <div className="text-blue-600 text-lg mb-2">🎯</div>
+              <div className="text-blue-600 text-lg mb-2 group-hover:scale-110 transition-transform">🎯</div>
               <p className="text-sm font-medium text-gray-900">My Sessions</p>
+              <p className="text-xs text-gray-500 mt-1">Schedule & manage sessions</p>
             </button>
             
             <button 
               onClick={() => router.push('/mentors/students')}
-              className="p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
+              className="p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors text-left group"
             >
-              <div className="text-green-600 text-lg mb-2">👥</div>
+              <div className="text-green-600 text-lg mb-2 group-hover:scale-110 transition-transform">👥</div>
               <p className="text-sm font-medium text-gray-900">My Students</p>
+              <p className="text-xs text-gray-500 mt-1">View student profiles</p>
             </button>
             
             <button 
               onClick={() => router.push('/mentors/schedule')}
-              className="p-4 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors"
+              className="p-4 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors text-left group"
             >
-              <div className="text-purple-600 text-lg mb-2">📅</div>
+              <div className="text-purple-600 text-lg mb-2 group-hover:scale-110 transition-transform">📅</div>
               <p className="text-sm font-medium text-gray-900">Schedule</p>
+              <p className="text-xs text-gray-500 mt-1">Manage availability</p>
             </button>
             
             <button 
               onClick={() => router.push('/mentors/analytics')}
-              className="p-4 bg-orange-50 rounded-lg border border-orange-200 hover:bg-orange-100 transition-colors"
+              className="p-4 bg-orange-50 rounded-lg border border-orange-200 hover:bg-orange-100 transition-colors text-left group"
             >
-              <div className="text-orange-600 text-lg mb-2">📊</div>
+              <div className="text-orange-600 text-lg mb-2 group-hover:scale-110 transition-transform">📊</div>
               <p className="text-sm font-medium text-gray-900">Analytics</p>
+              <p className="text-xs text-gray-500 mt-1">View performance stats</p>
             </button>
           </div>
         </div>
@@ -378,21 +424,112 @@ export default function MentorDashboard() {
         <div className="bg-white rounded-lg p-6 shadow-sm border">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h2>
           <div className="space-y-3">
-            {progress?.recentActivity?.map((activity: any, index: number) => (
-              <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                <div className="text-lg">{activity.icon || '📝'}</div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                  <p className="text-xs text-gray-500">{activity.time}</p>
+            {progress?.recentActivity?.length > 0 ? (
+              progress.recentActivity.map((activity: any, index: number) => (
+                <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="text-lg">{activity.icon || '📝'}</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                    <p className="text-xs text-gray-500">{activity.time}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {(!progress?.recentActivity || progress.recentActivity.length === 0) && (
+              ))
+            ) : (
               <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">📊</div>
                 <p>No recent activity yet</p>
-                <p className="text-sm">Your mentoring activities will appear here</p>
+                <p className="text-sm mt-1">Your mentoring activities will appear here</p>
+                <button 
+                  onClick={() => router.push('/mentors/sessions')}
+                  className="mt-4 text-green-600 hover:text-green-700 text-sm font-medium"
+                >
+                  Start your first session →
+                </button>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Upcoming Sessions */}
+        <div className="bg-white rounded-lg p-6 shadow-sm border">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Upcoming Sessions</h2>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <span className="text-blue-600 text-sm">🎯</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Student Orientation</p>
+                  <p className="text-xs text-gray-600">Tomorrow, 2:00 PM</p>
+                </div>
+              </div>
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Scheduled</span>
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <span className="text-green-600 text-sm">💼</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Career Guidance</p>
+                  <p className="text-xs text-gray-600">In 3 days, 10:00 AM</p>
+                </div>
+              </div>
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Confirmed</span>
+            </div>
+            
+            <div className="text-center">
+              <button 
+                onClick={() => router.push('/mentors/sessions')}
+                className="text-green-600 hover:text-green-700 text-sm font-medium"
+              >
+                View All Sessions →
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mentor Resources */}
+        <div className="bg-white rounded-lg p-6 shadow-sm border">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Mentor Resources</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors cursor-pointer">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <span className="text-blue-600 text-lg">📚</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Mentor Guide</h3>
+                  <p className="text-sm text-gray-600">Best practices & tips</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="border border-gray-200 rounded-lg p-4 hover:border-green-300 transition-colors cursor-pointer">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <span className="text-green-600 text-lg">🎥</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Video Tutorials</h3>
+                  <p className="text-sm text-gray-600">Platform walkthrough</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="border border-gray-200 rounded-lg p-4 hover:border-purple-300 transition-colors cursor-pointer">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <span className="text-purple-600 text-lg">📞</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Support</h3>
+                  <p className="text-sm text-gray-600">Get help & assistance</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
