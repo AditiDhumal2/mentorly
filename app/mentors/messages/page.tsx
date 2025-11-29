@@ -1,7 +1,16 @@
-// app/mentors/messages/page.tsx
 import { getCurrentUserForMentorRoute } from '@/actions/userActions';
 import MessagesClient from '@/components/messaging/MessagesClient';
 import { redirect } from 'next/navigation';
+
+// Define the expected user type for MessagesClient
+interface MessagesUser {
+  _id: string;
+  id?: string;
+  name: string;
+  email: string;
+  role: 'student' | 'mentor' | 'admin';
+  profilePhoto?: string;
+}
 
 export default async function MentorMessagesPage() {
   const currentUser = await getCurrentUserForMentorRoute();
@@ -9,6 +18,16 @@ export default async function MentorMessagesPage() {
   if (!currentUser) {
     redirect('/mentors-auth/login');
   }
+
+  // Transform the user object to match the expected type
+  const transformedUser: MessagesUser = {
+    _id: currentUser._id,
+    id: currentUser.id,
+    name: currentUser.name,
+    email: currentUser.email,
+    role: currentUser.role as 'student' | 'mentor' | 'admin', // Type assertion
+    profilePhoto: currentUser.profilePhoto
+  };
 
   return (
     <div className="space-y-6">
@@ -37,7 +56,7 @@ export default async function MentorMessagesPage() {
 
       {/* Messages Client - Directly after header without stats */}
       <MessagesClient 
-        currentUser={currentUser}
+        currentUser={transformedUser}
         basePath="/mentors"
       />
 

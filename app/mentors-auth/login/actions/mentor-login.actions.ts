@@ -1,10 +1,8 @@
-// app/mentors-auth/login/actions/mentor-login.actions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
 import { Mentor } from '@/models/Mentor';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 
 export async function mentorLogin(email: string, password: string) {
   try {
@@ -68,31 +66,33 @@ export async function mentorLogin(email: string, password: string) {
     // 🆕 CRITICAL FIX: Production cookie settings
     cookieStore.set('mentor-session', JSON.stringify(sessionData), {
       httpOnly: true,
-      secure: isProduction, // ✅ Secure only in production
-      sameSite: 'lax', // ✅ More permissive for cross-origin
+      secure: isProduction,
+      sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 1 week
       path: '/',
-      // 🆕 Optional: Add domain for production if needed
-      // domain: isProduction ? '.yourdomain.com' : undefined
     });
 
     console.log('✅ PRODUCTION: Cookie set successfully');
 
-    // 🎯 FLOW CONTROL: Redirect based on status
+    // 🎯 FLOW CONTROL: Return redirect URL instead of using redirect()
+    let redirectTo = '/mentors/dashboard'; // Default redirect
+    
     if (!mentor.profileCompleted) {
       console.log('📝 Redirecting to profile completion');
+      redirectTo = '/mentors/complete-profile';
       return { 
         success: true, 
-        redirectTo: '/mentors/complete-profile',
+        redirectTo,
         message: 'Please complete your profile to continue.'
       };
     }
 
     if (mentor.approvalStatus !== 'approved') {
       console.log('⏳ Redirecting to pending approval');
+      redirectTo = '/mentors/pending-approval';
       return { 
         success: true, 
-        redirectTo: '/mentors/pending-approval',
+        redirectTo,
         message: getLoginMessage(mentor.approvalStatus)
       };
     }
@@ -100,16 +100,14 @@ export async function mentorLogin(email: string, password: string) {
     // ✅ Only approved mentors with completed profiles go to dashboard
     console.log('🎯 PRODUCTION: Redirecting to dashboard - fully approved');
     
-    // 🆕 Use server redirect for better reliability
-    redirect('/mentors/dashboard');
+    return { 
+      success: true, 
+      redirectTo,
+      message: 'Login successful! Redirecting to dashboard...'
+    };
 
   } catch (error: any) {
     console.error('❌ PRODUCTION: Mentor login error:', error);
-    
-    // 🆕 More specific error handling for production
-    if (error.message?.includes('Redirect')) {
-      throw error; // Let redirect errors propagate
-    }
     
     return { 
       success: false, 
@@ -251,7 +249,6 @@ export async function mentorLogout() {
     
     console.log('✅ PRODUCTION: Mentor logout successful');
     
-    // 🆕 Use proper redirect for production
     return { 
       success: true, 
       message: 'Logged out successfully',

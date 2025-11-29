@@ -1,4 +1,3 @@
-// actions/userActions.ts
 'use server';
 
 import { connectDB } from '@/lib/db';
@@ -94,7 +93,7 @@ export async function getCurrentStudent() {
   }
 }
 
-// 🆕 FIXED: Get current mentor - SIMPLIFIED WITHOUT buildSafeAsync
+// 🆕 FIXED: Get current mentor - IMPROVED COOKIE HANDLING
 export async function getCurrentMentor() {
   try {
     // 🆕 Skip during static build
@@ -120,20 +119,19 @@ export async function getCurrentMentor() {
     let mentorData;
     try {
       mentorData = JSON.parse(mentorCookie.value);
-      console.log('🔍 getCurrentMentor - Parsed cookie data:', {
-        mentorId: mentorData.mentorId,
-        email: mentorData.email,
-        role: mentorData.role
-      });
+      console.log('🔍 getCurrentMentor - Parsed cookie data:', mentorData);
     } catch (parseError) {
       console.error('❌ getCurrentMentor - Error parsing cookie:', parseError);
       console.log('🔍 Raw cookie value (first 100 chars):', mentorCookie.value.substring(0, 100));
       return null;
     }
 
+    // 🆕 FIX: Check for both mentorId and id for compatibility
+    const mentorId = mentorData.mentorId || mentorData.id;
+    
     // Validate required fields
-    if (!mentorData.mentorId) {
-      console.log('❌ getCurrentMentor - No mentorId in cookie data:', mentorData);
+    if (!mentorId) {
+      console.log('❌ getCurrentMentor - No mentor ID found in cookie data:', mentorData);
       return null;
     }
 
@@ -142,13 +140,13 @@ export async function getCurrentMentor() {
       return null;
     }
 
-    console.log('🔍 getCurrentMentor - Connecting to database for mentor ID:', mentorData.mentorId);
+    console.log('🔍 getCurrentMentor - Connecting to database for mentor ID:', mentorId);
     
     await connectDB();
-    const mentor = await Mentor.findById(mentorData.mentorId).select('-password').lean();
+    const mentor = await Mentor.findById(mentorId).select('-password').lean();
     
     if (!mentor) {
-      console.log('❌ getCurrentMentor - Mentor not found in database for ID:', mentorData.mentorId);
+      console.log('❌ getCurrentMentor - Mentor not found in database for ID:', mentorId);
       cookieStore.delete('mentor-session');
       return null;
     }
@@ -160,7 +158,7 @@ export async function getCurrentMentor() {
     return {
       _id: mentorFromDB._id.toString(),
       id: mentorFromDB._id.toString(),
-      mentorId: mentorFromDB._id.toString(),
+      mentorId: mentorFromDB._id.toString(), // 🆕 Ensure mentorId is always set
       name: mentorFromDB.name,
       email: mentorFromDB.email,
       role: 'mentor',
@@ -434,7 +432,10 @@ async function getMentorFromCookie(cookieValue: string) {
       role: mentorData.role
     });
 
-    if (!mentorData.mentorId) {
+    // 🆕 FIX: Check for both mentorId and id
+    const mentorId = mentorData.mentorId || mentorData.id;
+
+    if (!mentorId) {
       console.log('❌ getMentorFromCookie - No mentorId found in cookie data');
       return null;
     }
@@ -447,11 +448,11 @@ async function getMentorFromCookie(cookieValue: string) {
     console.log('🔍 getMentorFromCookie - Connecting to database...');
     await connectDB();
     
-    console.log('🔍 getMentorFromCookie - Searching for mentor with ID:', mentorData.mentorId);
-    const mentor = await Mentor.findById(mentorData.mentorId).select('-password').lean();
+    console.log('🔍 getMentorFromCookie - Searching for mentor with ID:', mentorId);
+    const mentor = await Mentor.findById(mentorId).select('-password').lean();
     
     if (!mentor) {
-      console.log('❌ getMentorFromCookie - Mentor not found in database for ID:', mentorData.mentorId);
+      console.log('❌ getMentorFromCookie - Mentor not found in database for ID:', mentorId);
       return null;
     }
 
@@ -487,7 +488,7 @@ async function getMentorFromCookie(cookieValue: string) {
   }
 }
 
-// 🆕 FIXED: Route-specific user fetching - UPDATED TO INCLUDE MISSING FIELDS
+// 🆕 FIXED: Route-specific user fetching - IMPROVED MENTOR DETECTION
 export async function getCurrentUserForMentorRoute() {
   try {
     // 🆕 Skip during static build
@@ -516,7 +517,10 @@ export async function getCurrentUserForMentorRoute() {
 
     if (mentorCookie?.value) {
       console.log('🔍 getCurrentUserForMentorRoute - Using mentor session for mentor route');
-      return await getMentorFromCookie(mentorCookie.value);
+      
+      // 🆕 FIX: Use the main getCurrentMentor function instead of getMentorFromCookie
+      // This ensures consistent cookie parsing logic
+      return await getCurrentMentor();
     }
 
     console.log('❌ getCurrentUserForMentorRoute - No mentor session found for mentor route');
@@ -668,17 +672,20 @@ export async function verifyMentorSession() {
         return { isValid: false, error: 'Not a mentor session' };
       }
 
-      if (!mentorData.mentorId) {
-        console.log('❌ verifyMentorSession - No mentorId found in mentor cookie data');
+      // 🆕 FIX: Check for both mentorId and id
+      const mentorId = mentorData.mentorId || mentorData.id;
+      
+      if (!mentorId) {
+        console.log('❌ verifyMentorSession - No mentor ID found in mentor cookie data');
         return { isValid: false, error: 'No mentor ID found' };
       }
 
       await connectDB();
       
-      const mentor = await Mentor.findById(mentorData.mentorId).lean();
+      const mentor = await Mentor.findById(mentorId).lean();
       
       if (!mentor) {
-        console.log('❌ verifyMentorSession - Mentor not found in database for ID:', mentorData.mentorId);
+        console.log('❌ verifyMentorSession - Mentor not found in database for ID:', mentorId);
         return { isValid: false, error: 'Mentor account not found' };
       }
 
@@ -1387,19 +1394,21 @@ export async function getCurrentMentorSession() {
         return { isLoggedIn: false, mentor: null };
       }
 
-      // Check for mentorId instead of id
-      if (!mentorData.mentorId) {
-        console.log('❌ getCurrentMentorSession - No mentorId found in mentor cookie data');
+      // 🆕 FIX: Check for both mentorId and id
+      const mentorId = mentorData.mentorId || mentorData.id;
+      
+      if (!mentorId) {
+        console.log('❌ getCurrentMentorSession - No mentor ID found in mentor cookie data');
         return { isLoggedIn: false, mentor: null };
       }
 
       await connectDB();
       
-      // Use mentorData.mentorId to find the mentor
-      const mentor = await Mentor.findById(mentorData.mentorId).lean();
+      // Use mentorId to find the mentor
+      const mentor = await Mentor.findById(mentorId).lean();
       
       if (!mentor) {
-        console.log('❌ getCurrentMentorSession - Mentor not found in database for ID:', mentorData.mentorId);
+        console.log('❌ getCurrentMentorSession - Mentor not found in database for ID:', mentorId);
         return { isLoggedIn: false, mentor: null };
       }
 
@@ -1464,4 +1473,33 @@ export async function requireAuth() {
       throw error;
     }
   });
+}
+
+// 🆕 ADD: Debug function to check cookie contents
+export async function debugMentorCookie() {
+  try {
+    const cookieStore = await cookies();
+    const mentorCookie = cookieStore.get('mentor-session');
+    
+    if (!mentorCookie) {
+      return { exists: false, value: null };
+    }
+    
+    let parsedValue;
+    try {
+      parsedValue = JSON.parse(mentorCookie.value);
+    } catch (error) {
+      parsedValue = { error: 'Failed to parse', raw: mentorCookie.value.substring(0, 100) };
+    }
+    
+    return {
+      exists: true,
+      value: parsedValue,
+      rawLength: mentorCookie.value.length
+    };
+  } catch (error) {
+    // 🆕 FIX: Proper error handling for TypeScript
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    return { exists: false, error: errorMessage };
+  }
 }

@@ -1,4 +1,3 @@
-// components/messaging/MessagesClient.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -12,15 +11,18 @@ import {
 } from '@/actions/messaging-actions';
 import { Conversation, UserSearchResult } from '@/types/messaging';
 
-interface MessagesClientProps {
-  currentUser: {
-    _id: string;
-    id?: string;
-    name: string;
-    email: string;
-    role: 'student' | 'mentor' | 'admin';
-    profilePhoto?: string;
-  };
+// Define proper interfaces
+export interface MessagesUser {
+  _id: string;
+  id?: string;
+  name: string;
+  email: string;
+  role: 'student' | 'mentor' | 'admin';
+  profilePhoto?: string;
+}
+
+export interface MessagesClientProps {
+  currentUser: MessagesUser;
   basePath: string;
 }
 
@@ -45,16 +47,18 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
 
   // Load conversations
   useEffect(() => {
-    loadConversations();
-    loadUnreadCount();
+    if (userId) {
+      loadConversations();
+      loadUnreadCount();
+    }
   }, [userId]);
 
   // Load messages when a user is selected
   useEffect(() => {
-    if (selectedUser) {
+    if (selectedUser && userId) {
       loadMessages(selectedUser.userId);
     }
-  }, [selectedUser]);
+  }, [selectedUser, userId]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -62,8 +66,10 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
   }, [messages]);
 
   const loadConversations = async () => {
+    if (!userId) return;
+    
     try {
-      const result = await getConversations(userId!, currentUser.role);
+      const result = await getConversations(userId, currentUser.role);
       if (result.success && result.conversations) {
         setConversations(result.conversations);
       }
@@ -75,8 +81,10 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
   };
 
   const loadMessages = async (otherUserId: string) => {
+    if (!userId) return;
+    
     try {
-      const result = await getMessages(userId!, otherUserId);
+      const result = await getMessages(userId, otherUserId);
       if (result.success && result.messages) {
         setMessages(result.messages);
       }
@@ -86,8 +94,10 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
   };
 
   const loadUnreadCount = async () => {
+    if (!userId) return;
+    
     try {
-      const result = await getUnreadMessageCount(userId!);
+      const result = await getUnreadMessageCount(userId);
       if (result.success && result.count !== undefined) {
         setUnreadCount(result.count);
       }
@@ -102,7 +112,7 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedUser || sending) return;
+    if (!newMessage.trim() || !selectedUser || sending || !userId) return;
 
     setSending(true);
     try {
@@ -114,7 +124,7 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
       };
 
       const result = await sendMessage(
-        userId!,
+        userId,
         currentUser.name,
         currentUser.role,
         messageData
@@ -136,13 +146,13 @@ export default function MessagesClient({ currentUser, basePath }: MessagesClient
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    if (query.length < 2) {
+    if (query.length < 2 || !userId) {
       setSearchResults([]);
       return;
     }
 
     try {
-      const result = await getUsersForMessaging(query, userId!);
+      const result = await getUsersForMessaging(query, userId);
       if (result.success && result.users) {
         setSearchResults(result.users);
       }
