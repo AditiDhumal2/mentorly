@@ -1,5 +1,5 @@
-import { getCurrentUserForMentorRoute } from '@/actions/userActions';
-import { redirect } from 'next/navigation';
+// app/mentors/layout.tsx
+import { checkMentorAuth } from '@/app/mentors-auth/login/actions/mentor-login.actions';
 import MentorLayoutClient from './components/MentorLayoutClient';
 
 interface Mentor {
@@ -31,18 +31,41 @@ export default async function MentorLayout({
   console.log('🔄 MENTOR LAYOUT: Starting server component...');
   
   try {
-    const currentUser = await getCurrentUserForMentorRoute();
+    // 🆕 FIX: Use checkMentorAuth instead of getCurrentUserForMentorRoute
+    const currentUser = await checkMentorAuth();
     
     console.log('🔍 MENTOR LAYOUT: Current user:', currentUser ? 'Authenticated' : 'Not authenticated');
 
     if (!currentUser) {
-      console.log('❌ MENTOR LAYOUT: No user, redirecting to login');
-      redirect('/mentors-auth/login');
+      console.log('❌ MENTOR LAYOUT: No user, showing public layout');
+      // 🆕 FIX: Don't redirect, let middleware handle it
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+          <div className="p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <p className="text-yellow-800">Please login to access mentor dashboard.</p>
+              </div>
+              {children}
+            </div>
+          </div>
+        </div>
+      );
     }
 
     if (currentUser.role !== 'mentor') {
-      console.log('❌ MENTOR LAYOUT: Not a mentor, redirecting to login');
-      redirect('/mentors-auth/login');
+      console.log('❌ MENTOR LAYOUT: Not a mentor');
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+          <div className="p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <p className="text-red-800">Access denied. Mentor access required.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     console.log('✅ MENTOR LAYOUT: User authenticated:', currentUser.name);
@@ -70,7 +93,6 @@ export default async function MentorLayout({
     );
   } catch (error) {
     console.error('❌ MENTOR LAYOUT: Error in layout:', error);
-    // Fallback: render without sidebar
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
         <div className="p-6">

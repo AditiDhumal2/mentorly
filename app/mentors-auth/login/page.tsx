@@ -15,26 +15,25 @@ export default function MentorLoginPage() {
     const checkAuth = async () => {
       try {
         console.log('🔄 Checking if mentor is already authenticated...');
-        const authResult = await checkMentorAuth();
+        const currentUser = await checkMentorAuth();
         
-        console.log('🔍 Auth result:', authResult);
+        console.log('🔍 Auth result:', currentUser);
         
-        // 🆕 FIXED: PROPER CHECK FOR AUTHENTICATION
-        if (authResult?.isAuthenticated && authResult.mentor) {
+        if (currentUser && currentUser.role === 'mentor') {
           console.log('✅ Mentor already authenticated, redirecting...');
           console.log('👤 Mentor data:', {
-            name: authResult.mentor.name,
-            profileCompleted: authResult.mentor.profileCompleted,
-            approvalStatus: authResult.mentor.approvalStatus
+            name: currentUser.name,
+            profileCompleted: currentUser.profileCompleted,
+            approvalStatus: currentUser.approvalStatus
           });
           
-          // 🆕 FIXED: Use router.push instead of window.location for better UX
-          if (!authResult.mentor.profileCompleted) {
-            router.push('/mentors/complete-profile');
-          } else if (authResult.mentor.approvalStatus !== 'approved') {
-            router.push('/mentors/pending-approval');
+          // 🆕 FIX: Use window.location for immediate redirect
+          if (!currentUser.profileCompleted) {
+            window.location.href = '/mentors/complete-profile';
+          } else if (currentUser.approvalStatus !== 'approved') {
+            window.location.href = '/mentors/pending-approval';
           } else {
-            router.push('/mentors/dashboard');
+            window.location.href = '/mentors/dashboard';
           }
           return;
         } else {
@@ -48,7 +47,7 @@ export default function MentorLoginPage() {
     };
 
     checkAuth();
-  }, [router]);
+  }, []);
 
   if (isCheckingAuth) {
     return (
