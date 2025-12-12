@@ -1,4 +1,3 @@
-// next.config.ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -8,16 +7,27 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
-    domains: ['res.cloudinary.com'],
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
-        pathname: '**',
+        pathname: '/**',
       },
     ],
+    // Optional: Add deviceSizes for better optimization
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    // Optional: Add imageSizes for better optimization
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
-  // Remove the invalid properties and use this approach instead
+  // Add this to handle API routes properly
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: '/api/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;
