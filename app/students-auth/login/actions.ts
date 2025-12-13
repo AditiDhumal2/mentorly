@@ -1,4 +1,3 @@
-// app/students-auth/login/actions.ts
 'use server';
 
 import { cookies } from 'next/headers';
@@ -21,7 +20,7 @@ export async function studentLogin(formData: FormData) {
 
     const student = await Student.findOne({ 
       email: email.toLowerCase().trim()
-    });
+    }).select('+password'); // CRITICAL: Include password field
     
     if (!student) {
       console.log('❌ studentLogin - No student account found for:', email);
@@ -43,9 +42,7 @@ export async function studentLogin(formData: FormData) {
       role: 'student',
       year: student.year,
       college: student.college,
-      profiles: student.profiles || {},
-      interests: student.interests || [],
-      loginType: 'student',
+      profilePhoto: student.profilePhoto,
       timestamp: Date.now()
     };
 
@@ -53,59 +50,30 @@ export async function studentLogin(formData: FormData) {
 
     const cookieStore = await cookies();
     
-    // NUCLEAR: Clear ALL possible student cookies (old and new)
-    const studentCookies = ['student-data', 'user-data', 'student-session-v2'];
-    studentCookies.forEach(cookieName => {
+    // Clear old cookies
+    const oldCookies = ['student-data', 'user-data', 'student-session-v2'];
+    oldCookies.forEach(cookieName => {
       cookieStore.delete(cookieName);
     });
 
-    // SET ONLY NEW cookie name
-    const cookieOptions = {
-      httpOnly: true,
+    // SET COOKIE WITHOUT httpOnly (so client can read it)
+    cookieStore.set('student-session-v2', JSON.stringify(studentData), {
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
+      sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 1 week
       path: '/',
-    };
+    });
 
-    cookieStore.set('student-session-v2', JSON.stringify(studentData), cookieOptions);
-
-    console.log('✅ studentLogin - Student session created with NEW student-session-v2 cookie');
+    console.log('✅ studentLogin - Student session created');
     
-    return { success: true, error: null };
+    return { 
+      success: true, 
+      error: null,
+      session: studentData // Return session for client
+    };
     
   } catch (error) {
     console.error('❌ studentLogin - Error:', error);
     return { success: false, error: 'Login failed. Please try again.' };
-  }
-}
-
-export async function checkExistingStudentAuth() {
-  try {
-    const cookieStore = await cookies();
-    
-    // Check for NEW cookie name only
-    const studentDataCookie = cookieStore.get('student-session-v2')?.value;
-
-    if (!studentDataCookie) {
-      return { authenticated: false };
-    }
-
-    const userData = JSON.parse(studentDataCookie);
-    
-    if (userData.role !== 'student') {
-      return { authenticated: false };
-    }
-
-    await connectDB();
-    const student = await Student.findById(userData.id);
-    
-    if (!student) {
-      return { authenticated: false };
-    }
-
-    return { authenticated: true };
-  } catch (error) {
-    return { authenticated: false };
   }
 }
