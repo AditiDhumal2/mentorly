@@ -20,7 +20,7 @@ export async function studentLogin(formData: FormData) {
 
     const student = await Student.findOne({ 
       email: email.toLowerCase().trim()
-    }).select('+password'); // CRITICAL: Include password field
+    }).select('+password');
     
     if (!student) {
       console.log('❌ studentLogin - No student account found for:', email);
@@ -56,7 +56,7 @@ export async function studentLogin(formData: FormData) {
       cookieStore.delete(cookieName);
     });
 
-    // SET COOKIE WITHOUT httpOnly (so client can read it)
+    // Set cookie WITHOUT httpOnly so client can read it
     cookieStore.set('student-session-v2', JSON.stringify(studentData), {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -75,5 +75,42 @@ export async function studentLogin(formData: FormData) {
   } catch (error) {
     console.error('❌ studentLogin - Error:', error);
     return { success: false, error: 'Login failed. Please try again.' };
+  }
+}
+
+export async function checkExistingStudentAuth() {
+  try {
+    const cookieStore = await cookies();
+    
+    const studentDataCookie = cookieStore.get('student-session-v2')?.value;
+
+    if (!studentDataCookie) {
+      return { authenticated: false };
+    }
+
+    const userData = JSON.parse(studentDataCookie);
+    
+    if (userData.role !== 'student') {
+      return { authenticated: false };
+    }
+
+    await connectDB();
+    const student = await Student.findById(userData.id);
+    
+    if (!student) {
+      return { authenticated: false };
+    }
+
+    return { 
+      authenticated: true,
+      student: {
+        id: student._id.toString(),
+        name: student.name,
+        email: student.email,
+        role: 'student'
+      }
+    };
+  } catch (error) {
+    return { authenticated: false };
   }
 }
