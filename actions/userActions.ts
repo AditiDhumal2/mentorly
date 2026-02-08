@@ -6,10 +6,109 @@ import { Mentor } from '@/models/Mentor';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { buildSafeAsync } from '@/lib/build-safe-auth';
+import bcrypt from 'bcryptjs';
 
 // 🆕 Helper to check if we're in static build
 function isStaticBuild() {
   return process.env.NEXT_PHASE === 'phase-production-build';
+}
+
+// 🆕 Netlify-specific: Get current domain for cookie setting
+function getCookieDomain() {
+  // On Netlify production
+  if (process.env.NODE_ENV === 'production' && process.env.VERCEL_URL) {
+    return `.${process.env.VERCEL_URL.replace('https://', '')}`;
+  }
+  // On local development
+  return undefined;
+}
+
+// 🚀 CRITICAL FIX: Student Login - NETLIFY COMPATIBLE VERSION
+export async function studentLogin(formData: FormData) {
+  try {
+    console.log('🌐 Production Login - Starting on:', {
+      nodeEnv: process.env.NODE_ENV,
+      isNetlify: !!process.env.NETLIFY,
+      timestamp: new Date().toISOString(),
+    });
+
+    await connectDB();
+    
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    console.log('🔍 studentLogin - Student login attempt for:', email);
+
+    if (!email || !password) {
+      return { success: false, error: 'Email and password are required' };
+    }
+
+    const student = await Student.findOne({ 
+      email: email.toLowerCase().trim()
+    }).select('+password');
+    
+    if (!student) {
+      console.log('❌ studentLogin - No student account found for:', email);
+      return { success: false, error: 'No student account found with this email.' };
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, student.password);
+    
+    if (!isPasswordValid) {
+      console.log('❌ studentLogin - Invalid password for:', email);
+      return { success: false, error: 'Incorrect password. Please try again.' };
+    }
+
+    // Create student session data
+    const studentData = {
+      id: student._id.toString(),
+      name: student.name,
+      email: student.email,
+      role: 'student',
+      year: student.year,
+      college: student.college,
+      profilePhoto: student.profilePhoto,
+      timestamp: Date.now()
+    };
+
+    console.log('✅ studentLogin - Student login successful for:', student.name);
+
+    const cookieStore = await cookies();
+    
+    // Clear old cookies
+    const oldCookies = ['student-data', 'user-data', 'student-session-v2'];
+    oldCookies.forEach(cookieName => {
+      cookieStore.delete(cookieName);
+    });
+
+    // 🚀 NETLIFY FIX: Updated cookie settings for production
+    cookieStore.set('student-session-v2', JSON.stringify(studentData), {
+      secure: true, // ALWAYS true for Netlify (they use HTTPS)
+      sameSite: 'lax', // Use 'lax' for cross-site cookies
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+      path: '/',
+      // Important: Don't set domain for Netlify subdomains
+      // domain: getCookieDomain(), // Comment out for Netlify
+    });
+
+    console.log('✅ studentLogin - Session cookie set for Netlify');
+    
+    return { 
+      success: true, 
+      error: null,
+      session: studentData,
+      redirectUrl: '/students' // Explicit redirect URL
+    };
+    
+  } catch (error) {
+    console.error('❌ studentLogin - Error on Netlify:', error);
+    // Return more specific error for debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { 
+      success: false, 
+      error: `Login failed: ${errorMessage}. Please check Netlify logs.`
+    };
+  }
 }
 
 // 🆕 FIXED: Get current student - SIMPLIFIED WITHOUT buildSafeAsync
@@ -262,7 +361,7 @@ export async function getCurrentUser() {
   }
 }
 
-// 🆕 FIXED: Logout functions - Return plain objects only
+// 🚀 NETLIFY FIX: Updated student logout
 export async function studentLogout() {
   try {
     // 🆕 Skip during static build
@@ -358,136 +457,6 @@ export async function mentorLogout() {
   }
 }
 
-// 🆕 HELPER FUNCTIONS
-async function getStudentFromCookie(cookieValue: string) {
-  try {
-    console.log('🔍 getStudentFromCookie - Parsing student cookie...');
-    
-    const userData = JSON.parse(cookieValue);
-    console.log('🔍 getStudentFromCookie - Parsed user data:', {
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      role: userData.role
-    });
-
-    if (!userData.id) {
-      console.log('❌ getStudentFromCookie - No user ID found in cookie data');
-      return null;
-    }
-
-    if (userData.role !== 'student') {
-      console.log('❌ getStudentFromCookie - Invalid role for student access:', userData.role);
-      return null;
-    }
-
-    console.log('🔍 getStudentFromCookie - Connecting to database...');
-    await connectDB();
-    
-    console.log('🔍 getStudentFromCookie - Searching for student with ID:', userData.id);
-    const user = await Student.findById(userData.id).select('-password').lean();
-    
-    if (!user) {
-      console.log('❌ getStudentFromCookie - Student not found in database for ID:', userData.id);
-      return null;
-    }
-
-    console.log('✅ getStudentFromCookie - Student found in database:', (user as any).name);
-    
-    const userDataFromDB = user as any;
-    
-    const formattedUser = {
-      _id: userDataFromDB._id.toString(),
-      id: userDataFromDB._id.toString(),
-      name: userDataFromDB.name,
-      email: userDataFromDB.email,
-      role: userDataFromDB.role,
-      year: userDataFromDB.year,
-      college: userDataFromDB.college,
-      profilePhoto: userDataFromDB.profilePhoto,
-      profiles: userDataFromDB.profiles || {},
-      interests: userDataFromDB.interests || [],
-      createdAt: userDataFromDB.createdAt?.toISOString() || new Date().toISOString(),
-      updatedAt: userDataFromDB.updatedAt?.toISOString() || new Date().toISOString()
-    };
-
-    console.log('✅ getStudentFromCookie - Successfully returning student:', formattedUser.name);
-    
-    return formattedUser;
-  } catch (error) {
-    console.error('❌ getStudentFromCookie - Error:', error);
-    return null;
-  }
-}
-
-async function getMentorFromCookie(cookieValue: string) {
-  try {
-    console.log('🔍 getMentorFromCookie - Parsing mentor cookie...');
-    
-    const mentorData = JSON.parse(cookieValue);
-    console.log('🔍 getMentorFromCookie - Parsed mentor data:', {
-      mentorId: mentorData.mentorId,
-      name: mentorData.name,
-      email: mentorData.email,
-      role: mentorData.role
-    });
-
-    // 🆕 FIX: Check for both mentorId and id
-    const mentorId = mentorData.mentorId || mentorData.id;
-
-    if (!mentorId) {
-      console.log('❌ getMentorFromCookie - No mentorId found in cookie data');
-      return null;
-    }
-
-    if (mentorData.role !== 'mentor') {
-      console.log('❌ getMentorFromCookie - Invalid role for mentor access:', mentorData.role);
-      return null;
-    }
-
-    console.log('🔍 getMentorFromCookie - Connecting to database...');
-    await connectDB();
-    
-    console.log('🔍 getMentorFromCookie - Searching for mentor with ID:', mentorId);
-    const mentor = await Mentor.findById(mentorId).select('-password').lean();
-    
-    if (!mentor) {
-      console.log('❌ getMentorFromCookie - Mentor not found in database for ID:', mentorId);
-      return null;
-    }
-
-    console.log('✅ getMentorFromCookie - Mentor found in database:', (mentor as any).name);
-    
-    const mentorDataFromDB = mentor as any;
-    
-    const formattedMentor = {
-      _id: mentorDataFromDB._id.toString(),
-      id: mentorDataFromDB._id.toString(),
-      mentorId: mentorDataFromDB._id.toString(),
-      name: mentorDataFromDB.name,
-      email: mentorDataFromDB.email,
-      role: mentorDataFromDB.role,
-      expertise: mentorDataFromDB.expertise || [],
-      college: mentorDataFromDB.college,
-      profilePhoto: mentorDataFromDB.profilePhoto,
-      profiles: mentorDataFromDB.profiles || {},
-      experience: mentorDataFromDB.experience,
-      bio: mentorDataFromDB.bio,
-      profileCompleted: mentorDataFromDB.profileCompleted,
-      approvalStatus: mentorDataFromDB.approvalStatus,
-      createdAt: mentorDataFromDB.createdAt?.toISOString() || new Date().toISOString(),
-      updatedAt: mentorDataFromDB.updatedAt?.toISOString() || new Date().toISOString()
-    };
-
-    console.log('✅ getMentorFromCookie - Successfully returning mentor:', formattedMentor.name);
-    
-    return formattedMentor;
-  } catch (error) {
-    console.error('❌ getMentorFromCookie - Error:', error);
-    return null;
-  }
-}
-
 // 🆕 FIXED: Route-specific user fetching - IMPROVED MENTOR DETECTION
 export async function getCurrentUserForMentorRoute() {
   try {
@@ -564,7 +533,7 @@ export async function getCurrentUserForStudentRoute() {
 
     if (studentCookie?.value) {
       console.log('🔍 getCurrentUserForStudentRoute - Using student session for student route');
-      return await getStudentFromCookie(studentCookie.value);
+      return await getCurrentStudent();
     }
 
     console.log('❌ getCurrentUserForStudentRoute - No student session found for student route');
@@ -578,183 +547,6 @@ export async function getCurrentUserForStudentRoute() {
     console.error('❌ getCurrentUserForStudentRoute - Unexpected error:', error);
     return null;
   }
-}
-
-// 🆕 FIXED: Session verification functions
-export async function verifyStudentSession() {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping verifyStudentSession');
-        return { isValid: false, error: 'Build mode - skipping verification' };
-      }
-
-      const cookieStore = await cookies();
-      
-      const studentDataCookie = cookieStore.get('student-session-v2')?.value;
-
-      if (!studentDataCookie) {
-        return { isValid: false, error: 'No student session found' };
-      }
-
-      const studentData = JSON.parse(studentDataCookie);
-      
-      if (studentData.role !== 'student') {
-        return { isValid: false, error: 'Not a student session' };
-      }
-
-      await connectDB();
-      const student = await Student.findById(studentData.id).lean();
-      
-      if (!student) {
-        return { isValid: false, error: 'Student account not found' };
-      }
-
-      const studentDataFromDB = student as any;
-      
-      return { 
-        isValid: true, 
-        student: {
-          id: studentDataFromDB._id.toString(),
-          _id: studentDataFromDB._id.toString(),
-          name: studentDataFromDB.name,
-          email: studentDataFromDB.email,
-          role: 'student',
-          year: studentDataFromDB.year,
-          college: studentDataFromDB.college,
-          profilePhoto: studentDataFromDB.profilePhoto,
-          profiles: studentDataFromDB.profiles || {},
-          interests: studentDataFromDB.interests || []
-        }
-      };
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping verifyStudentSession');
-        return { isValid: false, error: 'Build mode - skipping verification' };
-      }
-      console.error('❌ verifyStudentSession - Error:', error);
-      return { isValid: false, error: 'Student session verification failed' };
-    }
-  });
-}
-
-export async function verifyMentorSession() {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping verifyMentorSession');
-        return { isValid: false, error: 'Build mode - skipping verification' };
-      }
-
-      const cookieStore = await cookies();
-      
-      const mentorDataCookie = cookieStore.get('mentor-session')?.value;
-
-      if (!mentorDataCookie) {
-        console.log('❌ verifyMentorSession - No mentor session cookie found');
-        return { isValid: false, error: 'No mentor session found' };
-      }
-
-      let mentorData;
-      try {
-        mentorData = JSON.parse(mentorDataCookie);
-        console.log('🔍 verifyMentorSession - Parsed mentor cookie data:', mentorData);
-      } catch (parseError) {
-        console.error('❌ verifyMentorSession - Error parsing mentor cookie:', parseError);
-        return { isValid: false, error: 'Invalid mentor session data' };
-      }
-
-      if (mentorData.role !== 'mentor') {
-        console.log('❌ verifyMentorSession - Not a mentor session:', mentorData.role);
-        return { isValid: false, error: 'Not a mentor session' };
-      }
-
-      // 🆕 FIX: Check for both mentorId and id
-      const mentorId = mentorData.mentorId || mentorData.id;
-      
-      if (!mentorId) {
-        console.log('❌ verifyMentorSession - No mentor ID found in mentor cookie data');
-        return { isValid: false, error: 'No mentor ID found' };
-      }
-
-      await connectDB();
-      
-      const mentor = await Mentor.findById(mentorId).lean();
-      
-      if (!mentor) {
-        console.log('❌ verifyMentorSession - Mentor not found in database for ID:', mentorId);
-        return { isValid: false, error: 'Mentor account not found' };
-      }
-
-      console.log('✅ verifyMentorSession - Mentor found in database:', (mentor as any).name);
-      
-      const mentorDataFromDB = mentor as any;
-      
-      return { 
-        isValid: true, 
-        mentor: {
-          id: mentorDataFromDB._id.toString(),
-          _id: mentorDataFromDB._id.toString(),
-          mentorId: mentorDataFromDB._id.toString(),
-          name: mentorDataFromDB.name,
-          email: mentorDataFromDB.email,
-          role: 'mentor',
-          expertise: mentorDataFromDB.expertise || [],
-          college: mentorDataFromDB.college,
-          profilePhoto: mentorDataFromDB.profilePhoto,
-          profiles: mentorDataFromDB.profiles || {},
-          experience: mentorDataFromDB.experience,
-          bio: mentorDataFromDB.bio,
-          profileCompleted: mentorDataFromDB.profileCompleted,
-          approvalStatus: mentorDataFromDB.approvalStatus
-        }
-      };
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping verifyMentorSession');
-        return { isValid: false, error: 'Build mode - skipping verification' };
-      }
-      console.error('❌ verifyMentorSession - Error:', error);
-      return { isValid: false, error: 'Mentor session verification failed' };
-    }
-  });
-}
-
-// 🆕 Auth check functions
-export async function checkStudentAuth() {
-  const session = await verifyStudentSession();
-  
-  if (!session?.isValid || !session.student) {
-    console.log('🛑 checkStudentAuth - No valid student session');
-    return { authenticated: false, student: null };
-  }
-  
-  console.log('✅ checkStudentAuth - Student session valid for:', session.student.email);
-  
-  return {
-    authenticated: true,
-    student: session.student
-  };
-}
-
-export async function checkMentorAuth() {
-  const session = await verifyMentorSession();
-  
-  if (!session?.isValid || !session.mentor) {
-    console.log('🛑 checkMentorAuth - No valid mentor session');
-    return { authenticated: false, mentor: null };
-  }
-  
-  console.log('✅ checkMentorAuth - Mentor session valid for:', session.mentor.email);
-  
-  return {
-    authenticated: true,
-    mentor: session.mentor
-  };
 }
 
 // 🆕 FIXED: Strict auth protection
@@ -794,241 +586,48 @@ export async function requireStudentAuth() {
   });
 }
 
-export async function requireMentorAuth() {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping requireMentorAuth');
-        return null;
-      }
-
-      console.log('🔐 requireMentorAuth - Starting strict authentication check');
-      
-      const user = await getCurrentUserForMentorRoute();
-      
-      if (!user) {
-        console.log('❌ requireMentorAuth - No user found, redirecting to login');
-        redirect('/mentors-auth/login?error=no_user&redirect=/mentors');
-      }
-      
-      if (user.role !== 'mentor') {
-        console.log('❌ requireMentorAuth - Invalid role, redirecting to login');
-        redirect('/mentors-auth/login?error=invalid_role&redirect=/mentors');
-      }
-      
-      console.log('✅ requireMentorAuth - Mentor authenticated:', user.name);
-      return user;
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping requireMentorAuth');
-        return null;
-      }
-      throw error;
-    }
-  });
-}
-
-// 🆕 Session checking for login pages
+// 🚀 NEW: Check existing student auth (simple version)
 export async function checkExistingStudentAuth() {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping checkExistingStudentAuth');
-        return false;
-      }
-
-      const session = await verifyStudentSession();
-      
-      if (session?.isValid) {
-        console.log('✅ checkExistingStudentAuth - Student authenticated');
-        return true;
-      }
-      
-      console.log('✅ checkExistingStudentAuth - No student session');
-      return false;
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping checkExistingStudentAuth');
-        return false;
-      }
-      console.log('✅ checkExistingStudentAuth - Error, assuming no session');
-      return false;
+  try {
+    // 🆕 Skip during static build
+    if (isStaticBuild()) {
+      console.log('🏗️ Build mode - skipping checkExistingStudentAuth');
+      return { authenticated: false };
     }
-  });
-}
 
-export async function checkExistingMentorAuth() {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping checkExistingMentorAuth');
-        return false;
-      }
+    const cookieStore = await cookies();
+    
+    const studentDataCookie = cookieStore.get('student-session-v2')?.value;
 
-      const session = await verifyMentorSession();
-      
-      if (session?.isValid) {
-        console.log('✅ checkExistingMentorAuth - Mentor authenticated');
-        return true;
-      }
-      
-      console.log('✅ checkExistingMentorAuth - No mentor session');
-      return false;
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping checkExistingMentorAuth');
-        return false;
-      }
-      console.log('✅ checkExistingMentorAuth - Error, assuming no session');
-      return false;
+    if (!studentDataCookie) {
+      return { authenticated: false };
     }
-  });
-}
 
-// 🆕 Session cleanup
-export async function clearConflictingSessions(requiredRole: 'mentor' | 'student') {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping clearConflictingSessions');
-        return false;
-      }
-
-      const cookieStore = await cookies();
-      
-      if (requiredRole === 'mentor') {
-        const studentCookie = cookieStore.get('student-session-v2');
-        if (studentCookie) {
-          console.log('🧹 clearConflictingSessions - Clearing student session for mentor access');
-          cookieStore.delete('student-session-v2');
-          return true;
-        }
-      }
-      
-      if (requiredRole === 'student') {
-        const mentorCookie = cookieStore.get('mentor-session');
-        if (mentorCookie) {
-          console.log('🧹 clearConflictingSessions - Clearing mentor session for student route access');
-          cookieStore.delete('mentor-session');
-          return true;
-        }
-      }
-      
-      return false;
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping clearConflictingSessions');
-        return false;
-      }
-      console.error('❌ clearConflictingSessions - Error:', error);
-      return false;
+    const userData = JSON.parse(studentDataCookie);
+    
+    if (userData.role !== 'student') {
+      return { authenticated: false };
     }
-  });
-}
 
-// 🆕 Simple session checks
-export async function hasStudentSession() {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping hasStudentSession');
-        return false;
-      }
-
-      const cookieStore = await cookies();
-      
-      const studentDataCookie = cookieStore.get('student-session-v2')?.value;
-      
-      if (!studentDataCookie) {
-        return false;
-      }
-      
-      const studentData = JSON.parse(studentDataCookie);
-      return studentData.role === 'student';
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping hasStudentSession');
-        return false;
-      }
-      return false;
+    await connectDB();
+    const student = await Student.findById(userData.id);
+    
+    if (!student) {
+      return { authenticated: false };
     }
-  });
-}
 
-export async function hasMentorSession() {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping hasMentorSession');
-        return false;
+    return { 
+      authenticated: true,
+      student: {
+        id: student._id.toString(),
+        name: student.name,
+        email: student.email,
+        role: 'student'
       }
-
-      const cookieStore = await cookies();
-      
-      const mentorDataCookie = cookieStore.get('mentor-session')?.value;
-      
-      if (!mentorDataCookie) {
-        return false;
-      }
-      
-      const mentorData = JSON.parse(mentorDataCookie);
-      return mentorData.role === 'mentor';
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping hasMentorSession');
-        return false;
-      }
-      return false;
-    }
-  });
-}
-
-// 🆕 General auth check
-export async function checkAuth() {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping checkAuth');
-        return { 
-          authenticated: false,
-          user: null 
-        };
-      }
-
-      const user = await getCurrentUser();
-      return { 
-        authenticated: !!user,
-        user 
-      };
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping checkAuth');
-        return { 
-          authenticated: false,
-          user: null 
-        };
-      }
-      console.error('❌ checkAuth - Error:', error);
-      return { 
-        authenticated: false,
-        user: null 
-      };
-    }
-  });
+    };
+  } catch (error) {
+    return { authenticated: false };
+  }
 }
 
 // 🆕 Get user progress - NO COOKIES, so no wrapper needed
@@ -1168,283 +767,6 @@ export async function getUserProgress(userId: string) {
       userType: 'student'
     };
   }
-}
-
-// Get user by ID with profile photo (for messaging) - NO COOKIES, so no wrapper needed
-export async function getUserById(userId: string) {
-  try {
-    console.log('🔍 getUserById - Fetching user by ID:', userId);
-    
-    await connectDB();
-    
-    // Try student first, then mentor
-    let user = await Student.findById(userId).select('name email role profilePhoto').lean();
-    let userType = 'student';
-    
-    if (!user) {
-      user = await Mentor.findById(userId).select('name email role profilePhoto').lean();
-      userType = 'mentor';
-    }
-    
-    if (!user) {
-      console.log('❌ getUserById - User not found for ID:', userId);
-      return null;
-    }
-
-    console.log('✅ getUserById - Found user:', (user as any).name, `(${userType})`);
-
-    const userData = user as any;
-    
-    return {
-      _id: userData._id.toString(),
-      id: userData._id.toString(),
-      name: userData.name,
-      email: userData.email,
-      role: userData.role,
-      profilePhoto: userData.profilePhoto
-    };
-  } catch (error) {
-    console.error('❌ getUserById - Error:', error);
-    return null;
-  }
-}
-
-// Update user profile (for profile updates) - NO COOKIES, so no wrapper needed
-export async function updateUserProfile(
-  userId: string, 
-  userRole: 'student' | 'mentor', 
-  updates: any
-) {
-  try {
-    console.log('🔍 updateUserProfile - Updating profile for:', { userId, userRole, updates });
-    
-    await connectDB();
-
-    let result;
-    if (userRole === 'student') {
-      result = await Student.findByIdAndUpdate(
-        userId, 
-        { $set: updates },
-        { new: true }
-      ).select('-password').lean();
-    } else if (userRole === 'mentor') {
-      result = await Mentor.findByIdAndUpdate(
-        userId, 
-        { $set: updates },
-        { new: true }
-      ).select('-password').lean();
-    }
-
-    if (!result) {
-      console.log('❌ updateUserProfile - User not found for ID:', userId);
-      return { success: false, error: 'User not found' };
-    }
-
-    console.log('✅ updateUserProfile - Profile updated successfully');
-    
-    const userData = result as any;
-    
-    return {
-      success: true,
-      user: {
-        _id: userData._id.toString(),
-        id: userData._id.toString(),
-        name: userData.name,
-        email: userData.email,
-        role: userData.role,
-        profilePhoto: userData.profilePhoto,
-        year: userData.year,
-        college: userData.college,
-        expertise: userData.expertise || [],
-        interests: userData.interests || [],
-        experience: userData.experience,
-        bio: userData.bio
-      }
-    };
-  } catch (error) {
-    console.error('❌ updateUserProfile - Error:', error);
-    return { success: false, error: 'Failed to update profile' };
-  }
-}
-
-// Get user data - NO COOKIES, so no wrapper needed
-export async function getUserData(userId: string) {
-  try {
-    console.log('🔍 getUserData - Fetching data for user ID:', userId);
-    
-    await connectDB();
-    
-    // Try student first, then mentor
-    let user = await Student.findById(userId).select('-password').lean();
-    let userType = 'student';
-    
-    if (!user) {
-      user = await Mentor.findById(userId).select('-password').lean();
-      userType = 'mentor';
-    }
-    
-    if (!user) {
-      console.log('❌ getUserData - User not found for ID:', userId);
-      throw new Error('User not found');
-    }
-
-    console.log('🔍 getUserData - Found user:', (user as any).name, `(${userType})`);
-
-    const userData = user as any;
-    
-    // Create plain object
-    const formattedUser = {
-      _id: userData._id.toString(),
-      id: userData._id.toString(),
-      name: userData.name,
-      email: userData.email,
-      role: userData.role,
-      year: userData.year,
-      college: userData.college,
-      profilePhoto: userData.profilePhoto,
-      profiles: userData.profiles || {},
-      interests: userData.interests || [],
-      expertise: userData.expertise || [],
-      experience: userData.experience,
-      bio: userData.bio,
-      createdAt: userData.createdAt?.toISOString() || new Date().toISOString(),
-      updatedAt: userData.updatedAt?.toISOString() || new Date().toISOString()
-    };
-
-    console.log('✅ getUserData - Successfully formatted user data');
-    return formattedUser;
-  } catch (error) {
-    console.error('❌ getUserData - Error:', error);
-    throw new Error('Failed to fetch user data');
-  }
-}
-
-// 🆕 FIXED: Get current student session data (for client-side use)
-export async function getCurrentStudentSession() {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping getCurrentStudentSession');
-        return { isLoggedIn: false, student: null };
-      }
-
-      const cookieStore = await cookies();
-      
-      const studentDataCookie = cookieStore.get('student-session-v2')?.value;
-
-      if (!studentDataCookie) {
-        return { isLoggedIn: false, student: null };
-      }
-
-      const studentData = JSON.parse(studentDataCookie);
-      
-      // Only return if it's actually a student session
-      if (studentData.role !== 'student') {
-        return { isLoggedIn: false, student: null };
-      }
-      
-      return { 
-        isLoggedIn: true, 
-        student: studentData 
-      };
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping getCurrentStudentSession');
-        return { isLoggedIn: false, student: null };
-      }
-      console.error('❌ getCurrentStudentSession - Error:', error);
-      return { isLoggedIn: false, student: null };
-    }
-  });
-}
-
-// 🆕 FIXED: Get current mentor session data (for client-side use)
-export async function getCurrentMentorSession() {
-  return buildSafeAsync(async () => {
-    try {
-      // 🆕 Skip during static build
-      if (isStaticBuild()) {
-        console.log('🏗️ Build mode - skipping getCurrentMentorSession');
-        return { isLoggedIn: false, mentor: null };
-      }
-
-      const cookieStore = await cookies();
-      
-      const mentorDataCookie = cookieStore.get('mentor-session')?.value;
-
-      if (!mentorDataCookie) {
-        console.log('❌ getCurrentMentorSession - No mentor session cookie found');
-        return { isLoggedIn: false, mentor: null };
-      }
-
-      let mentorData;
-      try {
-        mentorData = JSON.parse(mentorDataCookie);
-        console.log('🔍 getCurrentMentorSession - Parsed mentor cookie data:', mentorData);
-      } catch (parseError) {
-        console.error('❌ getCurrentMentorSession - Error parsing mentor cookie:', parseError);
-        return { isLoggedIn: false, mentor: null };
-      }
-
-      // Only return if it's actually a mentor session
-      if (mentorData.role !== 'mentor') {
-        console.log('❌ getCurrentMentorSession - Not a mentor session:', mentorData.role);
-        return { isLoggedIn: false, mentor: null };
-      }
-
-      // 🆕 FIX: Check for both mentorId and id
-      const mentorId = mentorData.mentorId || mentorData.id;
-      
-      if (!mentorId) {
-        console.log('❌ getCurrentMentorSession - No mentor ID found in mentor cookie data');
-        return { isLoggedIn: false, mentor: null };
-      }
-
-      await connectDB();
-      
-      // Use mentorId to find the mentor
-      const mentor = await Mentor.findById(mentorId).lean();
-      
-      if (!mentor) {
-        console.log('❌ getCurrentMentorSession - Mentor not found in database for ID:', mentorId);
-        return { isLoggedIn: false, mentor: null };
-      }
-
-      console.log('✅ getCurrentMentorSession - Mentor found in database:', (mentor as any).name);
-      
-      const mentorDataFromDB = mentor as any;
-      
-      return { 
-        isLoggedIn: true, 
-        mentor: {
-          id: mentorDataFromDB._id.toString(),
-          _id: mentorDataFromDB._id.toString(),
-          mentorId: mentorDataFromDB._id.toString(),
-          name: mentorDataFromDB.name,
-          email: mentorDataFromDB.email,
-          role: 'mentor',
-          expertise: mentorDataFromDB.expertise || [],
-          college: mentorDataFromDB.college,
-          profilePhoto: mentorDataFromDB.profilePhoto,
-          profiles: mentorDataFromDB.profiles || {},
-          experience: mentorDataFromDB.experience,
-          bio: mentorDataFromDB.bio,
-          profileCompleted: mentorDataFromDB.profileCompleted,
-          approvalStatus: mentorDataFromDB.approvalStatus
-        }
-      };
-    } catch (error) {
-      // 🆕 Handle dynamic server usage gracefully
-      if (error instanceof Error && error.message.includes('Dynamic server usage')) {
-        console.log('🏗️ Static build - skipping getCurrentMentorSession');
-        return { isLoggedIn: false, mentor: null };
-      }
-      console.error('❌ getCurrentMentorSession - Error:', error);
-      return { isLoggedIn: false, mentor: null };
-    }
-  });
 }
 
 // 🆕 Enhanced authentication check for any authenticated user
