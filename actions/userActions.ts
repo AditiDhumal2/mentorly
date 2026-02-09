@@ -13,22 +13,11 @@ function isStaticBuild() {
   return process.env.NEXT_PHASE === 'phase-production-build';
 }
 
-// 🆕 Netlify-specific: Get current domain for cookie setting
-function getCookieDomain() {
-  // On Netlify production
-  if (process.env.NODE_ENV === 'production' && process.env.VERCEL_URL) {
-    return `.${process.env.VERCEL_URL.replace('https://', '')}`;
-  }
-  // On local development
-  return undefined;
-}
-
 // 🚀 CRITICAL FIX: Student Login - NETLIFY COMPATIBLE VERSION
 export async function studentLogin(formData: FormData) {
   try {
     console.log('🌐 Production Login - Starting on:', {
       nodeEnv: process.env.NODE_ENV,
-      isNetlify: !!process.env.NETLIFY,
       timestamp: new Date().toISOString(),
     });
 
@@ -88,7 +77,6 @@ export async function studentLogin(formData: FormData) {
       maxAge: 60 * 60 * 24 * 7, // 1 week
       path: '/',
       // Important: Don't set domain for Netlify subdomains
-      // domain: getCookieDomain(), // Comment out for Netlify
     });
 
     console.log('✅ studentLogin - Session cookie set for Netlify');
@@ -106,12 +94,12 @@ export async function studentLogin(formData: FormData) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return { 
       success: false, 
-      error: `Login failed: ${errorMessage}. Please check Netlify logs.`
+      error: `Login failed: ${errorMessage}`
     };
   }
 }
 
-// 🆕 FIXED: Get current student - SIMPLIFIED WITHOUT buildSafeAsync
+// 🆕 FIXED: Get current student
 export async function getCurrentStudent() {
   try {
     // 🆕 Skip during static build
@@ -192,7 +180,7 @@ export async function getCurrentStudent() {
   }
 }
 
-// 🆕 FIXED: Get current mentor - IMPROVED COOKIE HANDLING
+// 🆕 FIXED: Get current mentor
 export async function getCurrentMentor() {
   try {
     // 🆕 Skip during static build
@@ -283,7 +271,7 @@ export async function getCurrentMentor() {
   }
 }
 
-// 🆕 FIXED: Get current user based on route context - IMPROVED PATH DETECTION
+// 🆕 FIXED: Get current user based on route context
 export async function getCurrentUser() {
   try {
     // 🆕 Skip during static build
@@ -457,7 +445,7 @@ export async function mentorLogout() {
   }
 }
 
-// 🆕 FIXED: Route-specific user fetching - IMPROVED MENTOR DETECTION
+// 🆕 FIXED: Route-specific user fetching
 export async function getCurrentUserForMentorRoute() {
   try {
     // 🆕 Skip during static build
@@ -486,9 +474,6 @@ export async function getCurrentUserForMentorRoute() {
 
     if (mentorCookie?.value) {
       console.log('🔍 getCurrentUserForMentorRoute - Using mentor session for mentor route');
-      
-      // 🆕 FIX: Use the main getCurrentMentor function instead of getMentorFromCookie
-      // This ensures consistent cookie parsing logic
       return await getCurrentMentor();
     }
 
@@ -630,7 +615,41 @@ export async function checkExistingStudentAuth() {
   }
 }
 
-// 🆕 Get user progress - NO COOKIES, so no wrapper needed
+// 🚀 ADD THIS FUNCTION: getCurrentStudentSession (Fixes the missing export error)
+export async function getCurrentStudentSession() {
+  try {
+    // Skip during static build
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      console.log('🏗️ Build mode - skipping getCurrentStudentSession');
+      return { isLoggedIn: false, student: null };
+    }
+
+    const cookieStore = await cookies();
+    
+    const studentDataCookie = cookieStore.get('student-session-v2')?.value;
+
+    if (!studentDataCookie) {
+      return { isLoggedIn: false, student: null };
+    }
+
+    const studentData = JSON.parse(studentDataCookie);
+    
+    // Only return if it's actually a student session
+    if (studentData.role !== 'student') {
+      return { isLoggedIn: false, student: null };
+    }
+    
+    return { 
+      isLoggedIn: true, 
+      student: studentData 
+    };
+  } catch (error) {
+    console.error('❌ getCurrentStudentSession - Error:', error);
+    return { isLoggedIn: false, student: null };
+  }
+}
+
+// 🆕 Get user progress
 export async function getUserProgress(userId: string) {
   try {
     console.log('🔍 getUserProgress - Fetching progress for user ID:', userId);
@@ -820,7 +839,6 @@ export async function debugMentorCookie() {
       rawLength: mentorCookie.value.length
     };
   } catch (error) {
-    // 🆕 FIX: Proper error handling for TypeScript
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return { exists: false, error: errorMessage };
   }
