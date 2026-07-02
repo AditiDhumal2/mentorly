@@ -48,18 +48,26 @@ export default function LoginForm() {
       if (result?.error) {
         setError(result.error);
         console.log('❌ LoginForm - Login failed:', result.error);
-      } else if (result?.success) {
+        setIsLoading(false);
+        return;
+      }
+      
+      if (result?.success) {
         console.log('✅ LoginForm - Login successful, redirecting to /students');
+        
+        // Wait a moment to ensure cookie is set
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // Force redirect to students dashboard
         window.location.href = '/students';
       } else {
         setError('Unexpected response from server');
+        setIsLoading(false);
       }
       
     } catch (err) {
       console.error('❌ LoginForm - Unexpected error:', err);
       setError('An unexpected error occurred. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -191,7 +199,6 @@ export default function LoginForm() {
                     className="block w-full pl-10 pr-3 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200"
                     placeholder="student@example.com"
                     disabled={isLoading}
-                    // Add these to prevent extension interference
                     autoCorrect="off"
                     spellCheck="false"
                     autoCapitalize="none"
@@ -221,7 +228,6 @@ export default function LoginForm() {
                     className="block w-full pl-10 pr-12 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200"
                     placeholder="Enter your password"
                     disabled={isLoading}
-                    // Add these to prevent extension interference
                     autoCorrect="off"
                     spellCheck="false"
                     autoCapitalize="none"

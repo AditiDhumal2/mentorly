@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { connectDB } from '@/lib/db';
 import { Student } from '@/models/Students';
 import bcrypt from 'bcryptjs';
+import { redirect } from 'next/navigation';
 
 export async function studentLogin(formData: FormData) {
   try {
@@ -56,7 +57,7 @@ export async function studentLogin(formData: FormData) {
       cookieStore.delete(cookieName);
     });
 
-    // Set cookie WITHOUT httpOnly so client can read it
+    // Set cookie
     cookieStore.set('student-session-v2', JSON.stringify(studentData), {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -64,16 +65,17 @@ export async function studentLogin(formData: FormData) {
       path: '/',
     });
 
-    console.log('✅ studentLogin - Student session created');
+    console.log('✅ studentLogin - Student session created, redirecting...');
     
-    return { 
-      success: true, 
-      error: null,
-      session: studentData // Return session for client
-    };
+    // ✅ IMPORTANT: Redirect to student dashboard
+    redirect('/students');
     
   } catch (error) {
     console.error('❌ studentLogin - Error:', error);
+    // If it's a redirect error, re-throw it
+    if (error instanceof Error && error.message.includes('redirect')) {
+      throw error;
+    }
     return { success: false, error: 'Login failed. Please try again.' };
   }
 }
